@@ -1,0 +1,229 @@
+name: Build APK on marker
+run-name: Build APK on marker #${{ github.run_number }}
+
+on:
+  push:
+    branches:
+      - TEST-2
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: localai-lab-apk-test-2
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build LocalAI Lab APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: contains(github.event.head_commit.message, '[apk]')
+
+    steps:
+      - name: Debounce marker build
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "APK marker found in commit message. Waiting briefly for patch bursts to settle."
+          sleep 60
+
+      - name: Check TEST-2 is still latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_sha="$(git ls-remote --heads https://github.com/${GITHUB_REPOSITORY}.git TEST-2 | awk '{print $1}')"
+          echo "Trigger commit: ${GITHUB_SHA}"
+          echo "Latest TEST-2: ${latest_sha}"
+          if [[ -z "$latest_sha" ]]; then
+            echo "Could not resolve latest TEST-2 SHA." >&2
+            exit 1
+          fi
+          if [[ "$latest_sha" != "${GITHUB_SHA}" ]]; then
+            echo "A newer TEST-2 commit exists. Skipping stale APK build."
+            exit 0
+          fi
+
+      - name: Checkout TEST-2
+        uses: actions/checkout@v5
+        with:
+          ref: TEST-2
+          fetch-depth: 0
+
+      - name: Resolve build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="$(git rev-parse --short HEAD)"
+          version_name="0.1.0-test2-r${GITHUB_RUN_NUMBER}-${short_sha}"
+          release_tag="android-TEST-2-latest"
+          stable_apk_name="LocalAI-Lab-debug-latest.apk"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "stable_apk_name=$stable_apk_name" >> "$GITHUB_OUTPUT"
+          echo "LOCALAI_BUILD_VERSION=$version_name" >> "$GITHUB_ENV"
+          {
+            echo "# LocalAI Lab APK build"
+            echo
+            echo "- Branch: TEST-2"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Version: $version_name"
+            echo "- Release tag: $release_tag"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager \
+            "platform-tools" \
+            "build-tools;35.0.0" \
+            "platforms;android-35"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon assembleDebug
+
+      - name: Locate APK
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_path="$(find app/build/outputs/apk/debug -type f -name '*.apk' | head -n 1)"
+          if [[ -z "$apk_path" ]]; then
+            echo "No APK found." >&2
+            exit 1
+          fi
+          echo "apk_path=$apk_path" >> "$GITHUB_OUTPUT"
+          echo "Located APK: $apk_path" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify APK archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -t "${{ steps.locate.outputs.apk_path }}"
+
+      - name: Package APK
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          archive_apk="artifacts/LocalAI-Lab-TEST-2-${{ steps.meta.outputs.version_name }}.apk"
+          stable_apk="artifacts/${{ steps.meta.outputs.stable_apk_name }}"
+          cp "${{ steps.locate.outputs.apk_path }}" "$archive_apk"
+          cp "$archive_apk" "$stable_apk"
+          sha256sum "$archive_apk" > "${archive_apk}.sha256"
+          sha256sum "$stable_apk" > "${stable_apk}.sha256"
+          apk_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ steps.meta.outputs.release_tag }}/${{ steps.meta.outputs.stable_apk_name }}"
+          {
+            echo "# LocalAI Lab APK"
+            echo
+            echo "- Branch: TEST-2"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Version: ${{ steps.meta.outputs.version_name }}"
+            echo "- Build type: debug"
+            echo "- Direct APK file: $apk_url"
+            echo "- Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "Use the direct APK file, not Actions artifacts."
+          } > artifacts/RELEASE_NOTES.md
+          echo "archive_apk=$archive_apk" >> "$GITHUB_OUTPUT"
+          echo "stable_apk=$stable_apk" >> "$GITHUB_OUTPUT"
+          echo "apk_url=$apk_url" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact backup
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: localai-lab-test2-${{ github.run_number }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish latest APK release
+        id: release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.meta.outputs.release_tag }}
+          commit: ${{ github.sha }}
+          name: LocalAI Lab APK Latest (TEST-2)
+          bodyFile: artifacts/RELEASE_NOTES.md
+          prerelease: true
+          allowUpdates: true
+          updateOnlyUnreleased: true
+          replacesArtifacts: true
+          artifacts: |
+            ${{ steps.package.outputs.archive_apk }}
+            ${{ steps.package.outputs.archive_apk }}.sha256
+            ${{ steps.package.outputs.stable_apk }}
+            ${{ steps.package.outputs.stable_apk }}.sha256
+
+      - name: Create or find delivery issue
+        id: issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="LocalAI Lab APK delivery"
+          issue_number="$(gh issue list --state open --search "$title in:title" --json number,title --jq '.[] | select(.title == "'"$title"'") | .number' | head -n 1)"
+          if [[ -z "$issue_number" ]]; then
+            issue_url="$(gh issue create --title "$title" --body "This issue receives LocalAI Lab direct APK links from GitHub Actions." --assignee xonoxo143-ux)"
+            issue_number="${issue_url##*/}"
+          fi
+          echo "number=$issue_number" >> "$GITHUB_OUTPUT"
+          echo "Delivery issue: #$issue_number" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify GitHub inbox with direct APK file
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/localai-apk-comment.md" <<EOF
+          @xonoxo143-ux
+
+          APK ready.
+
+          Direct APK file:
+          ${{ steps.package.outputs.apk_url }}
+
+          Branch: TEST-2
+          Version: ${{ steps.meta.outputs.version_name }}
+          Commit: ${GITHUB_SHA}
+          Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Use this direct APK file, not Actions artifacts.
+          EOF
+          gh issue comment "${{ steps.issue.outputs.number }}" --body-file "$RUNNER_TEMP/localai-apk-comment.md"
+
+      - name: Publish summary
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "## APK delivery"
+            echo "- Direct APK file: ${{ steps.package.outputs.apk_url }}"
+            echo "- Release: ${{ steps.release.outputs.html_url }}"
+            echo "- Delivery issue: #${{ steps.issue.outputs.number }}"
+          } >> "$GITHUB_STEP_SUMMARY"
