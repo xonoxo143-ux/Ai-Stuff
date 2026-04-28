@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>360M Debug - Coding AI Lab</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="hero panel">
+        <div>
+          <p class="eyebrow">Isolated diagnostic</p>
+          <h1>360M Debug</h1>
+          <p class="hero-copy">This page does not replace the main tester. It checks whether SmolLM2 360M fails because of backend, dtype, prompt format, or output extraction.</p>
+        </div>
+        <div class="status-pill" id="globalStatus" data-state="idle">Status: Idle</div>
+      </header>
+
+      <section class="panel" aria-labelledby="setupTitle">
+        <p class="eyebrow">Setup</p>
+        <h2 id="setupTitle">Diagnostic controls</h2>
+
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect">
+          <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M Instruct</option>
+          <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M Instruct control</option>
+          <option value="onnx-community/SmolLM2-360M-ONNX">SmolLM2 360M ONNX base control</option>
+        </select>
+
+        <label for="deviceSelect">Device/backend</label>
+        <select id="deviceSelect">
+          <option value="webgpu">WebGPU</option>
+          <option value="wasm">WASM</option>
+        </select>
+
+        <label for="dtypeSelect">Dtype/model file</label>
+        <select id="dtypeSelect">
+          <option value="omit">Omit dtype; let Transformers.js choose default</option>
+          <option value="q4">q4</option>
+          <option value="q4f16">q4f16</option>
+          <option value="q8">q8</option>
+          <option value="fp16">fp16</option>
+          <option value="fp32">fp32</option>
+        </select>
+
+        <label for="inputModeSelect">Input mode</label>
+        <select id="inputModeSelect">
+          <option value="plain">Plain string prompt</option>
+          <option value="chat">Chat messages</option>
+        </select>
+
+        <label for="returnFullTextSelect">Return full text</label>
+        <select id="returnFullTextSelect">
+          <option value="false">false — generated text only</option>
+          <option value="true">true — prompt plus generated text</option>
+        </select>
+
+        <label for="maxTokensInput">Max new tokens</label>
+        <input id="maxTokensInput" type="number" min="8" max="256" step="8" value="48">
+
+        <label for="temperatureInput">Temperature</label>
+        <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.7">
+
+        <label for="promptInput">Prompt</label>
+        <textarea id="promptInput" rows="5" spellcheck="false">Write a Python function that reverses a string.</textarea>
+
+        <div class="button-row sticky-actions">
+          <button id="loadBtn" type="button">Load Pipeline</button>
+          <button id="runBtn" type="button" class="secondary">Run Once</button>
+          <button id="copyBtn" type="button" class="secondary">Copy Diagnostic Report</button>
+          <button id="clearBtn" type="button" class="danger">Clear</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="notesTitle">
+        <p class="eyebrow">Why this exists</p>
+        <h2 id="notesTitle">What we are isolating</h2>
+        <p class="muted">The main tester worked with 135M. The 360M path produced blank output in patched runners and gibberish in the restored runner. This page runs one simple generation at a time and prints the raw returned object so we can see whether the issue is dtype, backend, chat formatting, or output extraction.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="logTitle">
+        <p class="eyebrow">Log</p>
+        <h2 id="logTitle">Status log</h2>
+        <pre id="logBox" class="log-box"></pre>
+      </section>
+
+      <section class="panel" aria-labelledby="outputTitle">
+        <p class="eyebrow">Output</p>
+        <h2 id="outputTitle">Generated text</h2>
+        <pre id="outputBox" class="output-box"></pre>
+      </section>
+
+      <section class="panel" aria-labelledby="rawTitle">
+        <p class="eyebrow">Raw result</p>
+        <h2 id="rawTitle">Returned object</h2>
+        <pre id="rawBox" class="output-box"></pre>
+      </section>
+
+      <footer class="footer">
+        <span><a href="./">Back to main tester</a></span>
+        <span>Branch: <code>CODING-AI</code></span>
+        <span>Page: <code>360-debug.html</code></span>
+      </footer>
+    </main>
+    <script type="module" src="./360-debug.js"></script>
+  </body>
+</html>
