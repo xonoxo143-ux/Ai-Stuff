@@ -59,13 +59,13 @@
           <details class="advanced-box">
             <summary>Advanced settings</summary>
             <label for="maxTokensInput">Max new tokens</label>
-            <input id="maxTokensInput" type="number" min="32" max="1024" step="32" value="256">
+            <input id="maxTokensInput" type="number" min="32" max="1024" step="32" value="128">
             <label for="temperatureInput">Temperature</label>
-            <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.2">
+            <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0">
             <label for="topPInput">Top-p</label>
             <input id="topPInput" type="number" min="0.1" max="1" step="0.05" value="0.9">
             <label for="systemPromptInput">System instruction</label>
-            <textarea id="systemPromptInput" rows="3">You are a concise coding assistant. Prefer correct, simple code.</textarea>
+            <textarea id="systemPromptInput" rows="4">You are a strict coding evaluator and assistant. Answer only the requested task. Do not add unrelated examples. For code tasks, output valid Python only unless explanation is requested.</textarea>
           </details>
 
           <div class="button-row sticky-actions">
