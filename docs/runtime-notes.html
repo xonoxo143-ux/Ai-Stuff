@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Runtime Notes - Coding AI Lab</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="hero panel">
+        <div>
+          <p class="eyebrow">Known test results</p>
+          <h1>Runtime Notes</h1>
+          <p class="hero-copy">Observed model/backend/dtype results from phone testing. Use this as the source of truth before changing model runtime defaults.</p>
+        </div>
+        <div class="status-pill" data-state="ready">Notes: current</div>
+      </header>
+
+      <section class="panel" aria-labelledby="summaryTitle">
+        <p class="eyebrow">Summary</p>
+        <h2 id="summaryTitle">Practical rule</h2>
+        <p class="hero-copy">On the tested Android phone/browser setup, SmolLM2 135M works on WebGPU/q4. SmolLM2 360M produces corrupt output on WebGPU q4/q4f16, but works on WASM/q8.</p>
+        <pre class="log-box">135M recommended: WebGPU + q4
+360M recommended: WASM + q8
+Avoid: 360M + WebGPU + q4/q4f16 on this device</pre>
+      </section>
+
+      <section class="panel" aria-labelledby="tableTitle">
+        <p class="eyebrow">Matrix</p>
+        <h2 id="tableTitle">Observed configurations</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Backend</th>
+                <th>Dtype</th>
+                <th>Input</th>
+                <th>Result</th>
+                <th>Use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>SmolLM2 135M Instruct</td>
+                <td>WebGPU</td>
+                <td>q4</td>
+                <td>Chat messages</td>
+                <td>Readable answer; valid reverse-string code</td>
+                <td>Safe baseline</td>
+              </tr>
+              <tr>
+                <td>SmolLM2 360M Instruct</td>
+                <td>WebGPU</td>
+                <td>q4</td>
+                <td>Chat messages</td>
+                <td>Corrupt output / one-character nonsense</td>
+                <td>Avoid</td>
+              </tr>
+              <tr>
+                <td>SmolLM2 360M Instruct</td>
+                <td>WebGPU</td>
+                <td>q4f16</td>
+                <td>Chat messages</td>
+                <td>Corrupt symbol output</td>
+                <td>Avoid</td>
+              </tr>
+              <tr>
+                <td>SmolLM2 360M Instruct</td>
+                <td>WASM</td>
+                <td>q8</td>
+                <td>Chat messages</td>
+                <td>Correct Python output at 64 tokens, temperature 0</td>
+                <td>Recommended for 360M</td>
+              </tr>
+              <tr>
+                <td>SmolLM2 360M Instruct</td>
+                <td>WASM</td>
+                <td>q8</td>
+                <td>Chat messages</td>
+                <td>Correct Python output at 128 tokens, temperature 0.2</td>
+                <td>Recommended for 360M</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="whyTitle">
+        <p class="eyebrow">Interpretation</p>
+        <h2 id="whyTitle">What this means</h2>
+        <p>The 360M model itself is not proven bad. The failure is specific to the tested browser runtime path. WebGPU/q4 and WebGPU/q4f16 produced corrupt generation for 360M, while WASM/q8 produced valid Python.</p>
+        <p>Do not treat “WebGPU available” as enough information. The tester needs model-aware defaults.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="patchTitle">
+        <p class="eyebrow">Patch guidance</p>
+        <h2 id="patchTitle">Main tester default rules</h2>
+        <pre class="log-box">If model is SmolLM2 135M:
+  prefer WebGPU when available
+  use q4
+
+If model is SmolLM2 360M:
+  prefer WASM
+  use q8
+  show warning if WebGPU is selected
+
+For coding tests:
+  use chat messages
+  prefer temperature 0
+  use 64 to 128 max new tokens</pre>
+      </section>
+
+      <footer class="footer">
+        <span><a href="./">Main tester</a></span>
+        <span><a href="./360-debug.html">360M debug page</a></span>
+        <span>Branch: <code>CODING-AI</code></span>
+      </footer>
+    </main>
+  </body>
+</html>
