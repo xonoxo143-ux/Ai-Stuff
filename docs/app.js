@@ -2,6 +2,8 @@ import { pipeline, env, TextStreamer, InterruptableStoppingCriteria } from "http
 
 const MAX_LOG_LINES = 60;
 const PROGRESS_LOG_INTERVAL_MS = 2000;
+const SMOLLM2_135M = "HuggingFaceTB/SmolLM2-135M-Instruct";
+const SMOLLM2_360M = "HuggingFaceTB/SmolLM2-360M-Instruct";
 
 const state = {
   generator: null,
@@ -118,6 +120,44 @@ function getSelectedModelId() {
   return el.modelSelect.value;
 }
 
+function isKnown135Model(modelId = getSelectedModelId()) {
+  return modelId === SMOLLM2_135M;
+}
+
+function isKnown360Model(modelId = getSelectedModelId()) {
+  return modelId === SMOLLM2_360M;
+}
+
+function selectedDtype(modelId, device) {
+  if (isKnown360Model(modelId) && device === "wasm") return "q8";
+  if (device === "webgpu") return "q4";
+  return "q8";
+}
+
+function applyModelRuntimeDefaults({ announce = true } = {}) {
+  const modelId = getSelectedModelId();
+
+  if (isKnown360Model(modelId)) {
+    el.runtimeSelect.value = "wasm";
+    el.maxTokensInput.value = "128";
+    el.temperatureInput.value = "0";
+    el.topPInput.value = "0.9";
+    if (announce) {
+      logStatus("Applied 360M defaults: WASM/q8, 128 tokens, temperature 0. WebGPU q4/q4f16 produced corrupt output on this device.");
+    }
+  } else if (isKnown135Model(modelId)) {
+    el.runtimeSelect.value = "auto";
+    el.maxTokensInput.value = "256";
+    el.temperatureInput.value = "0.2";
+    el.topPInput.value = "0.9";
+    if (announce) {
+      logStatus("Applied 135M defaults: Auto runtime, WebGPU/q4 when available.");
+    }
+  }
+
+  checkSupport({ announce: false });
+}
+
 function getRating() {
   const checked = document.querySelector('input[name="rating"]:checked');
   return checked ? checked.value : "Unrated";
@@ -139,14 +179,16 @@ function browserName() {
   return "Unknown browser";
 }
 
-function checkSupport() {
+function checkSupport({ announce = true } = {}) {
   const hasWebGpu = Boolean(navigator.gpu);
   el.browserValue.textContent = browserName();
   el.webgpuValue.textContent = hasWebGpu ? "Available" : "Not available";
   el.wasmValue.textContent = typeof WebAssembly === "object" ? "Available" : "Not available";
   const selected = el.runtimeSelect.value;
   el.backendValue.textContent = selected === "auto" ? (hasWebGpu ? "Auto → WebGPU" : "Auto → WASM") : selected.toUpperCase();
-  logStatus(hasWebGpu ? "WebGPU is available." : "WebGPU is not available. WASM fallback will be used.");
+  if (announce) {
+    logStatus(hasWebGpu ? "WebGPU is available." : "WebGPU is not available. WASM fallback will be used.");
+  }
 }
 
 async function loadPrompts() {
@@ -187,9 +229,14 @@ async function loadModel() {
   }
 
   const device = selectedDevice();
+  const dtype = selectedDtype(modelId, device);
   setStatus("Loading", "loading");
   resetProgressSummary();
-  logStatus(`Loading ${modelId} on ${device}. First load may take a while.`);
+  logStatus(`Loading ${modelId} on ${device}/${dtype}. First load may take a while.`);
+
+  if (isKnown360Model(modelId) && device === "webgpu") {
+    logStatus("Warning: 360M on WebGPU q4/q4f16 produced corrupt output on this device. Recommended: WASM/q8.");
+  }
 
   try {
     state.generator = null;
@@ -199,13 +246,13 @@ async function loadModel() {
 
     state.generator = await pipeline("text-generation", modelId, {
       device,
-      dtype: device === "webgpu" ? "q4" : "q8",
+      dtype,
       progress_callback: handleModelProgress,
     });
 
     state.modelId = modelId;
     state.backend = device;
-    el.backendValue.textContent = device.toUpperCase();
+    el.backendValue.textContent = `${device.toUpperCase()} / ${dtype}`;
     setStatus("Ready", "ready");
     logStatus(`Model ready. Loaded ${state.progress.files.size} files.`);
   } catch (error) {
@@ -413,13 +460,14 @@ function resetPage() {
   el.resultMeta.textContent = "No run yet.";
   renderStatusLog();
   renderSessionLog();
-  checkSupport();
+  applyModelRuntimeDefaults({ announce: false });
 }
 
 el.checkSupportBtn.addEventListener("click", checkSupport);
 el.clearStatusBtn.addEventListener("click", () => { state.logLines = []; renderStatusLog(); });
 el.modelSelect.addEventListener("change", () => {
   el.customModelInput.classList.toggle("hidden", el.modelSelect.value !== "custom");
+  applyModelRuntimeDefaults();
 });
 el.runtimeSelect.addEventListener("change", checkSupport);
 el.loadModelBtn.addEventListener("click", loadModel);
@@ -452,7 +500,7 @@ el.clearLogBtn.addEventListener("click", () => {
 try {
   await loadPrompts();
   renderSessionLog();
-  checkSupport();
+  applyModelRuntimeDefaults({ announce: false });
   setStatus("Not loaded", "idle");
 } catch (error) {
   setStatus("Error", "error");
