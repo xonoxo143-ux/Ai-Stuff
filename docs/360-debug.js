@@ -35,6 +35,22 @@ function log(text) {
   el.log.scrollTop = el.log.scrollHeight;
 }
 
+function isUnsafePhoneConfig() {
+  return el.model.value.includes("360M") && ["omit", "fp16", "fp32"].includes(el.dtype.value);
+}
+
+function guardUnsafeConfig() {
+  if (!isUnsafePhoneConfig()) return true;
+  const ok = confirm("This 360M dtype can crash a phone browser. Switch to q4 unless you intentionally want to risk a crash. Continue anyway?");
+  if (!ok) {
+    el.dtype.value = "q4";
+    log("Unsafe dtype cancelled. Switched back to q4.");
+    return false;
+  }
+  log("Unsafe dtype confirmed by user.");
+  return true;
+}
+
 function configKey() {
   return JSON.stringify({
     model: el.model.value,
@@ -89,6 +105,7 @@ function extractText(result, input) {
 }
 
 async function loadPipeline() {
+  if (!guardUnsafeConfig()) return;
   setStatus("Loading", "loading");
   el.output.textContent = "";
   el.raw.textContent = "";
@@ -118,8 +135,8 @@ async function runOnce() {
   }
 
   const input = buildInput();
-  const max_new_tokens = Number(el.maxTokens.value || 48);
-  const temperature = Number(el.temperature.value || 0.7);
+  const max_new_tokens = Number(el.maxTokens.value || 16);
+  const temperature = Number(el.temperature.value || 0.2);
   const do_sample = temperature > 0;
   const return_full_text = el.returnFullText.value === "true";
 
@@ -206,4 +223,4 @@ el.copy.addEventListener("click", copyReport);
 el.clear.addEventListener("click", clearAll);
 
 setStatus("Idle", "idle");
-log("Diagnostic page loaded. Start with 360M / WebGPU / omit dtype / plain prompt.");
+log("Diagnostic page loaded. Start with 360M / WebGPU / q4 / plain prompt / 16 tokens.");
