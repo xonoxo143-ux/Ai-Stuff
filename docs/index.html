@@ -43,13 +43,8 @@
           <h2 id="modelTitle">Model</h2>
           <label for="modelSelect">Model</label>
           <select id="modelSelect">
-            <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M Instruct — fastest instruct test</option>
-            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M Instruct — currently blank in this tester</option>
-            <option value="Xenova/tiny_starcoder_py">Tiny StarCoder Python — small code model</option>
-            <option value="Xenova/codegen-350M-mono">CodeGen 350M Mono — Python/code completion</option>
-            <option value="Xenova/codegen-350M-multi">CodeGen 350M Multi — multi-language code completion</option>
-            <option value="Xenova/LaMini-GPT-124M">LaMini GPT 124M — small instruction fallback</option>
-            <option value="Xenova/LaMini-Neo-125M">LaMini Neo 125M — small instruction fallback</option>
+            <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M Instruct — fastest test</option>
+            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M Instruct — better, slower</option>
             <option value="custom">Custom model ID — advanced</option>
           </select>
           <input id="customModelInput" class="hidden" type="text" placeholder="organization/model-name">
@@ -63,20 +58,14 @@
 
           <details class="advanced-box">
             <summary>Advanced settings</summary>
-            <label for="promptFormatSelect">Prompt format</label>
-            <select id="promptFormatSelect">
-              <option value="auto">Auto: chat, then plain retry if blank</option>
-              <option value="chat">Chat messages only</option>
-              <option value="plain">Plain instruction only</option>
-            </select>
             <label for="maxTokensInput">Max new tokens</label>
-            <input id="maxTokensInput" type="number" min="32" max="1024" step="32" value="128">
+            <input id="maxTokensInput" type="number" min="32" max="1024" step="32" value="256">
             <label for="temperatureInput">Temperature</label>
-            <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0">
+            <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.2">
             <label for="topPInput">Top-p</label>
             <input id="topPInput" type="number" min="0.1" max="1" step="0.05" value="0.9">
             <label for="systemPromptInput">System instruction</label>
-            <textarea id="systemPromptInput" rows="4">You are a strict coding evaluator and assistant. Answer only the requested task. Do not add unrelated examples. For code tasks, output valid Python only unless explanation is requested.</textarea>
+            <textarea id="systemPromptInput" rows="3">You are a concise coding assistant. Prefer correct, simple code.</textarea>
           </details>
 
           <div class="button-row sticky-actions">
@@ -153,7 +142,7 @@
         <span>Mode: <code>branch /docs self-contained</code></span>
       </footer>
     </main>
-    <script type="module" src="./app-v3.js"></script>
+    <script type="module" src="./app.js"></script>
     <script src="./review-tools.js"></script>
   </body>
 </html>
