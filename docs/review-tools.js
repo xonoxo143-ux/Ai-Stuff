@@ -40,6 +40,13 @@ function usablePromptOptions() {
     .slice(0, BUILT_IN_PROMPT_LIMIT);
 }
 
+function clearSessionLogForBatch() {
+  const cards = document.querySelectorAll(".result-card");
+  if (!cards.length) return;
+  qs("#clearLogBtn")?.click();
+  appendReviewLog("Cleared existing session log before batch to avoid duplicate review rows.");
+}
+
 async function ensureModelReady() {
   if (/Ready/i.test(statusText())) return true;
   appendReviewLog("Batch runner is loading the selected model first.");
@@ -85,6 +92,7 @@ async function runPromptBatch() {
     return;
   }
 
+  clearSessionLogForBatch();
   appendReviewLog(`Starting batch: ${options.length} prompts.`);
   for (const option of options) {
     const ok = await runOnePrompt(option);
@@ -209,7 +217,7 @@ function injectReviewControls() {
   if (promptPanel) {
     const note = document.createElement("p");
     note.className = "muted";
-    note.textContent = "Batch mode runs the built-in prompts one at a time and saves each output to the session log.";
+    note.textContent = "Batch mode clears the session log, runs the built-in prompts one at a time, and saves each output for review.";
     promptPanel.appendChild(note);
     promptPanel.appendChild(batchRow);
   } else {
