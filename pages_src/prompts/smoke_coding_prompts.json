@@ -1,0 +1,32 @@
+[
+  {
+    "id": "write-reverse-string",
+    "title": "Write a function",
+    "prompt": "Write a Python function that reverses a string. Keep it simple and include one example call."
+  },
+  {
+    "id": "explain-loop",
+    "title": "Explain code",
+    "prompt": "Explain what this code does:\n\nfor i in range(3):\n    print(i)"
+  },
+  {
+    "id": "fix-add-bug",
+    "title": "Fix a bug",
+    "prompt": "Fix this Python function and briefly explain the bug:\n\ndef add(a, b):\n    return a - b"
+  },
+  {
+    "id": "write-tests",
+    "title": "Write tests",
+    "prompt": "Write 3 simple pytest tests for this function:\n\ndef multiply(a, b):\n    return a * b"
+  },
+  {
+    "id": "explain-recursion",
+    "title": "Explain a concept",
+    "prompt": "Explain recursion to a beginner using a small Python example."
+  },
+  {
+    "id": "custom",
+    "title": "Custom prompt",
+    "prompt": ""
+  }
+]
