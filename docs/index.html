@@ -58,6 +58,12 @@
 
           <details class="advanced-box">
             <summary>Advanced settings</summary>
+            <label for="promptFormatSelect">Prompt format</label>
+            <select id="promptFormatSelect">
+              <option value="auto">Auto: chat, then plain retry if blank</option>
+              <option value="chat">Chat messages only</option>
+              <option value="plain">Plain instruction only</option>
+            </select>
             <label for="maxTokensInput">Max new tokens</label>
             <input id="maxTokensInput" type="number" min="32" max="1024" step="32" value="128">
             <label for="temperatureInput">Temperature</label>
@@ -142,7 +148,7 @@
         <span>Mode: <code>branch /docs self-contained</code></span>
       </footer>
     </main>
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./app-v2.js"></script>
     <script src="./review-tools.js"></script>
   </body>
 </html>
