@@ -43,8 +43,13 @@
           <h2 id="modelTitle">Model</h2>
           <label for="modelSelect">Model</label>
           <select id="modelSelect">
-            <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M Instruct — fastest test</option>
-            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M Instruct — better, slower</option>
+            <option value="HuggingFaceTB/SmolLM2-135M-Instruct">SmolLM2 135M Instruct — fastest instruct test</option>
+            <option value="HuggingFaceTB/SmolLM2-360M-Instruct">SmolLM2 360M Instruct — currently blank in this tester</option>
+            <option value="Xenova/tiny_starcoder_py">Tiny StarCoder Python — small code model</option>
+            <option value="Xenova/codegen-350M-mono">CodeGen 350M Mono — Python/code completion</option>
+            <option value="Xenova/codegen-350M-multi">CodeGen 350M Multi — multi-language code completion</option>
+            <option value="Xenova/LaMini-GPT-124M">LaMini GPT 124M — small instruction fallback</option>
+            <option value="Xenova/LaMini-Neo-125M">LaMini Neo 125M — small instruction fallback</option>
             <option value="custom">Custom model ID — advanced</option>
           </select>
           <input id="customModelInput" class="hidden" type="text" placeholder="organization/model-name">
