@@ -1,0 +1,82 @@
+name: Import SmolChat to TEST-2
+run-name: Import SmolChat to TEST-2 #${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.applab/import-smolchat-test2.txt'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-smolchat-test2
+  cancel-in-progress: true
+
+jobs:
+  import:
+    name: Replace TEST-2 with SmolChat
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Configure git identity
+        shell: bash
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone SmolChat
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/shubham0204/SmolChat-Android.git smolchat-src
+          cd smolchat-src
+          git checkout main
+
+      - name: Prepare TEST-2 branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd smolchat-src
+          git checkout -B TEST-2
+
+          mkdir -p docs/localai-lab
+          cat > docs/localai-lab/IMPORT_NOTES.md <<'EOF'
+          # LocalAI Lab import notes
+
+          This branch was replaced from `shubham0204/SmolChat-Android` as a disposable Android local-inference base.
+
+          Upstream project: https://github.com/shubham0204/SmolChat-Android
+          Upstream license: Apache License 2.0
+
+          Immediate goal:
+          - get the imported app building in this repository
+          - keep attribution/license intact
+          - then rename/reduce/reshape it for LocalAI Lab
+
+          This is not meant to preserve a clean upstream fork relationship. It is a working app base.
+          EOF
+
+          git add docs/localai-lab/IMPORT_NOTES.md
+          git commit -m "Add LocalAI import notes" || true
+
+          git remote add target "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push target TEST-2 --force
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "# SmolChat import complete"
+            echo
+            echo "- Target branch: TEST-2"
+            echo "- Source: shubham0204/SmolChat-Android main"
+            echo "- License: Apache-2.0 retained from upstream"
+            echo "- Next: build TEST-2 APK with the LocalAI requested APK workflow"
+          } >> "$GITHUB_STEP_SUMMARY"
