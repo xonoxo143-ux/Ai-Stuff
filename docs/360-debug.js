@@ -90,7 +90,11 @@ function extractText(result, input) {
   if (Array.isArray(result) && result[0]) {
     const item = result[0];
     if (Array.isArray(item.generated_text)) {
-      return item.generated_text.map((part) => part.content ?? JSON.stringify(part)).join("\n");
+      const assistantMessages = item.generated_text.filter((part) => part?.role === "assistant");
+      if (assistantMessages.length) {
+        return assistantMessages.map((part) => part.content ?? "").join("\n").trim();
+      }
+      return item.generated_text.map((part) => part.content ?? JSON.stringify(part)).join("\n").trim();
     }
     if (typeof item.generated_text === "string") {
       let text = item.generated_text;
