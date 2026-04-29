@@ -13,7 +13,7 @@
         <div>
           <p class="eyebrow">Isolated diagnostic</p>
           <h1>360M Debug</h1>
-          <p class="hero-copy">Phone-safe diagnostic page. It does not replace the main tester. It checks whether SmolLM2 360M fails because of backend, dtype, prompt format, or output extraction.</p>
+          <p class="hero-copy">Phone-safe diagnostic page. It does not replace the main tester. It checks model/backend/dtype behavior without changing the main app.</p>
         </div>
         <div class="status-pill" id="globalStatus" data-state="idle">Status: Idle</div>
       </header>
@@ -21,7 +21,7 @@
       <section class="panel" aria-labelledby="setupTitle">
         <p class="eyebrow">Setup</p>
         <h2 id="setupTitle">Diagnostic controls</h2>
-        <p class="muted"><strong>Phone-safe default:</strong> 360M / WebGPU / q4 / 16 tokens. Do not use omitted dtype, fp16, or fp32 on phone unless you expect a possible browser crash.</p>
+        <p class="muted"><strong>Current learned default:</strong> 360M uses WASM/q8/chat. 135M uses WebGPU/q4/chat. Avoid 360M WebGPU q4/q4f16 on this device because it produced corrupt output.</p>
 
         <label for="modelSelect">Model</label>
         <select id="modelSelect">
@@ -38,9 +38,9 @@
 
         <label for="dtypeSelect">Dtype/model file</label>
         <select id="dtypeSelect">
-          <option value="q4">q4 — phone-safe first test</option>
-          <option value="q4f16">q4f16 — try second on WebGPU</option>
-          <option value="q8">q8 — heavier</option>
+          <option value="q4">q4 — small but bad for 360M/WebGPU here</option>
+          <option value="q4f16">q4f16 — bad for 360M/WebGPU here</option>
+          <option value="q8">q8 — recommended for 360M/WASM</option>
           <option value="omit">Unsafe on phone: omit dtype</option>
           <option value="fp16">Unsafe on phone: fp16</option>
           <option value="fp32">Unsafe on phone: fp32</option>
@@ -59,10 +59,10 @@
         </select>
 
         <label for="maxTokensInput">Max new tokens</label>
-        <input id="maxTokensInput" type="number" min="4" max="128" step="4" value="16">
+        <input id="maxTokensInput" type="number" min="4" max="128" step="4" value="64">
 
         <label for="temperatureInput">Temperature</label>
-        <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0.2">
+        <input id="temperatureInput" type="number" min="0" max="2" step="0.1" value="0">
 
         <label for="promptInput">Prompt</label>
         <textarea id="promptInput" rows="5" spellcheck="false">Write a Python function that reverses a string.</textarea>
@@ -78,7 +78,7 @@
       <section class="panel" aria-labelledby="notesTitle">
         <p class="eyebrow">Why this exists</p>
         <h2 id="notesTitle">What we are isolating</h2>
-        <p class="muted">The main tester worked with 135M. The 360M path produced blank output in patched runners and gibberish in the restored runner. This page runs one small generation at a time and prints the raw returned object so we can see whether the issue is dtype, backend, chat formatting, or output extraction.</p>
+        <p class="muted">The main tester worked with 135M. Testing showed 360M works on WASM/q8 and fails with corrupt output on WebGPU q4/q4f16. This page keeps those checks separate from the main tester.</p>
       </section>
 
       <section class="panel" aria-labelledby="logTitle">
