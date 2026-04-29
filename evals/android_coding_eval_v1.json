@@ -1,0 +1,192 @@
+{
+  "version": "android_coding_eval_v1",
+  "purpose": "Baseline Android coding evaluation prompts for small browser/Colab models.",
+  "rating_scale": [
+    "bad",
+    "partial",
+    "good"
+  ],
+  "items": [
+    {
+      "id": "android_java_programmatic_textview_activity",
+      "category": "java_activity",
+      "difficulty": "easy",
+      "prompt": "Write one complete Java MainActivity file for Android. It should show the text Hello Android using a programmatic TextView. Do not use XML layouts. Do not include unrelated imports.",
+      "expected_traits": [
+        "Imports android.app.Activity, android.os.Bundle, and android.widget.TextView only or near-only.",
+        "Defines public class MainActivity extends Activity.",
+        "Creates a TextView with new TextView(this).",
+        "Calls textView.setText(\"Hello Android\").",
+        "Calls setContentView(textView).",
+        "Does not use R.layout, R.id, XML layouts, or findViewById."
+      ],
+      "common_failure_signs": [
+        "Uses setContentView(R.layout.activity_main).",
+        "Uses findViewById(R.id.textView).",
+        "Includes unrelated imports such as android.view.View.",
+        "Truncates the file."
+      ]
+    },
+    {
+      "id": "android_java_repair_no_xml_textview",
+      "category": "repair",
+      "difficulty": "easy",
+      "prompt": "The requirement says: create a complete Java MainActivity that shows Hello Android using a programmatic TextView. Do not use XML layouts. The bad code uses setContentView(R.layout.activity_main) and findViewById(R.id.textView). Return the corrected complete Java file only.",
+      "expected_traits": [
+        "Removes XML layout usage.",
+        "Removes findViewById.",
+        "Creates TextView programmatically.",
+        "Returns one complete Java file only."
+      ],
+      "common_failure_signs": [
+        "Repeats the bad code.",
+        "Leaves R.layout or R.id references.",
+        "Adds commentary despite asking for code only."
+      ]
+    },
+    {
+      "id": "android_manifest_internet_permission",
+      "category": "manifest",
+      "difficulty": "easy",
+      "prompt": "A WebView app fails to load internet pages. Show the minimal AndroidManifest.xml permission needed for internet access and where it goes. Keep the answer short.",
+      "expected_traits": [
+        "Uses <uses-permission android:name=\"android.permission.INTERNET\" />.",
+        "Places the permission as a direct child of <manifest>, outside <application>.",
+        "Does not invent runtime permission requests for INTERNET."
+      ],
+      "common_failure_signs": [
+        "Puts uses-permission inside application.",
+        "Claims INTERNET needs runtime request.",
+        "Invents a fake permission."
+      ]
+    },
+    {
+      "id": "android_saf_open_document_tree_java",
+      "category": "storage_access_framework",
+      "difficulty": "medium",
+      "prompt": "Write Java code for an Activity that launches Android's folder picker using ACTION_OPEN_DOCUMENT_TREE and persists the returned Uri permission in onActivityResult. Keep it minimal.",
+      "expected_traits": [
+        "Uses Intent.ACTION_OPEN_DOCUMENT_TREE.",
+        "Calls startActivityForResult or clearly notes Activity Result API alternative.",
+        "Reads result data Uri.",
+        "Uses takePersistableUriPermission.",
+        "Uses FLAG_GRANT_READ_URI_PERMISSION and FLAG_GRANT_WRITE_URI_PERMISSION."
+      ],
+      "common_failure_signs": [
+        "Uses raw file paths for shared storage.",
+        "Requests MANAGE_EXTERNAL_STORAGE unnecessarily.",
+        "Forgets persistable permission.",
+        "Invents non-existent APIs."
+      ]
+    },
+    {
+      "id": "android_documentfile_recursive_list_java",
+      "category": "documentfile",
+      "difficulty": "medium",
+      "prompt": "Given a persisted tree Uri, write a small Java method using DocumentFile to recursively list file names under that folder. Avoid java.io.File paths.",
+      "expected_traits": [
+        "Uses DocumentFile.fromTreeUri(context, treeUri).",
+        "Uses listFiles().",
+        "Checks isDirectory() and isFile().",
+        "Uses recursion.",
+        "Avoids java.io.File for SAF tree content."
+      ],
+      "common_failure_signs": [
+        "Converts Uri to a filesystem path.",
+        "Uses new File(uri.getPath()).",
+        "Omits null checks entirely.",
+        "Invents DocumentFile methods."
+      ]
+    },
+    {
+      "id": "android_webview_minimal_java",
+      "category": "webview",
+      "difficulty": "medium",
+      "prompt": "Write a minimal Java Activity that creates a WebView programmatically, enables JavaScript, sets a WebViewClient, and loads https://example.com. Include the manifest permission needed.",
+      "expected_traits": [
+        "Creates WebView programmatically.",
+        "Calls getSettings().setJavaScriptEnabled(true).",
+        "Calls setWebViewClient(new WebViewClient()).",
+        "Calls loadUrl(\"https://example.com\").",
+        "Mentions INTERNET permission in manifest."
+      ],
+      "common_failure_signs": [
+        "Forgets WebViewClient.",
+        "Uses missing XML layout.",
+        "Puts permission in wrong manifest location.",
+        "Uses fake WebView settings."
+      ]
+    },
+    {
+      "id": "android_explain_activity_lifecycle",
+      "category": "explanation",
+      "difficulty": "easy",
+      "prompt": "Explain Android Activity lifecycle to a beginner in under 120 words. Mention onCreate, onStart, onResume, onPause, onStop, and onDestroy.",
+      "expected_traits": [
+        "Mentions all requested lifecycle methods.",
+        "Uses beginner-friendly language.",
+        "Keeps under 120 words.",
+        "Does not overcomplicate with fragments/services."
+      ],
+      "common_failure_signs": [
+        "Misses requested methods.",
+        "Too long.",
+        "Confuses lifecycle order."
+      ]
+    },
+    {
+      "id": "android_fix_missing_activity_manifest",
+      "category": "manifest",
+      "difficulty": "medium",
+      "prompt": "An Android app crashes or fails to launch because MainActivity is not declared. Show the minimal <activity> entry inside <application> for .MainActivity with MAIN and LAUNCHER intent-filter.",
+      "expected_traits": [
+        "Places activity inside application.",
+        "Uses android:name=\".MainActivity\".",
+        "Includes MAIN action.",
+        "Includes LAUNCHER category.",
+        "Uses valid manifest XML."
+      ],
+      "common_failure_signs": [
+        "Places activity outside application.",
+        "Misspells intent-filter tags.",
+        "Uses fake attributes."
+      ]
+    },
+    {
+      "id": "android_java_to_kotlin_programmatic_textview",
+      "category": "conversion",
+      "difficulty": "medium",
+      "prompt": "Convert this Java Activity idea to Kotlin: an Activity creates a TextView in onCreate, sets its text to Hello Android, and uses it as the content view. Do not use XML.",
+      "expected_traits": [
+        "Defines class MainActivity : Activity().",
+        "Overrides onCreate(savedInstanceState: Bundle?).",
+        "Creates TextView(this).",
+        "Sets text to Hello Android.",
+        "Calls setContentView(textView).",
+        "No XML layout references."
+      ],
+      "common_failure_signs": [
+        "Uses setContentView(R.layout...).",
+        "Uses synthetic view binding.",
+        "Missing imports or invalid Kotlin override."
+      ]
+    },
+    {
+      "id": "android_gradle_min_sdk_explain",
+      "category": "gradle",
+      "difficulty": "medium",
+      "prompt": "Explain in plain English what minSdk, targetSdk, and compileSdk mean in an Android Gradle project. Keep it concise.",
+      "expected_traits": [
+        "minSdk: lowest Android version app supports.",
+        "targetSdk: behavior/API compatibility target for runtime behavior.",
+        "compileSdk: SDK used to compile against APIs.",
+        "Does not claim compileSdk controls install compatibility."
+      ],
+      "common_failure_signs": [
+        "Confuses minSdk and targetSdk.",
+        "Claims compileSdk changes device support.",
+        "Too long or vague."
+      ]
+    }
+  ]
+}
