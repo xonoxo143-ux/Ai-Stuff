@@ -1,5 +1,9 @@
 import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.3";
 
+const SMOLLM2_135M = "HuggingFaceTB/SmolLM2-135M-Instruct";
+const SMOLLM2_360M = "HuggingFaceTB/SmolLM2-360M-Instruct";
+const SMOLLM2_360M_ONNX = "onnx-community/SmolLM2-360M-ONNX";
+
 let generator = null;
 let currentConfig = null;
 const logLines = [];
@@ -35,16 +39,51 @@ function log(text) {
   el.log.scrollTop = el.log.scrollHeight;
 }
 
+function is360Model() {
+  return el.model.value === SMOLLM2_360M || el.model.value === SMOLLM2_360M_ONNX;
+}
+
+function is135Model() {
+  return el.model.value === SMOLLM2_135M;
+}
+
+function applyModelDefaults({ announce = true } = {}) {
+  generator = null;
+  currentConfig = null;
+
+  if (is360Model()) {
+    el.device.value = "wasm";
+    el.dtype.value = "q8";
+    el.inputMode.value = "chat";
+    el.returnFullText.value = "false";
+    el.maxTokens.value = "64";
+    el.temperature.value = "0";
+    if (announce) log("Applied 360M debug defaults: WASM/q8, chat, 64 tokens, temperature 0.");
+    return;
+  }
+
+  if (is135Model()) {
+    el.device.value = "webgpu";
+    el.dtype.value = "q4";
+    el.inputMode.value = "chat";
+    el.returnFullText.value = "false";
+    el.maxTokens.value = "64";
+    el.temperature.value = "0.2";
+    if (announce) log("Applied 135M debug defaults: WebGPU/q4, chat, 64 tokens, temperature 0.2.");
+  }
+}
+
 function isUnsafePhoneConfig() {
-  return el.model.value.includes("360M") && ["omit", "fp16", "fp32"].includes(el.dtype.value);
+  return is360Model() && ["omit", "fp16", "fp32"].includes(el.dtype.value);
 }
 
 function guardUnsafeConfig() {
   if (!isUnsafePhoneConfig()) return true;
-  const ok = confirm("This 360M dtype can crash a phone browser. Switch to q4 unless you intentionally want to risk a crash. Continue anyway?");
+  const ok = confirm("This 360M dtype can crash a phone browser. Use q8/WASM unless you intentionally want to risk a crash. Continue anyway?");
   if (!ok) {
-    el.dtype.value = "q4";
-    log("Unsafe dtype cancelled. Switched back to q4.");
+    el.device.value = "wasm";
+    el.dtype.value = "q8";
+    log("Unsafe dtype cancelled. Switched back to WASM/q8.");
     return false;
   }
   log("Unsafe dtype confirmed by user.");
@@ -139,8 +178,8 @@ async function runOnce() {
   }
 
   const input = buildInput();
-  const max_new_tokens = Number(el.maxTokens.value || 16);
-  const temperature = Number(el.temperature.value || 0.2);
+  const max_new_tokens = Number(el.maxTokens.value || 64);
+  const temperature = Number(el.temperature.value || 0);
   const do_sample = temperature > 0;
   const return_full_text = el.returnFullText.value === "true";
 
@@ -219,12 +258,15 @@ function clearAll() {
   el.output.textContent = "";
   el.raw.textContent = "";
   setStatus("Idle", "idle");
+  applyModelDefaults({ announce: false });
 }
 
+el.model.addEventListener("change", () => applyModelDefaults());
 el.load.addEventListener("click", loadPipeline);
 el.run.addEventListener("click", runOnce);
 el.copy.addEventListener("click", copyReport);
 el.clear.addEventListener("click", clearAll);
 
 setStatus("Idle", "idle");
-log("Diagnostic page loaded. Start with 360M / WebGPU / q4 / plain prompt / 16 tokens.");
+applyModelDefaults({ announce: false });
+log("Diagnostic page loaded. Model-aware defaults are active.");
