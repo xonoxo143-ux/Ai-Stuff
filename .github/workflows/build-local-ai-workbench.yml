@@ -90,7 +90,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle -p android-plugin --no-daemon :plugin:assembleDebug --stacktrace 2>&1 | tee "$RUNNER_TEMP/plugin-build.log"
+          gradle -p android-plugin --no-daemon --console=plain --warning-mode=none :plugin:assembleDebug 2>&1 | tee "$RUNNER_TEMP/plugin-build.log"
           mkdir -p app/addons/LocalAI/bin/debug
           cp android-plugin/plugin/build/outputs/aar/LocalAI-debug.aar app/addons/LocalAI/bin/debug/
 
@@ -193,10 +193,10 @@ jobs:
               if [[ -f "$log" ]]; then
                 {
                   echo
-                  echo "<details><summary>$(basename "$log") tail</summary>"
+                  echo "<details><summary>$(basename "$log") diagnostics</summary>"
                   echo
                   echo '```text'
-                  tail -n 100 "$log"
+                  grep -nE '(^e: |^error:| error: |Unresolved reference|Type mismatch|Cannot access|overrides nothing|FAILED|FAILURE:|CMake Error)' "$log" | tail -n 120 || true
                   echo '```'
                   echo "</details>"
                 } >> "$RUNNER_TEMP/build-result.md"
