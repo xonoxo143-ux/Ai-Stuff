@@ -1,0 +1,124 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - local-ai-workbench
+    paths:
+      - "app/**"
+      - "android-plugin/**"
+      - "scripts/**"
+      - ".github/workflows/build-android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-ai-workbench-android
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      GODOT_VERSION: "4.5.1"
+      GODOT_TEMPLATE_VERSION: "4.5.1.stable"
+      ANDROID_NDK_VERSION: "28.1.13356709"
+      ANDROID_CMAKE_VERSION: "3.22.1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate model catalogue
+        run: python3 scripts/validate_catalog.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build components
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.1" \
+            "ndk;${ANDROID_NDK_VERSION}" \
+            "cmake;${ANDROID_CMAKE_VERSION}"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build LocalAI Android plugin
+        shell: bash
+        run: |
+          gradle -p android-plugin :plugin:assembleDebug :plugin:assembleRelease --stacktrace
+          mkdir -p app/addons/LocalAI/bin/debug app/addons/LocalAI/bin/release
+          cp android-plugin/plugin/build/outputs/aar/LocalAI-debug.aar \
+             app/addons/LocalAI/bin/debug/LocalAI-debug.aar
+          cp android-plugin/plugin/build/outputs/aar/LocalAI-release.aar \
+             app/addons/LocalAI/bin/release/LocalAI-release.aar
+
+      - name: Download Godot and export templates
+        shell: bash
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d templates-temp
+          cp -r templates-temp/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}/"
+
+      - name: Create debug keystore
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -dname "CN=Android Debug,O=Android,C=US" \
+            -validity 10000
+
+      - name: Import and export Godot APK
+        shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          mkdir -p app/build
+          godot --headless --path app --editor --quit
+          godot --headless --verbose --path app \
+            --install-android-build-template \
+            --export-debug "Android" "build/LocalAIWorkbench-debug.apk"
+          test -f app/build/LocalAIWorkbench-debug.apk
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp app/build/LocalAIWorkbench-debug.apk dist/
+          cp app/addons/LocalAI/bin/debug/LocalAI-debug.aar dist/
+          cp app/addons/LocalAI/bin/release/LocalAI-release.aar dist/
+
+      - name: Upload APK and plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalAIWorkbench-Android
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
