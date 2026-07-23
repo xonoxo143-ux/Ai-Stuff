@@ -189,18 +189,26 @@ jobs:
           APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/local-ai-workbench-latest/LocalAIWorkbench-debug-latest.apk
           EOF
           else
-            for log in "$RUNNER_TEMP/plugin-build.log" "$RUNNER_TEMP/godot-import.log" "$RUNNER_TEMP/godot-export.log"; do
+            if [[ -f "$RUNNER_TEMP/plugin-build.log" ]]; then
+              {
+                echo
+                echo "## Plugin diagnostics"
+                echo '```text'
+                grep -inE 'error|failed|failure|unresolved|mismatch|cannot access|overrides nothing|cmake' "$RUNNER_TEMP/plugin-build.log" | tail -n 120 || true
+                echo '```'
+              } >> "$RUNNER_TEMP/build-result.md"
+            fi
+            for log in "$RUNNER_TEMP/godot-import.log" "$RUNNER_TEMP/godot-export.log"; do
               if [[ -f "$log" ]]; then
                 {
                   echo
-                  echo "<details><summary>$(basename "$log") diagnostics</summary>"
-                  echo
+                  echo "## $(basename "$log") tail"
                   echo '```text'
-                  grep -nE '(^e: |^error:| error: |Unresolved reference|Type mismatch|Cannot access|overrides nothing|FAILED|FAILURE:|CMake Error)' "$log" | tail -n 120 || true
+                  tail -n 180 "$log"
                   echo '```'
-                  echo "</details>"
                 } >> "$RUNNER_TEMP/build-result.md"
               fi
             done
           fi
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/build-result.md"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/build-result.md"
