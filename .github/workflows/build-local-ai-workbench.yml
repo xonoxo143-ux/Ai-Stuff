@@ -67,7 +67,10 @@ jobs:
       - name: Install Android components
         shell: bash
         run: |
+          set -euo pipefail
+          set +o pipefail
           yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
