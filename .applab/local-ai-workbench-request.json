@@ -1,5 +1,5 @@
 {
   "target_ref": "local-ai-workbench",
-  "target_commit": "b0a04113547087cfe517956472f1cb79001fc45f",
-  "reason": "Rebuild after correcting Godot signal emission"
+  "target_commit": "1caf37f0f32202f473f0dedf948c8ff62a7295e3",
+  "reason": "Rebuild after enabling Android textures, completing the export preset, and terminating template installation"
 }
