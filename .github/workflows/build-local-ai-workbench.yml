@@ -136,6 +136,9 @@ jobs:
           values = {
               "export/android/android_sdk_path": os.environ["ANDROID_SDK_ROOT"],
               "export/android/java_sdk_path": os.environ["JAVA_HOME"],
+              "export/android/debug_keystore": str(pathlib.Path.home() / ".android/debug.keystore"),
+              "export/android/debug_keystore_user": "androiddebugkey",
+              "export/android/debug_keystore_pass": "android",
           }
           for key, value in values.items():
               line = f'{key} = "{value}"'
@@ -145,12 +148,14 @@ jobs:
               else:
                   text = text.rstrip() + "\n" + line + "\n"
           settings.write_text(text, encoding="utf-8")
-          print("Configured Godot Android SDK:", values["export/android/android_sdk_path"])
-          print("Configured Godot Java SDK:", values["export/android/java_sdk_path"])
+          print("Configured Godot Android export paths and debug keystore")
           PY
 
           godot --headless --verbose --path app \
-            --install-android-build-template \
+            --install-android-build-template 2>&1 | tee "$RUNNER_TEMP/godot-template-install.log"
+          test -f app/android/build.gradle
+
+          godot --headless --verbose --path app \
             --export-debug "Android" "build/LocalAIWorkbench-debug.apk" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
           test -f app/build/LocalAIWorkbench-debug.apk
           unzip -t app/build/LocalAIWorkbench-debug.apk
@@ -222,7 +227,7 @@ jobs:
                 echo '```'
               } >> "$RUNNER_TEMP/build-result.md"
             fi
-            for log in "$RUNNER_TEMP/godot-import.log" "$RUNNER_TEMP/godot-export.log"; do
+            for log in "$RUNNER_TEMP/godot-import.log" "$RUNNER_TEMP/godot-template-install.log" "$RUNNER_TEMP/godot-export.log"; do
               if [[ -f "$log" ]]; then
                 {
                   echo
