@@ -11,6 +11,8 @@ on:
       - "scripts/**"
       - ".github/workflows/build-android.yml"
   pull_request:
+    branches:
+      - main
     paths:
       - "app/**"
       - "android-plugin/**"
@@ -21,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: local-ai-workbench-android
+  group: local-ai-workbench-android-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -61,7 +63,7 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
-            "build-tools;35.0.0" \
+            "build-tools;35.0.1" \
             "cmdline-tools;latest" \
             "ndk;${ANDROID_NDK_VERSION}" \
             "cmake;${ANDROID_CMAKE_VERSION}"
@@ -75,12 +77,11 @@ jobs:
       - name: Build LocalAI Android plugin
         shell: bash
         run: |
-          gradle -p android-plugin --no-daemon :plugin:assembleDebug :plugin:assembleRelease --stacktrace
-          mkdir -p app/addons/LocalAI/bin/debug app/addons/LocalAI/bin/release
+          set -euo pipefail
+          gradle -p android-plugin --no-daemon --console=plain --warning-mode=none :plugin:assembleDebug
+          mkdir -p app/addons/LocalAI/bin/debug
           cp android-plugin/plugin/build/outputs/aar/LocalAI-debug.aar \
              app/addons/LocalAI/bin/debug/LocalAI-debug.aar
-          cp android-plugin/plugin/build/outputs/aar/LocalAI-release.aar \
-             app/addons/LocalAI/bin/release/LocalAI-release.aar
 
       - name: Download Godot and export templates
         shell: bash
@@ -90,7 +91,6 @@ jobs:
           unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
-
           mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
           unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d templates-temp
           cp -r templates-temp/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}/"
@@ -104,28 +104,61 @@ jobs:
             -storepass android -dname "CN=Android Debug,O=Android,C=US" \
             -validity 10000
 
-      - name: Import and export Godot APK
+      - name: Configure, install template, and export APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          set -euo pipefail
           mkdir -p app/build
           godot --headless --path app --import
+
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          settings = pathlib.Path.home() / ".config/godot/editor_settings-4.5.tres"
+          text = settings.read_text(encoding="utf-8")
+          values = {
+              "export/android/android_sdk_path": os.environ["ANDROID_SDK_ROOT"],
+              "export/android/java_sdk_path": os.environ["JAVA_HOME"],
+              "export/android/debug_keystore": str(pathlib.Path.home() / ".android/debug.keystore"),
+              "export/android/debug_keystore_user": "androiddebugkey",
+              "export/android/debug_keystore_pass": "android",
+          }
+          for key, value in values.items():
+              line = f'{key} = "{value}"'
+              pattern = rf'^{re.escape(key)}\s*=.*$'
+              if re.search(pattern, text, flags=re.MULTILINE):
+                  text = re.sub(pattern, line, text, flags=re.MULTILINE)
+              else:
+                  text = text.rstrip() + "\n" + line + "\n"
+          settings.write_text(text, encoding="utf-8")
+          PY
+
+          godot --headless --verbose --path app --install-android-build-template --quit
+          test -f app/android/build.gradle
           godot --headless --verbose --path app \
-            --install-android-build-template \
             --export-debug "Android" "build/LocalAIWorkbench-debug.apk"
           test -f app/build/LocalAIWorkbench-debug.apk
           unzip -t app/build/LocalAIWorkbench-debug.apk
+
+      - name: Verify packaged native backend
+        shell: bash
+        run: |
+          unzip -l app/build/LocalAIWorkbench-debug.apk | tee apk-contents.txt
+          grep -q "lib/arm64-v8a/liblocal_ai.so" apk-contents.txt
 
       - name: Collect artifacts
         shell: bash
         run: |
           mkdir -p dist
-          cp app/build/LocalAIWorkbench-debug.apk dist/
+          cp app/build/LocalAIWorkbench-debug.apk dist/LocalAIWorkbench-debug.apk
           cp app/addons/LocalAI/bin/debug/LocalAI-debug.aar dist/
-          cp app/addons/LocalAI/bin/release/LocalAI-release.aar dist/
+          sha256sum dist/LocalAIWorkbench-debug.apk > dist/LocalAIWorkbench-debug.apk.sha256
 
       - name: Upload APK and plugin
         uses: actions/upload-artifact@v4
