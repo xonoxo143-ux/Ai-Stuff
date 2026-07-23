@@ -89,10 +89,10 @@ jobs:
       - name: Build Android plugin
         shell: bash
         run: |
-          gradle -p android-plugin --no-daemon :plugin:assembleDebug :plugin:assembleRelease --stacktrace
-          mkdir -p app/addons/LocalAI/bin/debug app/addons/LocalAI/bin/release
+          set -euo pipefail
+          gradle -p android-plugin --no-daemon :plugin:assembleDebug --stacktrace 2>&1 | tee "$RUNNER_TEMP/plugin-build.log"
+          mkdir -p app/addons/LocalAI/bin/debug
           cp android-plugin/plugin/build/outputs/aar/LocalAI-debug.aar app/addons/LocalAI/bin/debug/
-          cp android-plugin/plugin/build/outputs/aar/LocalAI-release.aar app/addons/LocalAI/bin/release/
 
       - name: Download Godot and matching templates
         shell: bash
@@ -122,11 +122,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          set -euo pipefail
           mkdir -p app/build
-          godot --headless --path app --import
+          godot --headless --path app --import 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
           godot --headless --verbose --path app \
             --install-android-build-template \
-            --export-debug "Android" "build/LocalAIWorkbench-debug.apk"
+            --export-debug "Android" "build/LocalAIWorkbench-debug.apk" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
           test -f app/build/LocalAIWorkbench-debug.apk
           unzip -t app/build/LocalAIWorkbench-debug.apk
 
@@ -137,7 +138,6 @@ jobs:
           mkdir -p dist
           cp app/build/LocalAIWorkbench-debug.apk dist/LocalAIWorkbench-debug-latest.apk
           cp app/addons/LocalAI/bin/debug/LocalAI-debug.aar dist/
-          cp app/addons/LocalAI/bin/release/LocalAI-release.aar dist/
           sha256sum dist/LocalAIWorkbench-debug-latest.apk > dist/LocalAIWorkbench-debug-latest.apk.sha256
           echo "apk_url=https://github.com/${GITHUB_REPOSITORY}/releases/download/local-ai-workbench-latest/LocalAIWorkbench-debug-latest.apk" >> "$GITHUB_OUTPUT"
 
@@ -158,7 +158,6 @@ jobs:
           body: |
             Automated debug build from `local-ai-workbench`.
 
-            Source commit: `${{ github.sha }}`
             Build run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           prerelease: true
           allowUpdates: true
@@ -189,5 +188,19 @@ jobs:
             cat >> "$RUNNER_TEMP/build-result.md" <<EOF
           APK: https://github.com/${GITHUB_REPOSITORY}/releases/download/local-ai-workbench-latest/LocalAIWorkbench-debug-latest.apk
           EOF
+          else
+            for log in "$RUNNER_TEMP/plugin-build.log" "$RUNNER_TEMP/godot-import.log" "$RUNNER_TEMP/godot-export.log"; do
+              if [[ -f "$log" ]]; then
+                {
+                  echo
+                  echo "<details><summary>$(basename "$log") tail</summary>"
+                  echo
+                  echo '```text'
+                  tail -n 100 "$log"
+                  echo '```'
+                  echo "</details>"
+                } >> "$RUNNER_TEMP/build-result.md"
+              fi
+            done
           fi
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/build-result.md"
