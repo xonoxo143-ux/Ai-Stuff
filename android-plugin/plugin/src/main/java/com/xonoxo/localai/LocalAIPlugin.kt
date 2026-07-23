@@ -81,9 +81,7 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
                 connection.connectTimeout = 30_000
                 connection.readTimeout = 60_000
                 connection.setRequestProperty("User-Agent", "LocalAIWorkbench/0.1")
-                if (existing > 0L) {
-                    connection.setRequestProperty("Range", "bytes=$existing-")
-                }
+                if (existing > 0L) connection.setRequestProperty("Range", "bytes=$existing-")
                 connection.connect()
 
                 val append = existing > 0L && connection.responseCode == HttpURLConnection.HTTP_PARTIAL
@@ -103,9 +101,7 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
                         var downloaded = existing
                         var lastEmit = 0L
                         while (true) {
-                            if (downloadCancelled.get()) {
-                                throw InterruptedException("Download cancelled")
-                            }
+                            if (downloadCancelled.get()) throw InterruptedException("Download cancelled")
                             val count = input.read(buffer)
                             if (count < 0) break
                             output.write(buffer, 0, count)
@@ -233,14 +229,7 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
     ) {
         inferenceExecutor.execute {
             try {
-                val result = nativeGenerate(
-                    prompt,
-                    maxTokens,
-                    temperature,
-                    topP,
-                    topK,
-                    repeatPenalty
-                )
+                val result = nativeGenerate(prompt, maxTokens, temperature, topP, topK, repeatPenalty)
                 val json = JSONObject(result)
                 if (json.optBoolean("ok")) {
                     emit(GENERATION_FINISHED, json.toString())
@@ -266,7 +255,7 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
     }
 
     private fun emit(signal: SignalInfo, payload: String) {
-        runOnRenderThread { emitSignal(signal, payload) }
+        runOnRenderThread { emitSignal(signal.name, payload) }
     }
 
     private fun emitError(prefix: String, error: Throwable) {
