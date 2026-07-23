@@ -152,7 +152,7 @@ jobs:
           PY
 
           godot --headless --verbose --path app \
-            --install-android-build-template 2>&1 | tee "$RUNNER_TEMP/godot-template-install.log"
+            --install-android-build-template --quit 2>&1 | tee "$RUNNER_TEMP/godot-template-install.log"
           test -f app/android/build.gradle
 
           godot --headless --verbose --path app \
