@@ -1,5 +1,5 @@
 {
   "target_ref": "local-ai-workbench",
-  "target_commit": "365e3eee9ea150300ea0bc9cec41ef08fa318c94",
-  "reason": "Rebuild after removing AndroidX annotation dependency"
+  "target_commit": "b0a04113547087cfe517956472f1cb79001fc45f",
+  "reason": "Rebuild after correcting Godot signal emission"
 }
