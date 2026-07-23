@@ -45,6 +45,7 @@ jobs:
             number="${url##*/}"
           fi
           echo "number=$number" >> "$GITHUB_OUTPUT"
+          gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Build started for \`local-ai-workbench\`. Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
       - name: Checkout app branch
         uses: actions/checkout@v4
