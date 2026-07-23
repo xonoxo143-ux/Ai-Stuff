@@ -10,6 +10,12 @@ on:
       - "android-plugin/**"
       - "scripts/**"
       - ".github/workflows/build-android.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "android-plugin/**"
+      - "scripts/**"
+      - ".github/workflows/build-android.yml"
 
 permissions:
   contents: read
