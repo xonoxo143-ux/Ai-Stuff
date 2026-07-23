@@ -54,13 +54,18 @@ jobs:
       - name: Install Android build components
         shell: bash
         run: |
+          set -euo pipefail
+          set +o pipefail
           yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
-            "build-tools;35.0.1" \
+            "build-tools;35.0.0" \
+            "cmdline-tools;latest" \
             "ndk;${ANDROID_NDK_VERSION}" \
             "cmake;${ANDROID_CMAKE_VERSION}"
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -70,7 +75,7 @@ jobs:
       - name: Build LocalAI Android plugin
         shell: bash
         run: |
-          gradle -p android-plugin :plugin:assembleDebug :plugin:assembleRelease --stacktrace
+          gradle -p android-plugin --no-daemon :plugin:assembleDebug :plugin:assembleRelease --stacktrace
           mkdir -p app/addons/LocalAI/bin/debug app/addons/LocalAI/bin/release
           cp android-plugin/plugin/build/outputs/aar/LocalAI-debug.aar \
              app/addons/LocalAI/bin/debug/LocalAI-debug.aar
@@ -107,11 +112,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --editor --quit
+          godot --headless --path app --import
           godot --headless --verbose --path app \
             --install-android-build-template \
             --export-debug "Android" "build/LocalAIWorkbench-debug.apk"
           test -f app/build/LocalAIWorkbench-debug.apk
+          unzip -t app/build/LocalAIWorkbench-debug.apk
 
       - name: Collect artifacts
         shell: bash
