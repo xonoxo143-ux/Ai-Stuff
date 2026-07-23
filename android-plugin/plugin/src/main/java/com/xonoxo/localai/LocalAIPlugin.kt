@@ -1,7 +1,6 @@
 package com.xonoxo.localai
 
 import android.util.Log
-import androidx.annotation.Keep
 import org.godotengine.godot.Godot
 import org.godotengine.godot.plugin.GodotPlugin
 import org.godotengine.godot.plugin.SignalInfo
@@ -39,7 +38,8 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
     private val ioExecutor = Executors.newSingleThreadExecutor()
     private val downloadCancelled = AtomicBoolean(false)
     private val modelsDir: File by lazy {
-        File(context.getExternalFilesDir(null) ?: context.filesDir, "models").apply { mkdirs() }
+        val appContext = getContext()
+        File(appContext.getExternalFilesDir(null) ?: appContext.filesDir, "models").apply { mkdirs() }
     }
 
     override fun getPluginName() = BuildConfig.GODOT_PLUGIN_NAME
@@ -261,7 +261,6 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
     @UsedByGodot
     fun systemInfo(): String = nativeSystemInfo()
 
-    @Keep
     fun onNativeToken(token: String) {
         emit(TOKEN_RECEIVED, token)
     }
