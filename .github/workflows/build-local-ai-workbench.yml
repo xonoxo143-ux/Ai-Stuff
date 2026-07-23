@@ -75,7 +75,7 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
-            "build-tools;35.0.0" \
+            "build-tools;35.0.1" \
             "cmdline-tools;latest" \
             "ndk;${ANDROID_NDK_VERSION}" \
             "cmake;${ANDROID_CMAKE_VERSION}"
@@ -125,6 +125,30 @@ jobs:
           set -euo pipefail
           mkdir -p app/build
           godot --headless --path app --import 2>&1 | tee "$RUNNER_TEMP/godot-import.log"
+
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          settings = pathlib.Path.home() / ".config/godot/editor_settings-4.5.tres"
+          text = settings.read_text(encoding="utf-8")
+          values = {
+              "export/android/android_sdk_path": os.environ["ANDROID_SDK_ROOT"],
+              "export/android/java_sdk_path": os.environ["JAVA_HOME"],
+          }
+          for key, value in values.items():
+              line = f'{key} = "{value}"'
+              pattern = rf'^{re.escape(key)}\s*=.*$'
+              if re.search(pattern, text, flags=re.MULTILINE):
+                  text = re.sub(pattern, line, text, flags=re.MULTILINE)
+              else:
+                  text = text.rstrip() + "\n" + line + "\n"
+          settings.write_text(text, encoding="utf-8")
+          print("Configured Godot Android SDK:", values["export/android/android_sdk_path"])
+          print("Configured Godot Java SDK:", values["export/android/java_sdk_path"])
+          PY
+
           godot --headless --verbose --path app \
             --install-android-build-template \
             --export-debug "Android" "build/LocalAIWorkbench-debug.apk" 2>&1 | tee "$RUNNER_TEMP/godot-export.log"
