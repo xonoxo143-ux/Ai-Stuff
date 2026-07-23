@@ -140,7 +140,7 @@ jobs:
           PY
 
           godot --headless --verbose --path app --install-android-build-template --quit
-          test -f app/android/build.gradle
+          test -f app/android/build/build.gradle
           godot --headless --verbose --path app \
             --export-debug "Android" "build/LocalAIWorkbench-debug.apk"
           test -f app/build/LocalAIWorkbench-debug.apk
