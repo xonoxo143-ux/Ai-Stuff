@@ -1,0 +1,5 @@
+{
+  "target_ref": "local-ai-workbench",
+  "target_commit": "365e3eee9ea150300ea0bc9cec41ef08fa318c94",
+  "reason": "Rebuild after removing AndroidX annotation dependency"
+}
