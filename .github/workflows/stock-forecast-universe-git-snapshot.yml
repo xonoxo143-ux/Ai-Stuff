@@ -1,0 +1,93 @@
+name: Stock Forecast Universe Git Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Export immutable pre-cutoff files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p universe_git_snapshot/repos universe_git_snapshot/raw
+          git clone --quiet --filter=blob:none https://github.com/datasets/s-and-p-500-companies.git universe_git_snapshot/repos/primary
+          git clone --quiet --filter=blob:none https://github.com/hanshof/sp500_constituents.git universe_git_snapshot/repos/secondary
+          python - <<'PY'
+          from __future__ import annotations
+          import csv, hashlib, json, subprocess
+          from datetime import date, datetime, timezone
+          from pathlib import Path
+
+          ROOT=Path('universe_git_snapshot')
+          CUTOFF='2025-12-31T23:59:59Z'
+
+          def run(repo,*args):
+            return subprocess.check_output(['git','-C',str(repo),*args],text=True).strip()
+
+          def export(repo,name,path):
+            commit=run(repo,'rev-list','-1',f'--before={CUTOFF}','origin/HEAD')
+            if not commit: raise RuntimeError(f'{name}: no commit before {CUTOFF}')
+            commit_time=run(repo,'show','-s','--format=%cI',commit)
+            author_time=run(repo,'show','-s','--format=%aI',commit)
+            subject=run(repo,'show','-s','--format=%s',commit)
+            body=subprocess.check_output(['git','-C',str(repo),'show',f'{commit}:{path}'])
+            out=ROOT/'raw'/f'{name}.csv'; out.write_bytes(body)
+            return {'repository':run(repo,'remote','get-url','origin'),'commit':commit,'commit_time':commit_time,'author_time':author_time,
+                    'subject':subject,'path':path,'output_path':f'raw/{name}.csv','bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+
+          primary=export(ROOT/'repos'/'primary','datasets_sp500_pre_cutoff','data/constituents.csv')
+          secondary=export(ROOT/'repos'/'secondary','hanshof_sp500_history_pre_cutoff','sp_500_historical_components.csv')
+
+          with (ROOT/primary['output_path']).open(newline='',encoding='utf-8-sig') as f:
+            rows=list(csv.DictReader(f))
+          required={'Symbol','Security','GICS Sector','CIK'}
+          if not rows or not required.issubset(rows[0]): raise RuntimeError(f'primary columns missing: {required-set(rows[0] if rows else [])}')
+          primary_tickers={row['Symbol'].strip().upper().replace('.','-') for row in rows if row['Symbol'].strip()}
+          if not 490 <= len(primary_tickers) <= 510: raise RuntimeError(f'primary count implausible: {len(primary_tickers)}')
+          if any(not row['CIK'].strip().isdigit() for row in rows): raise RuntimeError('primary has missing/non-numeric CIK')
+
+          with (ROOT/secondary['output_path']).open(newline='',encoding='utf-8-sig') as f:
+            history=list(csv.DictReader(f))
+          eligible=[]
+          for row in history:
+            try: d=date.fromisoformat(row['date'])
+            except Exception: continue
+            if d <= date(2025,12,31): eligible.append((d,row))
+          if not eligible: raise RuntimeError('secondary has no row on or before snapshot date')
+          secondary_date, secondary_row=max(eligible,key=lambda pair:pair[0])
+          secondary_tickers={item.strip().upper().replace('.','-') for item in secondary_row['tickers'].split(',') if item.strip()}
+          if not 490 <= len(secondary_tickers) <= 510: raise RuntimeError(f'secondary count implausible: {len(secondary_tickers)}')
+
+          only_primary=sorted(primary_tickers-secondary_tickers)
+          only_secondary=sorted(secondary_tickers-primary_tickers)
+          report={
+            'purpose':'Pre-cutoff large-cap universe candidate. Not frozen until comparison and schema validation pass.',
+            'snapshot_target_date':'2025-12-31','commit_cutoff_utc':CUTOFF,
+            'primary':primary,'secondary':secondary,
+            'primary_company_count':len(primary_tickers),'secondary_company_count':len(secondary_tickers),
+            'secondary_selected_row_date':secondary_date.isoformat(),
+            'intersection_count':len(primary_tickers&secondary_tickers),
+            'only_primary':only_primary,'only_secondary':only_secondary,
+            'exact_ticker_set_match':primary_tickers==secondary_tickers,
+            'created_at_utc':datetime.now(timezone.utc).isoformat(),
+          }
+          canonical=json.dumps(report,sort_keys=True,separators=(',',':')).encode(); report['report_sha256']=hashlib.sha256(canonical).hexdigest()
+          (ROOT/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+          rm -rf universe_git_snapshot/repos
+      - name: Upload immutable candidate snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: universe-git-snapshot
+          path: universe_git_snapshot
+          if-no-files-found: error
+          retention-days: 7
