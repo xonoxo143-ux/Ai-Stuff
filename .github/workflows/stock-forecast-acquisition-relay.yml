@@ -16,7 +16,7 @@ jobs:
       - name: Acquire and validate raw sources
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           python - <<'PY'
           from __future__ import annotations
           import csv
@@ -99,97 +99,157 @@ jobs:
               'git_sha': os.environ.get('GITHUB_SHA'),
               'git_ref': os.environ.get('GITHUB_REF'),
               'artifacts': [],
+              'rejections': [],
+              'validations': [],
           }
 
           context = ssl.create_default_context()
           for spec in requests:
+              print(f"ACQUIRE {spec['request_id']}", flush=True)
               redirector = RedirectRecorder()
-              opener = build_opener(redirector, HTTPSHandler(context=context))
-              headers = {'User-Agent': USER_AGENT, 'Accept-Encoding': 'identity'}
-              if spec['provider'] == 'sec':
-                  headers['Accept'] = 'application/json'
-              req = Request(spec['url'], headers=headers, method='GET')
-              with opener.open(req, timeout=60) as response:
-                  final_url = response.geturl()
-                  parsed = urlparse(final_url)
-                  if parsed.scheme != 'https':
-                      raise RuntimeError(f"{spec['request_id']}: non-HTTPS final URL {final_url}")
-                  if parsed.hostname not in spec['hosts']:
-                      raise RuntimeError(f"{spec['request_id']}: unapproved final host {parsed.hostname}")
-                  content_type = (response.headers.get_content_type() or '').lower()
-                  if content_type not in spec['types']:
-                      raise RuntimeError(f"{spec['request_id']}: unexpected content type {content_type}")
-                  body = response.read(spec['max_bytes'] + 1)
-                  if len(body) > spec['max_bytes']:
-                      raise RuntimeError(f"{spec['request_id']}: response exceeds byte limit")
-                  status = getattr(response, 'status', 200)
-                  if status != 200:
-                      raise RuntimeError(f"{spec['request_id']}: HTTP {status}")
-                  out = RESP / spec['output']
-                  out.write_bytes(body)
-                  manifest['artifacts'].append({
+              try:
+                  opener = build_opener(redirector, HTTPSHandler(context=context))
+                  headers = {'User-Agent': USER_AGENT, 'Accept-Encoding': 'identity'}
+                  if spec['provider'] == 'sec':
+                      headers['Accept'] = 'application/json'
+                  req = Request(spec['url'], headers=headers, method='GET')
+                  with opener.open(req, timeout=60) as response:
+                      final_url = response.geturl()
+                      parsed = urlparse(final_url)
+                      if parsed.scheme != 'https':
+                          raise RuntimeError(f'non-HTTPS final URL {final_url}')
+                      if parsed.hostname not in spec['hosts']:
+                          raise RuntimeError(f'unapproved final host {parsed.hostname}')
+                      content_type = (response.headers.get_content_type() or '').lower()
+                      if content_type not in spec['types']:
+                          raise RuntimeError(f'unexpected content type {content_type}')
+                      body = response.read(spec['max_bytes'] + 1)
+                      if len(body) > spec['max_bytes']:
+                          raise RuntimeError('response exceeds byte limit')
+                      status = getattr(response, 'status', 200)
+                      if status != 200:
+                          raise RuntimeError(f'HTTP {status}')
+                      out = RESP / spec['output']
+                      out.write_bytes(body)
+                      artifact = {
+                          'request_id': spec['request_id'],
+                          'provider': spec['provider'],
+                          'request_url': spec['url'],
+                          'final_url': final_url,
+                          'status': status,
+                          'content_type': content_type,
+                          'size_bytes': len(body),
+                          'sha256': hashlib.sha256(body).hexdigest(),
+                          'output_path': f"responses/{spec['output']}",
+                          'redirects': redirector.redirects,
+                          'safe_response_headers': {
+                              k.lower(): v for k, v in response.headers.items()
+                              if k.lower() in SAFE_HEADERS
+                          },
+                      }
+                      manifest['artifacts'].append(artifact)
+                      print(f"OK {spec['request_id']} {len(body)} {artifact['sha256']}", flush=True)
+              except Exception as exc:
+                  rejection = {
                       'request_id': spec['request_id'],
                       'provider': spec['provider'],
-                      'request_url': spec['url'],
-                      'final_url': final_url,
-                      'status': status,
-                      'content_type': content_type,
-                      'size_bytes': len(body),
-                      'sha256': hashlib.sha256(body).hexdigest(),
-                      'output_path': f"responses/{spec['output']}",
+                      'error_type': type(exc).__name__,
+                      'error': str(exc),
                       'redirects': redirector.redirects,
-                      'safe_response_headers': {
-                          k.lower(): v for k, v in response.headers.items()
-                          if k.lower() in SAFE_HEADERS
-                      },
+                  }
+                  manifest['rejections'].append(rejection)
+                  print(f"REJECT {spec['request_id']} {type(exc).__name__}: {exc}", flush=True)
+
+          def validate(name, function):
+              try:
+                  function()
+                  manifest['validations'].append({'name': name, 'status': 'passed'})
+                  print(f'VALID {name}', flush=True)
+              except Exception as exc:
+                  manifest['validations'].append({
+                      'name': name,
+                      'status': 'failed',
+                      'error_type': type(exc).__name__,
+                      'error': str(exc),
                   })
+                  print(f'INVALID {name} {type(exc).__name__}: {exc}', flush=True)
 
-          iwb = (RESP / 'iwb_holdings_2025-12-31.csv').read_text(encoding='utf-8-sig')
-          if 'Fund Holdings as of,"Dec 31, 2025"' not in iwb.splitlines()[:15]:
-              raise RuntimeError('IWB embedded as-of date is not Dec 31, 2025')
-          if 'Ticker,Name,Sector,Asset Class,Market Value,Weight (%)' not in iwb:
-              raise RuntimeError('IWB holdings header missing')
+          def validate_iwb():
+              text = (RESP / 'iwb_holdings_2025-12-31.csv').read_text(encoding='utf-8-sig')
+              if 'Fund Holdings as of,"Dec 31, 2025"' not in text.splitlines()[:15]:
+                  raise RuntimeError('embedded as-of date is not Dec 31, 2025')
+              if 'Ticker,Name,Sector,Asset Class,Market Value,Weight (%)' not in text:
+                  raise RuntimeError('holdings header missing')
 
-          yahoo = json.loads((RESP / 'aapl_yahoo_prices_2026-02-10.json').read_text(encoding='utf-8'))
-          chart = yahoo.get('chart', {})
-          if chart.get('error') is not None or not chart.get('result'):
-              raise RuntimeError(f"Yahoo chart error: {chart.get('error')}")
-          if chart['result'][0].get('meta', {}).get('symbol') != 'AAPL':
-              raise RuntimeError('Yahoo symbol mismatch')
+          def validate_yahoo():
+              payload = json.loads((RESP / 'aapl_yahoo_prices_2026-02-10.json').read_text(encoding='utf-8'))
+              chart = payload.get('chart', {})
+              if chart.get('error') is not None or not chart.get('result'):
+                  raise RuntimeError(f"chart error: {chart.get('error')}")
+              if chart['result'][0].get('meta', {}).get('symbol') != 'AAPL':
+                  raise RuntimeError('symbol mismatch')
 
-          stooq_text = (RESP / 'aapl_stooq_prices_2026-02-10.csv').read_text(encoding='utf-8-sig')
-          if not stooq_text.startswith('Date,Open,High,Low,Close,Volume'):
-              raise RuntimeError('Stooq CSV header mismatch')
-          stooq_rows = list(csv.DictReader(io.StringIO(stooq_text)))
-          if not stooq_rows or max(row['Date'] for row in stooq_rows) > '2026-02-10':
-              raise RuntimeError('Stooq missing rows or returned post-cutoff date')
+          def validate_stooq():
+              text = (RESP / 'aapl_stooq_prices_2026-02-10.csv').read_text(encoding='utf-8-sig')
+              if not text.startswith('Date,Open,High,Low,Close,Volume'):
+                  raise RuntimeError('CSV header mismatch')
+              rows = list(csv.DictReader(io.StringIO(text)))
+              if not rows:
+                  raise RuntimeError('no rows')
+              if max(row['Date'] for row in rows) > '2026-02-10':
+                  raise RuntimeError('post-cutoff date returned')
 
-          sec = json.loads((RESP / 'aapl_sec_submissions.json').read_text(encoding='utf-8'))
-          if str(sec.get('cik')) != '320193':
-              raise RuntimeError('SEC CIK mismatch')
-          recent = sec.get('filings', {}).get('recent', {})
-          if not recent.get('accessionNumber') or not recent.get('acceptanceDateTime'):
-              raise RuntimeError('SEC submissions missing acceptance timestamps')
+          def validate_sec():
+              payload = json.loads((RESP / 'aapl_sec_submissions.json').read_text(encoding='utf-8'))
+              if str(payload.get('cik')) != '320193':
+                  raise RuntimeError('CIK mismatch')
+              recent = payload.get('filings', {}).get('recent', {})
+              if not recent.get('accessionNumber') or not recent.get('acceptanceDateTime'):
+                  raise RuntimeError('acceptance timestamps missing')
 
-          alfred_text = (RESP / 'unrate_alfred_2026-02-10.csv').read_text(encoding='utf-8-sig')
-          first_line = alfred_text.splitlines()[0] if alfred_text.splitlines() else ''
-          if first_line != 'DATE,UNRATE_20260210':
-              raise RuntimeError(f'ALFRED vintage header mismatch: {first_line!r}')
+          def validate_alfred():
+              text = (RESP / 'unrate_alfred_2026-02-10.csv').read_text(encoding='utf-8-sig')
+              first_line = text.splitlines()[0] if text.splitlines() else ''
+              if first_line != 'DATE,UNRATE_20260210':
+                  raise RuntimeError(f'vintage header mismatch: {first_line!r}')
+
+          validate('iwb_exact_as_of', validate_iwb)
+          validate('yahoo_symbol', validate_yahoo)
+          validate('stooq_cutoff_bound', validate_stooq)
+          validate('sec_acceptance_timestamps', validate_sec)
+          validate('alfred_exact_vintage_column', validate_alfred)
 
           manifest['completed_at_utc'] = datetime.now(timezone.utc).isoformat()
           canonical = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode('utf-8')
           manifest['manifest_sha256'] = hashlib.sha256(canonical).hexdigest()
           (ROOT / 'bundle_manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
-          print(json.dumps({
+          failed_validations = [v for v in manifest['validations'] if v['status'] != 'passed']
+          status = {
               'artifact_count': len(manifest['artifacts']),
+              'rejection_count': len(manifest['rejections']),
+              'failed_validation_count': len(failed_validations),
+              'success': not manifest['rejections'] and not failed_validations,
               'manifest_sha256': manifest['manifest_sha256'],
-              'artifact_sha256': {a['request_id']: a['sha256'] for a in manifest['artifacts']},
-          }, indent=2))
+          }
+          (ROOT / 'status.json').write_text(json.dumps(status, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(status, indent=2), flush=True)
           PY
       - name: Upload raw acquisition bundle
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stock-forecast-raw-bundle
           path: stock_forecast_raw_bundle
           if-no-files-found: error
           retention-days: 7
+      - name: Enforce fail-closed status
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status = json.loads(Path('stock_forecast_raw_bundle/status.json').read_text())
+          if not status['success']:
+              raise SystemExit(f"acquisition failed closed: {status}")
+          PY
