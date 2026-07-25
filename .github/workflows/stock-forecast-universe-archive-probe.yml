@@ -1,0 +1,58 @@
+name: Stock Forecast Universe Archive Probe
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Probe exact historical archive objects
+        shell: bash
+        run: |
+          set -u
+          python - <<'PY'
+          import hashlib, json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError, URLError
+
+          root=Path('universe_archive_probe'); root.mkdir()
+          urls={
+            'iwb_formatted_2025-12-31':'https://ishares-etfs.s3.us-west-2.amazonaws.com/type%3Dholdings/state%3Dformatted/etf%3DIWB/asofdate%3D2025-12-31.csv',
+            'iwb_raw_2025-12-31':'https://ishares-etfs.s3.us-west-2.amazonaws.com/type%3Dholdings/state%3Draw/etf%3DIWB/asofdate%3D2025-12-31.gz',
+            'iwb_formatted_2023-01-31_control':'https://ishares-etfs.s3.us-west-2.amazonaws.com/type%3Dholdings/state%3Dformatted/etf%3DIWB/asofdate%3D2023-01-31.csv',
+            'bucket_list_exact_prefix':'https://ishares-etfs.s3.us-west-2.amazonaws.com/?list-type=2&prefix=type%3Dholdings%2Fstate%3Dformatted%2Fetf%3DIWB%2Fasofdate%3D2025-12-31'
+          }
+          report={'purpose':'Disposable universe archive probe; not an eligible snapshot.','started_at_utc':datetime.now(timezone.utc).isoformat(),'results':[]}
+          for name,url in urls.items():
+            try:
+              req=Request(url,headers={'User-Agent':'blind-historical-stock-forecast/0.2 contact https://github.com/xonoxo143-ux/Ai-Stuff','Accept-Encoding':'identity'})
+              with urlopen(req,timeout=45) as r:
+                body=r.read(30_000_001)
+                rec={'name':name,'url':url,'status':getattr(r,'status',200),'final_url':r.geturl(),'content_type':r.headers.get_content_type(),'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest(),'prefix_hex':body[:64].hex()}
+                if len(body)<=30_000_000:
+                  path=root/f'{name}.bin'; path.write_bytes(body); rec['path']=path.name
+                else: rec['error']='body exceeds 30 MB'
+            except Exception as exc:
+              rec={'name':name,'url':url,'error_type':type(exc).__name__,'error':str(exc)}
+            report['results'].append(rec); print(json.dumps(rec),flush=True)
+          report['completed_at_utc']=datetime.now(timezone.utc).isoformat()
+          canonical=json.dumps(report,sort_keys=True,separators=(',',':')).encode(); report['report_sha256']=hashlib.sha256(canonical).hexdigest()
+          (root/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+          PY
+      - name: Upload probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universe-archive-probe
+          path: universe_archive_probe
+          if-no-files-found: error
+          retention-days: 7
