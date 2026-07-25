@@ -1,0 +1,96 @@
+name: Stock Forecast Universe Daily Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Export latest multi-source snapshots before cutoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p universe_daily_snapshot/raw
+          git clone --quiet --filter=blob:none https://github.com/riazarbi/sp500-scraper.git universe_daily_snapshot/repo
+          python - <<'PY'
+          from __future__ import annotations
+          import csv, hashlib, json, re, shutil, subprocess
+          from datetime import date, datetime, timezone
+          from pathlib import Path
+
+          ROOT=Path('universe_daily_snapshot'); REPO=ROOT/'repo'
+          TARGET=date(2025,12,31); CUTOFF='2025-12-31T23:59:59Z'
+          def run(*args): return subprocess.check_output(['git','-C',str(REPO),*args],text=True).strip()
+          commit=run('rev-list','-1',f'--before={CUTOFF}','origin/HEAD')
+          if not commit: raise RuntimeError('no pre-cutoff commit')
+          subprocess.check_call(['git','-C',str(REPO),'checkout','--quiet',commit])
+          commit_time=run('show','-s','--format=%cI',commit)
+          subject=run('show','-s','--format=%s',commit)
+
+          sources={}
+          for source in ('wikipedia','ishares','tidyquant'):
+            candidates=[]
+            base=REPO/source
+            if base.exists():
+              for path in base.rglob('*.csv'):
+                match=re.fullmatch(r'(\d{8})',path.stem)
+                if not match: continue
+                try: d=datetime.strptime(match.group(1),'%Y%m%d').date()
+                except ValueError: continue
+                if d<=TARGET and 'sp500' in {part.lower() for part in path.parts}:
+                  candidates.append((d,path))
+            if not candidates:
+              sources[source]={'status':'missing'}; continue
+            selected_date,path=max(candidates,key=lambda pair:pair[0])
+            out=ROOT/'raw'/f'{source}_{selected_date.strftime("%Y%m%d")}.csv'
+            shutil.copyfile(path,out)
+            body=out.read_bytes()
+            with out.open(newline='',encoding='utf-8-sig') as f:
+              rows=list(csv.DictReader(f))
+            if not rows: raise RuntimeError(f'{source}: empty CSV')
+            fields=list(rows[0])
+            ticker_col=next((c for c in fields if c.strip().lower() in {'ticker','symbol'}),None)
+            if ticker_col is None: raise RuntimeError(f'{source}: no ticker column in {fields}')
+            tickers={row[ticker_col].strip().upper().replace('.','-') for row in rows if row.get(ticker_col,'').strip()}
+            if not 480<=len(tickers)<=520: raise RuntimeError(f'{source}: implausible ticker count {len(tickers)}')
+            sources[source]={
+              'status':'available','selected_date':selected_date.isoformat(),'repository_path':path.relative_to(REPO).as_posix(),
+              'output_path':out.relative_to(ROOT).as_posix(),'ticker_column':ticker_col,'fields':fields,'row_count':len(rows),
+              'ticker_count':len(tickers),'sha256':hashlib.sha256(body).hexdigest(),'bytes':len(body),'tickers':sorted(tickers)
+            }
+
+          available={k:v for k,v in sources.items() if v.get('status')=='available'}
+          if len(available)<2: raise RuntimeError(f'fewer than two sources available: {list(available)}')
+          names=sorted(available)
+          comparisons=[]
+          for i,left in enumerate(names):
+            for right in names[i+1:]:
+              a=set(available[left]['tickers']); b=set(available[right]['tickers'])
+              comparisons.append({'left':left,'right':right,'intersection_count':len(a&b),'only_left':sorted(a-b),'only_right':sorted(b-a),'exact_match':a==b})
+          report={
+            'purpose':'Immutable multi-source large-cap universe snapshot, committed before all exam cutoffs.',
+            'target_date':TARGET.isoformat(),'commit_cutoff_utc':CUTOFF,
+            'repository':'https://github.com/riazarbi/sp500-scraper.git','commit':commit,'commit_time':commit_time,'subject':subject,
+            'sources':sources,'comparisons':comparisons,'created_at_utc':datetime.now(timezone.utc).isoformat(),
+          }
+          # Keep report compact; source CSVs retain complete membership.
+          for item in report['sources'].values(): item.pop('tickers',None)
+          canonical=json.dumps(report,sort_keys=True,separators=(',',':')).encode(); report['report_sha256']=hashlib.sha256(canonical).hexdigest()
+          (ROOT/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+          print(json.dumps(report,indent=2))
+          PY
+          rm -rf universe_daily_snapshot/repo
+      - name: Upload pre-cutoff universe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: universe-daily-snapshot
+          path: universe_daily_snapshot
+          if-no-files-found: error
+          retention-days: 7
