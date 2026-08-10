@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "semzip"
+version = "0.1.0"
+description = "Experimental semantic codec and canonical meaning graph"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+semzip = "semzip.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
