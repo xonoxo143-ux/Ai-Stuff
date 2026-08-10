@@ -1,0 +1,6 @@
+{"group":"transfer_book","equivalent":true,"text":"John gave Mary the book."}
+{"group":"transfer_book","equivalent":true,"text":"Mary received the book from John."}
+{"group":"transfer_book","equivalent":true,"text":"The book was given to Mary by John."}
+{"group":"reverse_roles","equivalent":false,"text":"Mary gave John the book."}
+{"group":"negative_transfer","equivalent":false,"text":"John did not give Mary the book."}
+{"group":"modifier_preservation","equivalent":false,"text":"John gave Mary the old red book."}
