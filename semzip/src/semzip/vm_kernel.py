@@ -5,7 +5,6 @@ from typing import Iterable
 
 from .vm_ledger import EventLedger, atom
 
-# Deliberately tiny kernel. Human aliases are debug conveniences; K* are the ISA.
 K_SET = "K0"
 K_SHIFT = "K1"
 K_REQUIRE = "K2"
@@ -50,45 +49,70 @@ class VMExecutionError(RuntimeError):
 
 
 class SemanticVM:
-    """Transactional interpreter for the minimal semantic kernel."""
+    """Transactional interpreter for the minimal semantic kernel.
+
+    Atomicity uses a tiny copy-on-write shadow of only the relations touched by the
+    current program. The event history is never cloned for ordinary execution.
+    """
 
     def __init__(self, ledger: EventLedger | None = None) -> None:
         self.ledger = ledger or EventLedger()
 
     def execute(self, program: Program, *, branch: str = "main") -> tuple[int, int]:
-        trial = self.ledger.clone()
-        start = trial.clock
-        try:
-            for instruction in program.instructions:
-                self._execute_one(trial, instruction, branch=branch)
-        except Exception as exc:
-            raise VMExecutionError(str(exc)) from exc
-        self.ledger.replace_with(trial)
-        return start + 1, trial.clock
+        branch = atom(branch)
+        overlay: dict[tuple[str, str], str | None] = {}
+        mutations: list[Instruction] = []
 
-    def _execute_one(self, ledger: EventLedger, ins: Instruction, *, branch: str) -> None:
-        op, args = ins.opcode, ins.args
-        if op == K_SET:
-            self._arity(ins, 3)
-            ledger.append_state(args[0], args[1], args[2], branch=branch, provenance="vm")
-            return
-        if op == K_SHIFT:
-            self._arity(ins, 4)
-            ledger.transition(args[0], args[1], args[2], args[3], branch=branch, provenance="vm")
-            return
-        if op == K_REQUIRE:
-            self._arity(ins, 3)
-            actual = ledger.current(args[0], args[1], branch=branch)
-            if actual != args[2]:
-                raise VMExecutionError(
-                    f"require failed: {args[0]}.{args[1]} expected {args[2]!r}, found {actual!r}"
-                )
-            return
-        if op == K_CLEAR:
-            self._arity(ins, 2)
-            ledger.retract(args[0], args[1], branch=branch, provenance="vm")
-            return
-        raise VMExecutionError(f"unimplemented opcode {op}")
+        def read(subject: str, relation: str) -> str | None:
+            key = (subject, relation)
+            if key in overlay:
+                return overlay[key]
+            return self.ledger.current(subject, relation, branch=branch)
+
+        try:
+            for ins in program.instructions:
+                op, args = ins.opcode, ins.args
+                if op == K_SET:
+                    self._arity(ins, 3)
+                    overlay[(args[0], args[1])] = args[2]
+                    mutations.append(ins)
+                elif op == K_SHIFT:
+                    self._arity(ins, 4)
+                    actual = read(args[0], args[1])
+                    if actual != args[2]:
+                        raise VMExecutionError(
+                            f"shift failed: {args[0]}.{args[1]} expected {args[2]!r}, found {actual!r}"
+                        )
+                    overlay[(args[0], args[1])] = args[3]
+                    mutations.append(ins)
+                elif op == K_REQUIRE:
+                    self._arity(ins, 3)
+                    actual = read(args[0], args[1])
+                    if actual != args[2]:
+                        raise VMExecutionError(
+                            f"require failed: {args[0]}.{args[1]} expected {args[2]!r}, found {actual!r}"
+                        )
+                elif op == K_CLEAR:
+                    self._arity(ins, 2)
+                    overlay[(args[0], args[1])] = None
+                    mutations.append(ins)
+                else:
+                    raise VMExecutionError(f"unimplemented opcode {op}")
+        except Exception as exc:
+            if isinstance(exc, VMExecutionError):
+                raise
+            raise VMExecutionError(str(exc)) from exc
+
+        start = self.ledger.clock
+        for ins in mutations:
+            op, args = ins.opcode, ins.args
+            if op == K_SET:
+                self.ledger.append_state(args[0], args[1], args[2], branch=branch, provenance="vm")
+            elif op == K_SHIFT:
+                self.ledger.transition(args[0], args[1], args[2], args[3], branch=branch, provenance="vm")
+            elif op == K_CLEAR:
+                self.ledger.retract(args[0], args[1], branch=branch, provenance="vm")
+        return (start + 1 if mutations else start), self.ledger.clock
 
     @staticmethod
     def _arity(ins: Instruction, expected: int) -> None:
