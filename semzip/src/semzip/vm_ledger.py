@@ -39,11 +39,7 @@ class Branch:
 
 
 class EventLedger:
-    """Append-only semantic event ledger with branch-aware projections.
-
-    Durable truth is the event stream. Current state is a projection obtained by
-    replaying the visible events of a branch.
-    """
+    """Append-only semantic event ledger with branch-aware projections."""
 
     def __init__(self) -> None:
         self._events: list[LedgerEvent] = []
@@ -92,16 +88,9 @@ class EventLedger:
         self._ensure_branch(branch)
         before = self.current(subject, relation, branch=branch)
         return self._append(
-            "state",
-            subject,
-            relation,
-            before,
-            value,
-            branch=branch,
-            actor=actor,
-            confidence=confidence,
-            provenance=provenance,
-            metadata=metadata,
+            "state", subject, relation, before, value,
+            branch=branch, actor=actor, confidence=confidence,
+            provenance=provenance, metadata=metadata,
         )
 
     def transition(
@@ -126,16 +115,9 @@ class EventLedger:
                 f"transition expected {subject}.{relation}={before!r}, found {current!r}"
             )
         return self._append(
-            "transition",
-            subject,
-            relation,
-            current,
-            after,
-            branch=branch,
-            actor=actor,
-            confidence=confidence,
-            provenance=provenance,
-            metadata=metadata,
+            "transition", subject, relation, current, after,
+            branch=branch, actor=actor, confidence=confidence,
+            provenance=provenance, metadata=metadata,
         )
 
     def retract(
@@ -152,6 +134,56 @@ class EventLedger:
         return self._append(
             "retract", subject, relation, current, None,
             branch=branch, actor=actor, provenance=provenance,
+        )
+
+    def observe(
+        self,
+        subject: str,
+        relation: str,
+        value: str,
+        *,
+        branch: str = "main",
+        confidence: float = 1.0,
+        provenance: str = "perception",
+        metadata: Mapping[str, str] | None = None,
+    ) -> LedgerEvent:
+        """Record evidence without promoting it into accepted world state."""
+        subject, relation, value, branch = map(atom, (subject, relation, value, branch))
+        self._ensure_branch(branch)
+        return self._append(
+            "observation", subject, relation,
+            self.current(subject, relation, branch=branch), value,
+            branch=branch, confidence=confidence,
+            provenance=provenance, metadata=metadata,
+        )
+
+    def observations(
+        self, subject: str, relation: str, *, branch: str = "main"
+    ) -> tuple[LedgerEvent, ...]:
+        subject, relation, branch = atom(subject), atom(relation), atom(branch)
+        visible = self._visible_events(branch, None)
+        return tuple(
+            e for e in visible
+            if e.kind == "observation" and e.subject == subject and e.relation == relation
+        )
+
+    def best_observation(
+        self, subject: str, relation: str, *, branch: str = "main"
+    ) -> LedgerEvent | None:
+        evidence = self.observations(subject, relation, branch=branch)
+        if not evidence:
+            return None
+        return max(evidence, key=lambda e: (e.confidence, e.seq))
+
+    def accept_observation(self, event: LedgerEvent, *, branch: str | None = None) -> LedgerEvent:
+        if event.kind != "observation" or event.after is None:
+            raise ValueError("only concrete observation events can be accepted")
+        target_branch = atom(branch or event.branch)
+        return self.append_state(
+            event.subject, event.relation, event.after,
+            branch=target_branch, confidence=event.confidence,
+            provenance=f"accepted:{event.provenance}",
+            metadata={"source_event": str(event.seq)},
         )
 
     def current(self, subject: str, relation: str, *, branch: str = "main") -> str | None:
@@ -171,8 +203,9 @@ class EventLedger:
             return dict(self._heads[branch])
         visible = self._visible_events(branch, at)
         state: dict[tuple[str, str], str] = {}
-        # Confidence is retained in the ledger for later evidence fusion.
         for event in visible:
+            if event.kind == "observation":
+                continue
             key = (event.subject, event.relation)
             if event.after is None:
                 state.pop(key, None)
@@ -223,11 +256,12 @@ class EventLedger:
             metadata=tuple(sorted((atom(k), atom(v)) for k, v in (metadata or {}).items())),
         )
         self._events.append(event)
-        key = (event.subject, event.relation)
-        if event.after is None:
-            self._heads[event.branch].pop(key, None)
-        else:
-            self._heads[event.branch][key] = event.after
+        if event.kind != "observation":
+            key = (event.subject, event.relation)
+            if event.after is None:
+                self._heads[event.branch].pop(key, None)
+            else:
+                self._heads[event.branch][key] = event.after
         return event
 
     def _ensure_branch(self, branch: str) -> None:
