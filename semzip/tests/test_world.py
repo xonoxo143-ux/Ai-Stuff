@@ -167,6 +167,56 @@ class WorldTests(unittest.TestCase):
         world.apply(relation)
         self.assertEqual(world.causal_relations, (relation,))
 
+    def test_exchange_updates_both_sides_atomically(self):
+        from semzip.molecules import buy
+
+        world = WorldModel()
+        world.apply(
+            Meaning.build(
+                "STATE", {"subject": "book", "dimension": "owner", "value": "john"}
+            )
+        )
+        world.apply(
+            Meaning.build(
+                "STATE", {"subject": "cash", "dimension": "owner", "value": "mary"}
+            )
+        )
+        world.apply(buy("mary", "book", "john", "cash"))
+        self.assertEqual(world.fact("book", "owner"), "mary")
+        self.assertEqual(world.fact("cash", "owner"), "john")
+
+    def test_failed_exchange_does_not_apply_first_half(self):
+        from semzip.molecules import buy
+
+        world = WorldModel()
+        world.apply(
+            Meaning.build(
+                "STATE", {"subject": "book", "dimension": "owner", "value": "john"}
+            )
+        )
+        world.apply(
+            Meaning.build(
+                "STATE", {"subject": "cash", "dimension": "owner", "value": "bob"}
+            )
+        )
+        with self.assertRaises(ValueError):
+            world.apply(buy("mary", "book", "john", "cash"))
+        self.assertEqual(world.fact("book", "owner"), "john")
+        self.assertEqual(world.fact("cash", "owner"), "bob")
+
+    def test_loan_applies_transfer_but_keeps_return_as_obligation(self):
+        from semzip.molecules import lend
+
+        world = WorldModel()
+        world.apply(
+            Meaning.build(
+                "STATE", {"subject": "book", "dimension": "owner", "value": "john"}
+            )
+        )
+        world.apply(lend("john", "mary", "book"))
+        self.assertEqual(world.fact("book", "owner"), "mary")
+        self.assertEqual(world.modal_statements[-1].operator, "OBLIGATION")
+
     def test_ontology_transitivity(self):
         world = WorldModel()
         for child, parent in [
