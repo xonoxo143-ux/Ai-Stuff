@@ -34,7 +34,12 @@ class RelationDelta:
         unknown = tuple(x for x in normalized if x not in SUPPORTED_RELATIONS)
         if unknown:
             raise ValueError(f"unsupported grounded relations: {unknown}")
-        return cls(atom(subject), atom(source), atom(destination), normalized)
+        # Relation ordering is declarative, not procedural.
+        ordered = tuple(sorted(normalized, key=SUPPORTED_RELATIONS.index))
+        return cls(atom(subject), atom(source), atom(destination), ordered)
+
+    def transition_key(self) -> tuple[str, str, str, tuple[str, ...]]:
+        return (self.subject, self.source, self.destination, self.relations)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +53,29 @@ class SemanticDeltaFrame:
     primary: RelationDelta
     secondary: RelationDelta | None = None
     return_obligation: bool = False
+
+    def transition_fingerprint(self) -> tuple:
+        """Canonical effect-level identity, independent of harmless delta ordering.
+
+        A return obligation is anchored to the primary possession transition, so
+        frames carrying one retain primary/secondary order. Pure multi-delta world
+        transitions such as reciprocal exchange are canonicalized as an unordered
+        set of relation deltas.
+        """
+
+        if self.secondary is None:
+            deltas = (self.primary.transition_key(),)
+        elif self.return_obligation:
+            deltas = (self.primary.transition_key(), self.secondary.transition_key())
+        else:
+            deltas = tuple(sorted((
+                self.primary.transition_key(),
+                self.secondary.transition_key(),
+            )))
+        return (deltas, bool(self.return_obligation))
+
+    def transition_equivalent(self, other: "SemanticDeltaFrame") -> bool:
+        return self.transition_fingerprint() == other.transition_fingerprint()
 
 
 def compile_delta_frame(frame: SemanticDeltaFrame) -> Program:
