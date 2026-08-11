@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "semzip"
-version = "0.1.0"
-description = "Experimental semantic codec and canonical meaning graph"
+version = "0.3.0"
+description = "Experimental canonical semantic IR, world model, and semantic compression toolkit"
 requires-python = ">=3.10"
 dependencies = []
 
