@@ -11,6 +11,7 @@ from .story import (
     UnsupportedStorySentence,
 )
 from .world import Ontology, WorldModel
+from .vm_delta import RelationDelta, SemanticDeltaFrame, compile_delta_frame
 from .vm_kernel import Instruction, Program, SemanticVM, VMExecutionError
 from .vm_ledger import EventLedger, LedgerEvent
 from .vm_minds import MindSpace
@@ -26,6 +27,8 @@ __all__ = [
     "Ontology",
     "Program",
     "QueryAnswer",
+    "RelationDelta",
+    "SemanticDeltaFrame",
     "SemanticGraph",
     "SemanticValidationError",
     "SemanticVM",
@@ -35,6 +38,7 @@ __all__ = [
     "VMExecutionError",
     "WorldModel",
     "WorldQueryEngine",
+    "compile_delta_frame",
     "validate_meaning",
 ]
 __version__ = "0.4.0"
