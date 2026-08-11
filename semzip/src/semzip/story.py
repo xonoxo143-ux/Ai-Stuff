@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+from typing import Callable
 
+from .collections import ambiguity, bundle
 from .meaning import Meaning
 from .world import WorldModel
 
@@ -11,14 +13,18 @@ class UnsupportedStorySentence(ValueError):
 
 
 class AmbiguousReferenceError(UnsupportedStorySentence):
-    pass
+    """Raised only when a caller explicitly demands one referent."""
+
+
+Reference = str | tuple[str, ...]
 
 
 class MiniWorldInterpreter:
-    """Dependency-free parser for the v0.2/v0.3 world-model gates.
+    """Dependency-free parser for the small world-model gates.
 
-    The grammar is intentionally small. Entity identity is separate from lexical
-    type so multiple objects of the same kind can exist without being merged.
+    Entity identity is separate from lexical type. When a definite reference has
+    several candidates, parse() preserves the alternatives in AMBIGUITY rather
+    than guessing. feed() refuses to mutate reality until ambiguity is resolved.
     """
 
     _OWNED = re.compile(
@@ -63,6 +69,8 @@ class MiniWorldInterpreter:
 
     def feed(self, sentence: str) -> tuple[Meaning, ...]:
         meanings = self.parse(self._normalize(sentence))
+        if any(meaning.operator == "AMBIGUITY" for meaning in meanings):
+            return meanings
         self.world.apply_many(meanings)
         return meanings
 
@@ -71,41 +79,24 @@ class MiniWorldInterpreter:
             d = match.groupdict()
             noun = d["object"].casefold()
             article = d["article"].casefold()
-            obj = (
-                self._new_entity(noun)
-                if article in {"a", "an"}
-                else self._resolve_type(noun)
+            if article in {"a", "an"}:
+                obj = self._new_entity(noun)
+                return self._owned_meanings(obj, noun, d["owner"], d.get("modifier"))
+
+            ref = self._resolve_reference(noun)
+            return self._branch_many(
+                ref,
+                lambda obj: self._owned_meanings(
+                    obj, noun, d["owner"], d.get("modifier")
+                ),
             )
-            self._last_object = obj
-            meanings = [
-                Meaning.build(
-                    "STATE",
-                    {"subject": obj, "dimension": "type", "value": noun},
-                ),
-                Meaning.build(
-                    "STATE",
-                    {"subject": obj, "dimension": "owner", "value": d["owner"]},
-                ),
-            ]
-            if d.get("modifier"):
-                meanings.append(
-                    Meaning.build(
-                        "STATE",
-                        {
-                            "subject": obj,
-                            "dimension": "color",
-                            "value": d["modifier"],
-                        },
-                    )
-                )
-            return tuple(meanings)
 
         if match := self._GAVE.fullmatch(text):
             d = match.groupdict()
-            obj = self._resolve_type(d["object"])
-            self._last_object = obj
-            return (
-                Meaning.build(
+            ref = self._resolve_reference(d["object"])
+            return self._branch_one(
+                ref,
+                lambda obj: Meaning.build(
                     "CHANGE",
                     {
                         "subject": obj,
@@ -119,10 +110,10 @@ class MiniWorldInterpreter:
 
         if match := self._PUT.fullmatch(text):
             d = match.groupdict()
-            obj = self._resolve_object(d["object"])
-            self._last_object = obj
-            return (
-                Meaning.build(
+            ref = self._resolve_object(d["object"])
+            return self._branch_one(
+                ref,
+                lambda obj: Meaning.build(
                     "CHANGE",
                     {
                         "subject": obj,
@@ -135,29 +126,31 @@ class MiniWorldInterpreter:
 
         if match := self._BELIEF.fullmatch(text):
             d = match.groupdict()
-            obj = self._resolve_type(d["object"])
-            self._last_object = obj
-            content = Meaning.build(
-                "STATE",
-                {
-                    "subject": obj,
-                    "dimension": "owner",
-                    "value": d["owner"],
-                },
-            )
-            return (
-                Meaning.build(
+            ref = self._resolve_reference(d["object"])
+            return self._branch_one(
+                ref,
+                lambda obj: Meaning.build(
                     "BELIEVE",
-                    {"holder": d["holder"], "content": content},
+                    {
+                        "holder": d["holder"],
+                        "content": Meaning.build(
+                            "STATE",
+                            {
+                                "subject": obj,
+                                "dimension": "owner",
+                                "value": d["owner"],
+                            },
+                        ),
+                    },
                 ),
             )
 
         if match := self._MOVED.fullmatch(text):
             d = match.groupdict()
-            obj = self._resolve_type(d["object"])
-            self._last_object = obj
-            return (
-                Meaning.build(
+            ref = self._resolve_reference(d["object"])
+            return self._branch_one(
+                ref,
+                lambda obj: Meaning.build(
                     "CHANGE",
                     {
                         "subject": obj,
@@ -170,29 +163,62 @@ class MiniWorldInterpreter:
 
         if match := self._DOES_NOT_KNOW.fullmatch(text):
             d = match.groupdict()
-            obj = self._resolve_type(d["object"])
-            self._last_object = obj
-            query = Meaning.build(
-                "KNOW_VALUE",
-                {
-                    "holder": d["holder"],
-                    "subject": obj,
-                    "dimension": "location",
-                },
+            ref = self._resolve_reference(d["object"])
+            return self._branch_one(
+                ref,
+                lambda obj: Meaning.build(
+                    "NOT",
+                    {
+                        "content": Meaning.build(
+                            "KNOW_VALUE",
+                            {
+                                "holder": d["holder"],
+                                "subject": obj,
+                                "dimension": "location",
+                            },
+                        )
+                    },
+                ),
             )
-            return (Meaning.build("NOT", {"content": query}),)
 
         raise UnsupportedStorySentence(
             f"mini-world grammar cannot safely represent: {text!r}"
         )
 
-    def _resolve_object(self, surface: str) -> str:
+    def _owned_meanings(
+        self,
+        obj: str,
+        noun: str,
+        owner: str,
+        modifier: str | None,
+    ) -> tuple[Meaning, ...]:
+        self._last_object = obj
+        meanings = [
+            Meaning.build(
+                "STATE",
+                {"subject": obj, "dimension": "type", "value": noun},
+            ),
+            Meaning.build(
+                "STATE",
+                {"subject": obj, "dimension": "owner", "value": owner},
+            ),
+        ]
+        if modifier:
+            meanings.append(
+                Meaning.build(
+                    "STATE",
+                    {"subject": obj, "dimension": "color", "value": modifier},
+                )
+            )
+        return tuple(meanings)
+
+    def _resolve_object(self, surface: str) -> Reference:
         if surface.casefold() == "it":
             if self._last_object is None:
                 raise UnsupportedStorySentence("pronoun 'it' has no known referent")
             return self._last_object
         noun = re.sub(r"^the +", "", surface, flags=re.I).casefold()
-        return self._resolve_type(noun)
+        return self._resolve_reference(noun)
 
     def _new_entity(self, noun: str) -> str:
         noun = noun.casefold()
@@ -201,16 +227,44 @@ class MiniWorldInterpreter:
         bucket.append(entity_id)
         return entity_id
 
-    def _resolve_type(self, noun: str) -> str:
+    def _resolve_reference(self, noun: str) -> Reference:
         noun = noun.casefold()
-        candidates = self._entities_by_type.get(noun, [])
+        candidates = tuple(self._entities_by_type.get(noun, ()))
         if not candidates:
             raise UnsupportedStorySentence(f"no known referent for {noun!r}")
-        if len(candidates) > 1:
+        if len(candidates) == 1:
+            return candidates[0]
+        return candidates
+
+    def resolve_unique(self, noun: str) -> str:
+        ref = self._resolve_reference(noun)
+        if isinstance(ref, tuple):
             raise AmbiguousReferenceError(
-                f"reference {noun!r} matches multiple entities: {candidates}"
+                f"reference {noun!r} matches multiple entities: {list(ref)}"
             )
-        return candidates[0]
+        return ref
+
+    def _branch_one(
+        self,
+        ref: Reference,
+        builder: Callable[[str], Meaning],
+    ) -> tuple[Meaning, ...]:
+        if isinstance(ref, str):
+            self._last_object = ref
+            return (builder(ref),)
+        options = tuple(builder(candidate) for candidate in ref)
+        return (ambiguity(options),)
+
+    def _branch_many(
+        self,
+        ref: Reference,
+        builder: Callable[[str], tuple[Meaning, ...]],
+    ) -> tuple[Meaning, ...]:
+        if isinstance(ref, str):
+            self._last_object = ref
+            return builder(ref)
+        options = tuple(bundle(builder(candidate)) for candidate in ref)
+        return (ambiguity(options),)
 
     @staticmethod
     def _normalize(text: str) -> str:
