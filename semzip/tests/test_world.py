@@ -1,7 +1,11 @@
 import unittest
 
 from semzip.meaning import Meaning
-from semzip.story import MiniWorldInterpreter, UnsupportedStorySentence
+from semzip.story import (
+    AmbiguousReferenceError,
+    MiniWorldInterpreter,
+    UnsupportedStorySentence,
+)
 from semzip.world import WorldModel
 
 
@@ -227,6 +231,22 @@ class WorldTests(unittest.TestCase):
             world.apply(Meaning.build("IS_A", {"child": child, "parent": parent}))
         self.assertTrue(world.ontology.is_a("dog", "living_entity"))
         self.assertFalse(world.ontology.is_a("dog", "vehicle"))
+
+    def test_multiple_entities_of_same_type_keep_distinct_identity(self):
+        interpreter = MiniWorldInterpreter()
+        interpreter.feed("John owned a red key.")
+        interpreter.feed("Mary owned a blue key.")
+        self.assertEqual(interpreter.world.fact("key", "owner"), "john")
+        self.assertEqual(interpreter.world.fact("key#2", "owner"), "mary")
+        self.assertEqual(interpreter.world.fact("key", "type"), "key")
+        self.assertEqual(interpreter.world.fact("key#2", "type"), "key")
+
+    def test_ambiguous_definite_reference_fails_instead_of_guessing(self):
+        interpreter = MiniWorldInterpreter()
+        interpreter.feed("John owned a red key.")
+        interpreter.feed("Mary owned a blue key.")
+        with self.assertRaises(AmbiguousReferenceError):
+            interpreter.feed("John gave the key to Bob.")
 
     def test_unsupported_story_fails_loudly(self):
         interpreter = MiniWorldInterpreter()
