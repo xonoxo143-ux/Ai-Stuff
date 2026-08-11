@@ -36,6 +36,36 @@ class Meaning:
             tuple(sorted(clean, key=lambda item: item[0])),
         )
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, object]) -> "Meaning":
+        operator = data.get("operator")
+        roles = data.get("roles")
+        if not isinstance(operator, str) or not isinstance(roles, Mapping):
+            raise ValueError(
+                "meaning dict requires string 'operator' and mapping 'roles'"
+            )
+        decoded: dict[str, MeaningValue] = {}
+        for role, value in roles.items():
+            if not isinstance(role, str):
+                raise ValueError("semantic role names must be strings")
+            if isinstance(value, Mapping):
+                decoded[role] = cls.from_dict(value)
+            elif isinstance(value, (str, bool, int, float)):
+                decoded[role] = value
+            else:
+                raise ValueError(
+                    f"unsupported serialized value for role {role!r}: "
+                    f"{type(value).__name__}"
+                )
+        return cls.build(operator, decoded)
+
+    @classmethod
+    def from_json(cls, text: str) -> "Meaning":
+        data = json.loads(text)
+        if not isinstance(data, Mapping):
+            raise ValueError("serialized meaning must be a JSON object")
+        return cls.from_dict(data)
+
     def get(self, role: str) -> MeaningValue | None:
         return dict(self.roles).get(_canon_atom(role))
 
