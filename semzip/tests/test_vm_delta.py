@@ -43,6 +43,26 @@ class SemanticDeltaCompilerTests(unittest.TestCase):
         self.assertEqual(vm.ledger.current("book", "owner"), "mary")
         self.assertEqual(vm.ledger.current("coin", "owner"), "john")
 
+    def test_reciprocal_delta_order_does_not_change_transition_identity(self):
+        goods = RelationDelta.build("book", "john", "mary", ("possessor", "owner"))
+        payment = RelationDelta.build("coin", "mary", "john", ("owner", "possessor"))
+        left = SemanticDeltaFrame(goods, secondary=payment)
+        right = SemanticDeltaFrame(payment, secondary=goods)
+        self.assertTrue(left.transition_equivalent(right))
+        self.assertEqual(left.transition_fingerprint(), right.transition_fingerprint())
+
+    def test_relation_order_is_canonical(self):
+        left = RelationDelta.build("book", "john", "mary", ("possessor", "owner"))
+        right = RelationDelta.build("book", "john", "mary", ("owner", "possessor"))
+        self.assertEqual(left, right)
+
+    def test_obligation_keeps_primary_transition_significant(self):
+        borrowed = RelationDelta.build("book", "john", "mary", ("possessor",))
+        other = RelationDelta.build("coin", "mary", "john", ("owner",))
+        left = SemanticDeltaFrame(borrowed, secondary=other, return_obligation=True)
+        right = SemanticDeltaFrame(other, secondary=borrowed, return_obligation=True)
+        self.assertFalse(left.transition_equivalent(right))
+
     def test_obligation_requires_possession_delta(self):
         frame = SemanticDeltaFrame(
             RelationDelta.build("book", "john", "mary", ("owner",)),
