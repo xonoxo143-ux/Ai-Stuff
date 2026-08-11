@@ -56,12 +56,14 @@ class SemanticDeltaCompilerTests(unittest.TestCase):
         right = RelationDelta.build("book", "john", "mary", ("owner", "possessor"))
         self.assertEqual(left, right)
 
-    def test_obligation_keeps_primary_transition_significant(self):
+    def test_legacy_obligation_must_be_anchored_to_possession_primary(self):
         borrowed = RelationDelta.build("book", "john", "mary", ("possessor",))
         other = RelationDelta.build("coin", "mary", "john", ("owner",))
-        left = SemanticDeltaFrame(borrowed, secondary=other, return_obligation=True)
-        right = SemanticDeltaFrame(other, secondary=borrowed, return_obligation=True)
-        self.assertFalse(left.transition_equivalent(right))
+        valid = SemanticDeltaFrame(borrowed, secondary=other, return_obligation=True)
+        invalid = SemanticDeltaFrame(other, secondary=borrowed, return_obligation=True)
+        self.assertTrue(valid.to_patch().return_obligations)
+        with self.assertRaises(ValueError):
+            invalid.to_patch()
 
     def test_obligation_requires_possession_delta(self):
         frame = SemanticDeltaFrame(
