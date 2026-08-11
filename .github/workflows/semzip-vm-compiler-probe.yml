@@ -77,19 +77,13 @@ jobs:
         if: always()
         shell: bash
         run: |
-          {
-            echo "# SemVM compiler probe"
-            echo
-            echo "Branch: semzip-vm"
-            echo "Model: HuggingFaceTB/SmolLM2-135M-Instruct"
-            if [[ -f semzip/compiler-probe-results.json ]]; then
-              echo
-              echo '```json'
-              python - <<'PY'
-          import json
-          p = json.load(open('semzip/compiler-probe-results.json'))
-          print(json.dumps({k:p[k] for k in ('model','cases','valid_json','valid_program','exact_program')}, indent=2))
-          PY
-              echo '```'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "# SemVM compiler probe" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "Branch: semzip-vm" >> "$GITHUB_STEP_SUMMARY"
+          echo "Model: HuggingFaceTB/SmolLM2-135M-Instruct" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f semzip/compiler-probe-results.json ]]; then
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            python -c "import json; p=json.load(open('semzip/compiler-probe-results.json')); print(json.dumps({k:p[k] for k in ('model','cases','valid_json','valid_program','exact_program')}, indent=2))" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
