@@ -3,6 +3,7 @@ import unittest
 from semzip.vm_compile import seed_object
 from semzip.vm_delta import RelationDelta, SemanticDeltaFrame, compile_delta_frame
 from semzip.vm_kernel import SemanticVM
+from semzip.vm_relations import DEFAULT_RELATION_REGISTRY
 
 
 class SemanticDeltaCompilerTests(unittest.TestCase):
@@ -73,9 +74,16 @@ class SemanticDeltaCompilerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compile_delta_frame(frame)
 
-    def test_unknown_relation_is_rejected(self):
+    def test_vm_relation_delta_is_not_limited_to_toy_vocabulary(self):
+        delta = RelationDelta.build("switch", "off", "on", ("powered",))
+        self.assertEqual(delta.relations, ("powered",))
+
+    def test_compiler_registry_rejects_unregistered_relation(self):
         with self.assertRaises(ValueError):
-            RelationDelta.build("book", "john", "mary", ("magic",))
+            RelationDelta.build(
+                "book", "john", "mary", ("magic",),
+                registry=DEFAULT_RELATION_REGISTRY,
+            )
 
 
 if __name__ == "__main__":
