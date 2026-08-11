@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .vm_kernel import Instruction, Program, K_REQUIRE, K_SET, K_SHIFT
+from .vm_kernel import Program
 from .vm_ledger import atom
 
 
@@ -34,7 +34,6 @@ class RelationDelta:
         unknown = tuple(x for x in normalized if x not in SUPPORTED_RELATIONS)
         if unknown:
             raise ValueError(f"unsupported grounded relations: {unknown}")
-        # Relation ordering is declarative, not procedural.
         ordered = tuple(sorted(normalized, key=SUPPORTED_RELATIONS.index))
         return cls(atom(subject), atom(source), atom(destination), ordered)
 
@@ -44,61 +43,41 @@ class RelationDelta:
 
 @dataclass(frozen=True, slots=True)
 class SemanticDeltaFrame:
-    """Language-neutral world-change frame consumed by SemVM.
+    """Compatibility frame for the earlier one/two-delta compiler boundary.
 
-    The frame deliberately has no GIVE/LEND/SELL opcode. Complex events are
-    compositions of one or more relation deltas plus optional side effects.
+    New code should prefer SemanticPatch, which supports any number of unordered
+    relation deltas. This type remains useful for existing benchmarks/adapters.
     """
 
     primary: RelationDelta
     secondary: RelationDelta | None = None
     return_obligation: bool = False
 
+    def to_patch(self):
+        from .vm_patch import ReturnObligation, SemanticPatch
+
+        deltas = (self.primary,) if self.secondary is None else (self.primary, self.secondary)
+        obligations = ()
+        if self.return_obligation:
+            if "possessor" not in self.primary.relations:
+                raise ValueError("return obligation requires a primary possession transition")
+            obligations = (
+                ReturnObligation.build(
+                    self.primary.subject,
+                    self.primary.destination,
+                    self.primary.source,
+                ),
+            )
+        return SemanticPatch.build(deltas, return_obligations=obligations)
+
     def transition_fingerprint(self) -> tuple:
-        """Canonical effect-level identity, independent of harmless delta ordering.
-
-        A return obligation is anchored to the primary possession transition, so
-        frames carrying one retain primary/secondary order. Pure multi-delta world
-        transitions such as reciprocal exchange are canonicalized as an unordered
-        set of relation deltas.
-        """
-
-        if self.secondary is None:
-            deltas = (self.primary.transition_key(),)
-        elif self.return_obligation:
-            deltas = (self.primary.transition_key(), self.secondary.transition_key())
-        else:
-            deltas = tuple(sorted((
-                self.primary.transition_key(),
-                self.secondary.transition_key(),
-            )))
-        return (deltas, bool(self.return_obligation))
+        return self.to_patch().transition_fingerprint()
 
     def transition_equivalent(self, other: "SemanticDeltaFrame") -> bool:
         return self.transition_fingerprint() == other.transition_fingerprint()
 
 
 def compile_delta_frame(frame: SemanticDeltaFrame) -> Program:
-    instructions: list[Instruction] = []
+    from .vm_patch import compile_semantic_patch
 
-    def add_delta(delta: RelationDelta) -> None:
-        for relation in delta.relations:
-            instructions.append(Instruction.make(K_REQUIRE, delta.subject, relation, delta.source))
-            instructions.append(
-                Instruction.make(K_SHIFT, delta.subject, relation, delta.source, delta.destination)
-            )
-
-    add_delta(frame.primary)
-    if frame.secondary is not None:
-        add_delta(frame.secondary)
-
-    if frame.return_obligation:
-        if "possessor" not in frame.primary.relations:
-            raise ValueError("return obligation requires a primary possession transition")
-        obligation = (
-            f"obligation:return:{frame.primary.subject}:"
-            f"{frame.primary.destination}:{frame.primary.source}"
-        )
-        instructions.append(Instruction.make(K_SET, obligation, "status", "active"))
-
-    return Program.build(instructions, label="semantic_delta")
+    return compile_semantic_patch(frame.to_patch())
