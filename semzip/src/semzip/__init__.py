@@ -21,9 +21,11 @@ from .vm_kernel import Instruction, Program, SemanticVM, VMExecutionError
 from .vm_ledger import EventLedger, LedgerEvent
 from .vm_minds import MindSpace
 from .vm_patch import ReturnObligation, SemanticPatch, compile_semantic_patch
+from .vm_relations import DEFAULT_RELATION_REGISTRY, RelationRegistry, RelationSpec
 
 __all__ = [
     "AmbiguousReferenceError",
+    "DEFAULT_RELATION_REGISTRY",
     "DeltaPrediction",
     "DeltaPredictionError",
     "EventLedger",
@@ -36,6 +38,8 @@ __all__ = [
     "Program",
     "QueryAnswer",
     "RelationDelta",
+    "RelationRegistry",
+    "RelationSpec",
     "ReturnObligation",
     "SemanticDeltaFrame",
     "SemanticGraph",
