@@ -4,14 +4,29 @@ from dataclasses import dataclass
 
 from .vm_kernel import Program
 from .vm_ledger import atom
+from .vm_relations import DEFAULT_RELATION_REGISTRY, RelationRegistry
 
 
-SUPPORTED_RELATIONS = ("owner", "possessor", "location")
+# Compatibility/debug view of the current toy semantic library. These names are
+# not VM opcodes and RelationDelta itself is no longer restricted to this set.
+SUPPORTED_RELATIONS = DEFAULT_RELATION_REGISTRY.names()
+
+
+def _relation_sort_key(name: str):
+    try:
+        return (0, DEFAULT_RELATION_REGISTRY.resolve_name(name).relation_id, "")
+    except KeyError:
+        return (1, 0, name)
 
 
 @dataclass(frozen=True, slots=True)
 class RelationDelta:
-    """One entity changing one or more grounded world relations."""
+    """One entity changing one or more world-relation dimensions.
+
+    The VM-level structure is vocabulary-agnostic. A caller may optionally supply
+    a RelationRegistry when constructing untrusted/compiler-facing data; trusted
+    internal code can create new dimensions without changing kernel code.
+    """
 
     subject: str
     source: str
@@ -25,16 +40,19 @@ class RelationDelta:
         source: str,
         destination: str,
         relations: tuple[str, ...] | list[str],
+        *,
+        registry: RelationRegistry | None = None,
     ) -> "RelationDelta":
         normalized = tuple(atom(x) for x in relations)
         if not normalized:
             raise ValueError("relation delta must change at least one relation")
         if len(set(normalized)) != len(normalized):
             raise ValueError("relation delta contains duplicate relations")
-        unknown = tuple(x for x in normalized if x not in SUPPORTED_RELATIONS)
-        if unknown:
-            raise ValueError(f"unsupported grounded relations: {unknown}")
-        ordered = tuple(sorted(normalized, key=SUPPORTED_RELATIONS.index))
+        if registry is not None:
+            unknown = tuple(name for name in normalized if name not in registry)
+            if unknown:
+                raise ValueError(f"relations are not registered for this compiler: {unknown}")
+        ordered = tuple(sorted(normalized, key=_relation_sort_key))
         return cls(atom(subject), atom(source), atom(destination), ordered)
 
     def transition_key(self) -> tuple[str, str, str, tuple[str, ...]]:
