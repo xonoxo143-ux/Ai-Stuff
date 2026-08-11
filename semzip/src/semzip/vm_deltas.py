@@ -52,7 +52,6 @@ def world_delta(before: State, after: State) -> tuple[Delta, ...]:
 
 
 def normalize_deltas(deltas: Iterable[Delta]) -> DeltaFragment:
-    """Canonicalize identities while preserving cross-change equality structure."""
     deltas = tuple(deltas)
     deltas = tuple(sorted(deltas, key=lambda d: (d.relation, d.subject, d.before or "", d.after or "")))
     mapping: dict[str, int] = {}
@@ -182,3 +181,53 @@ def discover_delta_macros(
             )
     candidates.sort(key=lambda c: (-c.net_savings, -len(c.pattern), -c.uses, c.pattern))
     return DeltaDiscoveryReport(base, tuple(candidates))
+
+
+@dataclass(frozen=True, slots=True)
+class PatternFactorization:
+    child: DeltaFragment
+    uses: int
+    uncovered_rows: int
+
+    @property
+    def exact(self) -> bool:
+        return self.uncovered_rows == 0
+
+
+def factor_pattern(parent: DeltaFragment, child: DeltaFragment) -> PatternFactorization:
+    """Ask whether a learned delta pattern is itself composed of another pattern."""
+    rows = tuple(
+        Delta(
+            subject=f"v{row[0]}",
+            relation=f"v{row[1]}",
+            before=None if row[2] < 0 else f"v{row[2]}",
+            after=None if row[3] < 0 else f"v{row[3]}",
+        )
+        for row in parent
+    )
+    uses, used = _nonoverlap_uses(child, rows)
+    return PatternFactorization(child, uses, len(parent) - len(used))
+
+
+def recursive_factorizations(
+    report: DeltaDiscoveryReport,
+) -> tuple[tuple[DeltaMacroCandidate, DeltaMacroCandidate, PatternFactorization], ...]:
+    """Find larger learned patterns expressible by smaller learned patterns."""
+    out = []
+    candidates = report.candidates
+    for parent in candidates:
+        for child in candidates:
+            if len(child.pattern) >= len(parent.pattern):
+                continue
+            fact = factor_pattern(parent.pattern, child.pattern)
+            if fact.uses:
+                out.append((parent, child, fact))
+    out.sort(
+        key=lambda x: (
+            not x[2].exact,
+            -x[2].uses,
+            -len(x[0].pattern),
+            len(x[1].pattern),
+        )
+    )
+    return tuple(out)
