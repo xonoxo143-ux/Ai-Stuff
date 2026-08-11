@@ -12,12 +12,19 @@ from .story import (
 )
 from .world import Ontology, WorldModel
 from .vm_delta import RelationDelta, SemanticDeltaFrame, compile_delta_frame
+from .vm_delta_bridge import (
+    DeltaPrediction,
+    DeltaPredictionError,
+    resolve_delta_prediction,
+)
 from .vm_kernel import Instruction, Program, SemanticVM, VMExecutionError
 from .vm_ledger import EventLedger, LedgerEvent
 from .vm_minds import MindSpace
 
 __all__ = [
     "AmbiguousReferenceError",
+    "DeltaPrediction",
+    "DeltaPredictionError",
     "EventLedger",
     "Instruction",
     "LedgerEvent",
@@ -39,6 +46,7 @@ __all__ = [
     "WorldModel",
     "WorldQueryEngine",
     "compile_delta_frame",
+    "resolve_delta_prediction",
     "validate_meaning",
 ]
 __version__ = "0.4.0"
