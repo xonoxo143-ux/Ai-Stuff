@@ -9,6 +9,8 @@ on:
       - "semzip/src/semzip/vm_*.py"
       - "semzip/tests/test_vm*.py"
       - "semzip/src/semzip/__init__.py"
+      - "semzip/benchmarks/vm_progress_gate.py"
+      - "semzip/benchmarks/patch_abstraction_gate.py"
 
 jobs:
   test:
@@ -28,3 +30,4 @@ jobs:
           cd semzip
           python -m unittest discover -s tests -p 'test_vm*.py' -v
           python benchmarks/vm_progress_gate.py
+          python benchmarks/patch_abstraction_gate.py
