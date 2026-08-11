@@ -1,0 +1,30 @@
+name: SemVM Core
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [semzip-vm]
+    paths:
+      - ".github/workflows/semzip-vm-core.yml"
+      - "semzip/src/semzip/vm_*.py"
+      - "semzip/tests/test_vm*.py"
+      - "semzip/src/semzip/__init__.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install SemVM
+        run: python -m pip install -e ./semzip
+      - name: Run VM regression suite
+        run: |
+          cd semzip
+          python -m unittest discover -s tests -p 'test_vm*.py' -v
+          python benchmarks/vm_progress_gate.py
