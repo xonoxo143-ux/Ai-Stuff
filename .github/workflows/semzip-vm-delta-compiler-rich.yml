@@ -1,0 +1,69 @@
+name: SemVM Delta Compiler Rich 135M
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [semzip-vm]
+    paths:
+      - ".github/workflows/semzip-vm-delta-compiler-rich.yml"
+      - "semzip/benchmarks/compiler_delta_rich_corpus.py"
+      - "semzip/benchmarks/train_delta_rich_compiler.py"
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache Hugging Face model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: semvm-smollm2-135m-v1
+
+      - name: Install SemVM
+        run: python -m pip install -e ./semzip
+
+      - name: Install CPU training runtime
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "transformers>=4.45,<5" safetensors "peft>=0.13,<1"
+
+      - name: Smoke rich curriculum
+        run: |
+          cd semzip
+          python benchmarks/compiler_delta_rich_corpus.py
+
+      - name: Train rich 135M delta compiler
+        run: |
+          cd semzip
+          python benchmarks/train_delta_rich_compiler.py \
+            --model HuggingFaceTB/SmolLM2-135M-Instruct \
+            --train-samples 1024 --eval-samples 96 --epochs 7 --batch-size 8
+
+      - name: Show result
+        if: always()
+        run: |
+          if [ -f semzip/compiler-delta-results.json ]; then
+            python -c "import json; p=json.load(open('semzip/compiler-delta-results.json')); print(json.dumps({k:p[k] for k in ('model','mode','train_samples','eval_samples','epochs','trainable_parameters','pointer_accuracy','bit_accuracy','exact_frame','exact_frame_accuracy','family_exact','loss_history')}, indent=2))"
+          fi
+
+      - name: Upload adapter and metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semvm-smollm2-135m-rich-delta-compiler
+          path: |
+            semzip/compiler-delta-results.json
+            semzip/semvm-delta-compiler-adapter
+          if-no-files-found: warn
+          retention-days: 14
