@@ -5,10 +5,9 @@ from semzip.vm_patch import ReturnObligation, SemanticPatch
 from semzip.vm_patch_mdl import (
     PatchMacro,
     candidate_cost,
-    canonical_pattern,
     discover_patch_macro_candidates,
+    factor_pattern,
     patch_pattern,
-    patch_records,
     promote_best_patch_macro,
 )
 
@@ -86,6 +85,23 @@ class PatchMDLTests(unittest.TestCase):
         expected = patch_pattern(transfer("thing", "source", "destination")).pattern
         self.assertEqual(candidates[0].pattern, expected)
         self.assertGreater(candidates[0].savings, 0)
+
+    def test_exchange_pattern_factors_into_two_transfer_patterns(self):
+        transfer_pattern = patch_pattern(transfer("thing", "source", "destination")).pattern
+        exchange_pattern = patch_pattern(exchange("goods", "seller", "buyer", "payment")).pattern
+        factors = factor_pattern(exchange_pattern, transfer_pattern)
+        self.assertIsNotNone(factors)
+        self.assertEqual(len(factors), 2)
+        # All four parent variables should be used across the two calls.
+        self.assertEqual(set(value for call in factors for value in call), {"V0", "V1", "V2", "V3"})
+
+    def test_nonfactorable_pattern_returns_none(self):
+        transfer_pattern = patch_pattern(transfer("thing", "source", "destination")).pattern
+        loan = SemanticPatch.build(
+            (RelationDelta.build("book", "john", "mary", ("possessor",)),),
+            return_obligations=(ReturnObligation.build("book", "mary", "john"),),
+        )
+        self.assertIsNone(factor_pattern(patch_pattern(loan).pattern, transfer_pattern))
 
     def test_promote_best_macro_requires_real_savings(self):
         corpus = (
