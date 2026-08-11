@@ -60,6 +60,18 @@ SPECS: dict[str, OperatorSpec] = {
     "EXCHANGE": OperatorSpec({"GOODS_TRANSFER": EXPR, "PAYMENT_TRANSFER": EXPR}),
     "OBLIGATION": OperatorSpec({"HOLDER": ATOM, "CONTENT": EXPR}),
     "LOAN": OperatorSpec({"TRANSFER": EXPR, "RETURN_OBLIGATION": EXPR}),
+    "QUERY_VALUE": OperatorSpec({"SUBJECT": ATOM, "DIMENSION": ATOM}),
+    "QUERY_PREVIOUS_VALUE": OperatorSpec({"SUBJECT": ATOM, "DIMENSION": ATOM}),
+    "QUERY_BELIEF": OperatorSpec(
+        {"HOLDER": ATOM, "SUBJECT": ATOM, "DIMENSION": ATOM}
+    ),
+    "QUERY_BELIEF_TRUE": OperatorSpec(
+        {"HOLDER": ATOM, "SUBJECT": ATOM, "DIMENSION": ATOM}
+    ),
+    "QUERY_KNOWS_VALUE": OperatorSpec(
+        {"HOLDER": ATOM, "SUBJECT": ATOM, "DIMENSION": ATOM}
+    ),
+    "QUERY_IS_A": OperatorSpec({"SUBJECT": ATOM, "ANCESTOR": ATOM}),
 }
 
 
