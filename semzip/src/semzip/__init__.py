@@ -34,9 +34,16 @@ from .vm_patch_bridge import (
     resolve_patch_prediction,
 )
 from .vm_relations import DEFAULT_RELATION_REGISTRY, RelationRegistry, RelationSpec
+from .vm_semantic_parse import (
+    AtomicSemanticCandidate,
+    SemanticParse,
+    candidate_splits,
+    parse_semantics,
+)
 
 __all__ = [
     "AmbiguousReferenceError",
+    "AtomicSemanticCandidate",
     "DEFAULT_RELATION_REGISTRY",
     "DeltaPrediction",
     "DeltaPredictionError",
@@ -59,6 +66,7 @@ __all__ = [
     "ReturnObligationPrediction",
     "SemanticDeltaFrame",
     "SemanticGraph",
+    "SemanticParse",
     "SemanticPatch",
     "SemanticValidationError",
     "SemanticVM",
@@ -68,9 +76,11 @@ __all__ = [
     "VMExecutionError",
     "WorldModel",
     "WorldQueryEngine",
+    "candidate_splits",
     "compile_delta_frame",
     "compile_semantic_patch",
     "compose_semantic_patches",
+    "parse_semantics",
     "resolve_delta_prediction",
     "resolve_patch_prediction",
     "validate_meaning",
