@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 from .meaning import Meaning
+from .schema import validate_meaning
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +111,7 @@ class WorldModel:
         return tuple(meaning for _, meaning in self._relations)
 
     def apply(self, meaning: Meaning) -> None:
+        validate_meaning(meaning)
         self._clock += 1
         self._apply(meaning)
 
@@ -182,6 +184,27 @@ class WorldModel:
             )
             return
 
+        if op == "EXCHANGE":
+            goods = meaning.expression("GOODS_TRANSFER")
+            payment = meaning.expression("PAYMENT_TRANSFER")
+            self._preflight_change(goods)
+            self._preflight_change(payment)
+            self._apply(goods)
+            self._apply(payment)
+            return
+
+        if op == "LOAN":
+            transfer = meaning.expression("TRANSFER")
+            obligation = meaning.expression("RETURN_OBLIGATION")
+            self._preflight_change(transfer)
+            self._apply(transfer)
+            self._modal.append((self._clock, obligation))
+            return
+
+        if op == "OBLIGATION":
+            self._modal.append((self._clock, meaning))
+            return
+
         if op in {
             "POSSIBLE", "PROBABLE", "NECESSARY", "INTENDED",
             "ATTEMPTED", "COUNTERFACTUAL", "CONDITIONAL",
@@ -196,6 +219,18 @@ class WorldModel:
             return
 
         raise ValueError(f"world update for {op!r} is not defined")
+
+    def _preflight_change(self, meaning: Meaning) -> None:
+        if meaning.operator != "CHANGE":
+            raise ValueError(f"expected CHANGE, got {meaning.operator!r}")
+        subject = meaning.atom("SUBJECT")
+        dimension = meaning.atom("DIMENSION")
+        before = meaning.optional_atom("BEFORE")
+        current = self.fact(subject, dimension)
+        if before is not None and current is not None and current != before:
+            raise ValueError(
+                f"CHANGE expected {subject}.{dimension}={before!r}, found {current!r}"
+            )
 
     def _set(self, subject: str, dimension: str, value: str) -> None:
         subject, dimension, value = _atom(subject), _atom(dimension), _atom(value)
