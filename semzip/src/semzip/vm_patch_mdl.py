@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations, permutations, product
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from .vm_delta import RelationDelta
 from .vm_patch import ReturnObligation, SemanticPatch
@@ -230,6 +230,29 @@ def _max_nonoverlapping_matches(
 
     visit(0, frozenset(), ())
     return best
+
+
+def factor_pattern(
+    pattern: PatchPattern,
+    component: PatchPattern,
+) -> tuple[tuple[str, ...], ...] | None:
+    """Return an exact non-overlapping factorization into repeated components.
+
+    Bindings are expressed in the parent pattern's variables. This lets a learned
+    macro definition itself be rewritten in terms of a smaller learned macro without
+    consulting surface words or VM bytecode.
+    """
+
+    if component.record_count >= pattern.record_count:
+        return None
+    records: tuple[ConcreteRecord, ...] = tuple(pattern.records)
+    selected = _max_nonoverlapping_matches(_matching_subsets(records, component))
+    if len(selected) < 2:
+        return None
+    used = {index for indices, _ in selected for index in indices}
+    if len(used) != len(records):
+        return None
+    return tuple(bindings for _, bindings in selected)
 
 
 def candidate_cost(
