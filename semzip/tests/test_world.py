@@ -1,13 +1,8 @@
 import unittest
 
 from semzip.meaning import Meaning
-from semzip.story import (
-    AmbiguousReferenceError,
-    MiniWorldInterpreter,
-    UnsupportedStorySentence,
-)
+from semzip.story import AmbiguousReferenceError, MiniWorldInterpreter, UnsupportedStorySentence
 from semzip.world import WorldModel
-
 
 STORY = [
     "John owned a red key.",
@@ -30,8 +25,7 @@ class MeaningTests(unittest.TestCase):
             {
                 "holder": "bob",
                 "content": Meaning.build(
-                    "state",
-                    {"dimension": "owner", "subject": "key", "value": "john"},
+                    "state", {"dimension": "owner", "subject": "key", "value": "john"}
                 ),
             },
         )
@@ -40,12 +34,10 @@ class MeaningTests(unittest.TestCase):
 
     def test_negation_changes_semantic_identity(self):
         p = Meaning.build(
-            "KNOW_VALUE",
-            {"holder": "John", "subject": "key", "dimension": "location"},
+            "KNOW_VALUE", {"holder": "John", "subject": "key", "dimension": "location"}
         )
         self.assertNotEqual(
-            p.semantic_hash(),
-            Meaning.build("NOT", {"content": p}).semantic_hash(),
+            p.semantic_hash(), Meaning.build("NOT", {"content": p}).semantic_hash()
         )
 
 
@@ -69,9 +61,7 @@ class WorldTests(unittest.TestCase):
     def test_belief_does_not_mutate_reality(self):
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "key", "dimension": "owner", "value": "mary"}
-            )
+            Meaning.build("STATE", {"subject": "key", "dimension": "owner", "value": "mary"})
         )
         belief = Meaning.build(
             "STATE", {"subject": "key", "dimension": "owner", "value": "john"}
@@ -83,19 +73,13 @@ class WorldTests(unittest.TestCase):
     def test_change_history_is_preserved(self):
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "key", "dimension": "location", "value": "table"}
-            )
+            Meaning.build("STATE", {"subject": "key", "dimension": "location", "value": "table"})
         )
         world.apply(
-            Meaning.build(
-                "CHANGE", {"subject": "key", "dimension": "location", "after": "kitchen"}
-            )
+            Meaning.build("CHANGE", {"subject": "key", "dimension": "location", "after": "kitchen"})
         )
         world.apply(
-            Meaning.build(
-                "CHANGE", {"subject": "key", "dimension": "location", "after": "garage"}
-            )
+            Meaning.build("CHANGE", {"subject": "key", "dimension": "location", "after": "garage"})
         )
         self.assertEqual(world.fact("key", "location"), "garage")
         self.assertEqual(world.previous("key", "location"), "kitchen")
@@ -104,9 +88,7 @@ class WorldTests(unittest.TestCase):
     def test_change_precondition_catches_contradiction(self):
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "key", "dimension": "owner", "value": "mary"}
-            )
+            Meaning.build("STATE", {"subject": "key", "dimension": "owner", "value": "mary"})
         )
         with self.assertRaises(ValueError):
             world.apply(
@@ -125,8 +107,7 @@ class WorldTests(unittest.TestCase):
         world = WorldModel()
         self.assertIsNone(world.knows_value("john", "key", "location"))
         q = Meaning.build(
-            "KNOW_VALUE",
-            {"holder": "john", "subject": "key", "dimension": "location"},
+            "KNOW_VALUE", {"holder": "john", "subject": "key", "dimension": "location"}
         )
         world.apply(Meaning.build("NOT", {"content": q}))
         self.assertFalse(world.knows_value("john", "key", "location"))
@@ -134,21 +115,15 @@ class WorldTests(unittest.TestCase):
     def test_timeline_queries_arbitrary_past_state(self):
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "key", "dimension": "location", "value": "table"}
-            )
+            Meaning.build("STATE", {"subject": "key", "dimension": "location", "value": "table"})
         )
         t_table = world.clock
         world.apply(
-            Meaning.build(
-                "CHANGE", {"subject": "key", "dimension": "location", "after": "kitchen"}
-            )
+            Meaning.build("CHANGE", {"subject": "key", "dimension": "location", "after": "kitchen"})
         )
         t_kitchen = world.clock
         world.apply(
-            Meaning.build(
-                "CHANGE", {"subject": "key", "dimension": "location", "after": "garage"}
-            )
+            Meaning.build("CHANGE", {"subject": "key", "dimension": "location", "after": "garage"})
         )
         self.assertEqual(world.fact_at("key", "location", t_table), "table")
         self.assertEqual(world.fact_at("key", "location", t_kitchen), "kitchen")
@@ -156,9 +131,7 @@ class WorldTests(unittest.TestCase):
 
     def test_modality_is_not_reality(self):
         world = WorldModel()
-        p = Meaning.build(
-            "STATE", {"subject": "door", "dimension": "open", "value": "true"}
-        )
+        p = Meaning.build("STATE", {"subject": "door", "dimension": "open", "value": "true"})
         world.apply(Meaning.build("POSSIBLE", {"content": p}))
         self.assertIsNone(world.fact("door", "open"))
         self.assertEqual(world.modal_statements[0].operator, "POSSIBLE")
@@ -176,14 +149,10 @@ class WorldTests(unittest.TestCase):
 
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "book", "dimension": "owner", "value": "john"}
-            )
+            Meaning.build("STATE", {"subject": "book", "dimension": "owner", "value": "john"})
         )
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "cash", "dimension": "owner", "value": "mary"}
-            )
+            Meaning.build("STATE", {"subject": "cash", "dimension": "owner", "value": "mary"})
         )
         world.apply(buy("mary", "book", "john", "cash"))
         self.assertEqual(world.fact("book", "owner"), "mary")
@@ -194,14 +163,10 @@ class WorldTests(unittest.TestCase):
 
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "book", "dimension": "owner", "value": "john"}
-            )
+            Meaning.build("STATE", {"subject": "book", "dimension": "owner", "value": "john"})
         )
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "cash", "dimension": "owner", "value": "bob"}
-            )
+            Meaning.build("STATE", {"subject": "cash", "dimension": "owner", "value": "bob"})
         )
         with self.assertRaises(ValueError):
             world.apply(buy("mary", "book", "john", "cash"))
@@ -213,9 +178,7 @@ class WorldTests(unittest.TestCase):
 
         world = WorldModel()
         world.apply(
-            Meaning.build(
-                "STATE", {"subject": "book", "dimension": "owner", "value": "john"}
-            )
+            Meaning.build("STATE", {"subject": "book", "dimension": "owner", "value": "john"})
         )
         world.apply(lend("john", "mary", "book"))
         self.assertEqual(world.fact("book", "owner"), "mary")
@@ -241,12 +204,24 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(interpreter.world.fact("key", "type"), "key")
         self.assertEqual(interpreter.world.fact("key#2", "type"), "key")
 
-    def test_ambiguous_definite_reference_fails_instead_of_guessing(self):
+    def test_ambiguous_definite_reference_is_preserved_without_mutation(self):
+        interpreter = MiniWorldInterpreter()
+        interpreter.feed("John owned a red key.")
+        interpreter.feed("Mary owned a blue key.")
+        result = interpreter.feed("John gave the key to Bob.")
+        self.assertEqual(len(result), 1)
+        ambiguity = result[0]
+        self.assertEqual(ambiguity.operator, "AMBIGUITY")
+        self.assertEqual(len(ambiguity.expressions("OPTIONS")), 2)
+        self.assertEqual(interpreter.world.fact("key", "owner"), "john")
+        self.assertEqual(interpreter.world.fact("key#2", "owner"), "mary")
+
+    def test_unique_resolution_can_still_fail_explicitly(self):
         interpreter = MiniWorldInterpreter()
         interpreter.feed("John owned a red key.")
         interpreter.feed("Mary owned a blue key.")
         with self.assertRaises(AmbiguousReferenceError):
-            interpreter.feed("John gave the key to Bob.")
+            interpreter.resolve_unique("key")
 
     def test_unsupported_story_fails_loudly(self):
         interpreter = MiniWorldInterpreter()
