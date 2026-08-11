@@ -7,7 +7,9 @@ from .vm_delta import RelationDelta, SemanticDeltaFrame, SUPPORTED_RELATIONS
 from .vm_ledger import atom
 
 
-NONE_POINTER = -1
+MAX_ENTITY_SLOTS = 4
+# Neural pointer heads use 0..3 for entities and 4 as an explicit NONE class.
+NONE_POINTER = MAX_ENTITY_SLOTS
 
 
 class DeltaPredictionError(ValueError):
@@ -78,6 +80,11 @@ def resolve_delta_prediction(
         table = tuple(atom(x) for x in entities)
         if not table:
             raise DeltaPredictionError("entity table cannot be empty")
+
+    if len(table) > MAX_ENTITY_SLOTS:
+        raise DeltaPredictionError(
+            f"entity table has {len(table)} entries; model contract supports at most {MAX_ENTITY_SLOTS}"
+        )
 
     n = len(table)
     _validate_pointer(prediction.primary_subject, n, field="primary_subject")
