@@ -6,16 +6,17 @@ import json
 from typing import Mapping, TypeAlias, Union
 
 Scalar: TypeAlias = str | int | float | bool
-MeaningValue: TypeAlias = Union[Scalar, "Meaning"]
+MeaningSequence: TypeAlias = tuple
+MeaningValue: TypeAlias = Union[Scalar, "Meaning", MeaningSequence]
 
 
 @dataclass(frozen=True, slots=True)
 class Meaning:
     """Recursive, canonical semantic expression.
 
-    Unlike the v0.1 SemanticGraph, role values may themselves be Meaning objects.
-    This allows propositions to be embedded inside BELIEVE, NOT, POSSIBLE,
-    CAUSE, and related operators without flattening their structure.
+    Role values may be atoms, numbers/booleans, nested Meaning objects, or
+    canonical tuples of those values. Tuples let the IR preserve sets of
+    alternatives/members without inventing numbered role names.
     """
 
     operator: str
@@ -48,15 +49,7 @@ class Meaning:
         for role, value in roles.items():
             if not isinstance(role, str):
                 raise ValueError("semantic role names must be strings")
-            if isinstance(value, Mapping):
-                decoded[role] = cls.from_dict(value)
-            elif isinstance(value, (str, bool, int, float)):
-                decoded[role] = value
-            else:
-                raise ValueError(
-                    f"unsupported serialized value for role {role!r}: "
-                    f"{type(value).__name__}"
-                )
+            decoded[role] = _decode_value(value)
         return cls.build(operator, decoded)
 
     @classmethod
@@ -95,11 +88,21 @@ class Meaning:
             )
         return value
 
+    def expressions(self, role: str) -> tuple["Meaning", ...]:
+        value = self.get(role)
+        if not isinstance(value, tuple) or not all(
+            isinstance(item, Meaning) for item in value
+        ):
+            raise ValueError(
+                f"{self.operator}.{_canon_atom(role)} must be a tuple of Meanings"
+            )
+        return value
+
     def to_dict(self) -> dict[str, object]:
         return {
             "operator": self.operator,
             "roles": {
-                role: value.to_dict() if isinstance(value, Meaning) else value
+                role: _serialize_value(value)
                 for role, value in self.roles
             },
         }
@@ -126,6 +129,8 @@ def _canon_atom(value: str) -> str:
 def _canon_value(value: MeaningValue) -> MeaningValue:
     if isinstance(value, Meaning):
         return value
+    if isinstance(value, tuple):
+        return tuple(_canon_value(item) for item in value)
     if isinstance(value, str):
         value = " ".join(value.strip().split())
         if not value:
@@ -134,3 +139,23 @@ def _canon_value(value: MeaningValue) -> MeaningValue:
     if isinstance(value, (bool, int, float)):
         return value
     raise TypeError(f"unsupported semantic value: {type(value).__name__}")
+
+
+def _serialize_value(value: MeaningValue) -> object:
+    if isinstance(value, Meaning):
+        return value.to_dict()
+    if isinstance(value, tuple):
+        return [_serialize_value(item) for item in value]
+    return value
+
+
+def _decode_value(value: object) -> MeaningValue:
+    if isinstance(value, Mapping):
+        return Meaning.from_dict(value)
+    if isinstance(value, list):
+        return tuple(_decode_value(item) for item in value)
+    if isinstance(value, (str, bool, int, float)):
+        return value
+    raise ValueError(
+        f"unsupported serialized semantic value: {type(value).__name__}"
+    )
