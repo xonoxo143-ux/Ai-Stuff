@@ -9,11 +9,11 @@ from .world import WorldModel
 
 @dataclass(frozen=True, slots=True)
 class QueryAnswer:
-    value: str | bool | None
+    value: str | bool | int | tuple[str, ...] | None
     known: bool
 
     @classmethod
-    def of(cls, value: str | bool | None) -> "QueryAnswer":
+    def of(cls, value: str | bool | int | tuple[str, ...] | None) -> "QueryAnswer":
         return cls(value=value, known=value is not None)
 
 
@@ -71,5 +71,11 @@ class WorldQueryEngine:
                     query.atom("ANCESTOR"),
                 )
             )
+
+        if op == "QUERY_MEMBERS_OF_TYPE":
+            return QueryAnswer.of(self.world.entities_of_type(query.atom("TYPE")))
+
+        if op == "QUERY_COUNT_TYPE":
+            return QueryAnswer.of(len(self.world.entities_of_type(query.atom("TYPE"))))
 
         raise ValueError(f"unsupported query operator {op!r}")
