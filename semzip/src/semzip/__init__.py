@@ -20,6 +20,7 @@ from .vm_delta_bridge import (
 from .vm_kernel import Instruction, Program, SemanticVM, VMExecutionError
 from .vm_ledger import EventLedger, LedgerEvent
 from .vm_minds import MindSpace
+from .vm_patch import ReturnObligation, SemanticPatch, compile_semantic_patch
 
 __all__ = [
     "AmbiguousReferenceError",
@@ -35,8 +36,10 @@ __all__ = [
     "Program",
     "QueryAnswer",
     "RelationDelta",
+    "ReturnObligation",
     "SemanticDeltaFrame",
     "SemanticGraph",
+    "SemanticPatch",
     "SemanticValidationError",
     "SemanticVM",
     "SemZipCodec",
@@ -46,6 +49,7 @@ __all__ = [
     "WorldModel",
     "WorldQueryEngine",
     "compile_delta_frame",
+    "compile_semantic_patch",
     "resolve_delta_prediction",
     "validate_meaning",
 ]
