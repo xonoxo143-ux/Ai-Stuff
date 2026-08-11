@@ -10,6 +10,8 @@ from .meaning import Meaning
 class SemanticType(str, Enum):
     ATOM = "atom"
     EXPRESSION = "expression"
+    EXPRESSIONS = "expressions"
+    ATOMS = "atoms"
     SCALAR = "scalar"
 
 
@@ -29,6 +31,8 @@ class SemanticValidationError(ValueError):
 
 ATOM = SemanticType.ATOM
 EXPR = SemanticType.EXPRESSION
+EXPRS = SemanticType.EXPRESSIONS
+ATOMS = SemanticType.ATOMS
 SCALAR = SemanticType.SCALAR
 
 SPECS: dict[str, OperatorSpec] = {
@@ -72,6 +76,16 @@ SPECS: dict[str, OperatorSpec] = {
         {"HOLDER": ATOM, "SUBJECT": ATOM, "DIMENSION": ATOM}
     ),
     "QUERY_IS_A": OperatorSpec({"SUBJECT": ATOM, "ANCESTOR": ATOM}),
+    "AMBIGUITY": OperatorSpec({"OPTIONS": EXPRS}),
+    "BUNDLE": OperatorSpec({"ITEMS": EXPRS}),
+    "SET": OperatorSpec({"MEMBERS": ATOMS}),
+    "SET_OF_TYPE": OperatorSpec({"TYPE": ATOM}),
+    "QUANTIFIED_SET": OperatorSpec(
+        {"QUANTIFIER": ATOM, "DOMAIN": EXPR},
+        {"COUNT": SCALAR},
+    ),
+    "QUERY_MEMBERS_OF_TYPE": OperatorSpec({"TYPE": ATOM}),
+    "QUERY_COUNT_TYPE": OperatorSpec({"TYPE": ATOM}),
 }
 
 
@@ -81,11 +95,10 @@ def validate_meaning(meaning: Meaning, *, recursive: bool = True) -> None:
         raise SemanticValidationError(f"unknown semantic operator {meaning.operator!r}")
 
     values = dict(meaning.roles)
-    optional = spec.optional or {}
     required = set(spec.required)
-    optional_roles = set(optional)
+    optional = set(spec.optional)
     missing = required - set(values)
-    extra = set(values) - required - optional_roles
+    extra = set(values) - required - optional
 
     if missing:
         raise SemanticValidationError(
@@ -96,13 +109,17 @@ def validate_meaning(meaning: Meaning, *, recursive: bool = True) -> None:
             f"{meaning.operator} has unknown roles: {sorted(extra)}"
         )
 
-    for role, expected in {**spec.required, **optional}.items():
+    for role, expected in {**spec.required, **spec.optional}.items():
         if role not in values:
             continue
         value = values[role]
         _validate_value(meaning.operator, role, value, expected)
         if recursive and isinstance(value, Meaning):
             validate_meaning(value, recursive=True)
+        elif recursive and isinstance(value, tuple):
+            for item in value:
+                if isinstance(item, Meaning):
+                    validate_meaning(item, recursive=True)
 
 
 def _validate_value(
@@ -113,6 +130,14 @@ def _validate_value(
 ) -> None:
     if expected is SemanticType.EXPRESSION:
         ok = isinstance(value, Meaning)
+    elif expected is SemanticType.EXPRESSIONS:
+        ok = isinstance(value, tuple) and all(
+            isinstance(item, Meaning) for item in value
+        )
+    elif expected is SemanticType.ATOMS:
+        ok = isinstance(value, tuple) and all(
+            isinstance(item, str) for item in value
+        )
     elif expected is SemanticType.ATOM:
         ok = isinstance(value, str)
     else:
