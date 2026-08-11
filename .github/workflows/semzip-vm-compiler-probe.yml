@@ -3,6 +3,12 @@ name: SemVM Compiler Probe
 on:
   push:
     branches: [semzip-vm]
+    paths:
+      - ".github/workflows/semzip-vm-compiler-probe.yml"
+      - "semzip/benchmarks/compiler_probe_smollm.py"
+      - "semzip/src/semzip/vm_bridge.py"
+      - "semzip/src/semzip/vm_kernel.py"
+      - "semzip/src/semzip/vm_compile.py"
 
 jobs:
   probe:
