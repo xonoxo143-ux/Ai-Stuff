@@ -27,12 +27,14 @@ class CompressionReport:
         }
 
 
-def structural_signature(meaning: Meaning) -> tuple[object, ...]:
-    """Return meaning structure while erasing concrete atom values.
+@dataclass(frozen=True, slots=True)
+class RepeatedStructure:
+    signature: tuple[object, ...]
+    count: int
 
-    Exact hashes answer "are these the same meaning?"
-    Structural signatures answer "are these built from the same machinery?"
-    """
+
+def structural_signature(meaning: Meaning) -> tuple[object, ...]:
+    """Return meaning structure while erasing concrete atom values."""
     roles: list[tuple[str, object]] = []
     for role, value in meaning.roles:
         roles.append((role, _value_shape(value)))
@@ -47,9 +49,51 @@ def operator_inventory(meaning: Meaning) -> Counter[str]:
         for _, value in node.roles:
             if isinstance(value, Meaning):
                 visit(value)
+            elif isinstance(value, tuple):
+                for item in value:
+                    if isinstance(item, Meaning):
+                        visit(item)
 
     visit(meaning)
     return counts
+
+
+def subexpressions(meaning: Meaning) -> tuple[Meaning, ...]:
+    found: list[Meaning] = []
+
+    def visit(node: Meaning) -> None:
+        found.append(node)
+        for _, value in node.roles:
+            if isinstance(value, Meaning):
+                visit(value)
+            elif isinstance(value, tuple):
+                for item in value:
+                    if isinstance(item, Meaning):
+                        visit(item)
+
+    visit(meaning)
+    return tuple(found)
+
+
+def repeated_structures(
+    meanings: Iterable[Meaning],
+    *,
+    min_count: int = 2,
+) -> tuple[RepeatedStructure, ...]:
+    if min_count < 2:
+        raise ValueError("min_count must be at least 2")
+    counts: Counter[tuple[object, ...]] = Counter()
+    for meaning in meanings:
+        for node in subexpressions(meaning):
+            counts[structural_signature(node)] += 1
+    candidates = [
+        RepeatedStructure(signature=signature, count=count)
+        for signature, count in counts.items()
+        if count >= min_count
+    ]
+    return tuple(
+        sorted(candidates, key=lambda item: (-item.count, repr(item.signature)))
+    )
 
 
 def analyze(meanings: Iterable[Meaning]) -> CompressionReport:
@@ -77,6 +121,8 @@ def analyze(meanings: Iterable[Meaning]) -> CompressionReport:
 def _value_shape(value: MeaningValue) -> object:
     if isinstance(value, Meaning):
         return structural_signature(value)
+    if isinstance(value, tuple):
+        return ("$SEQUENCE", tuple(_value_shape(item) for item in value))
     if isinstance(value, bool):
         return "$BOOL"
     if isinstance(value, (int, float)):
