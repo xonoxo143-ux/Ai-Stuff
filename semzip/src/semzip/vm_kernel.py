@@ -17,6 +17,13 @@ ALIASES = {
     K_CLEAR: "clear",
 }
 
+ARITIES = {
+    K_SET: 3,
+    K_SHIFT: 4,
+    K_REQUIRE: 3,
+    K_CLEAR: 2,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Instruction:
@@ -28,6 +35,9 @@ class Instruction:
         opcode = opcode.upper()
         if opcode not in ALIASES:
             raise ValueError(f"unknown VM opcode {opcode!r}")
+        expected = ARITIES[opcode]
+        if len(args) != expected:
+            raise ValueError(f"{opcode} expects {expected} args, got {len(args)}")
         return cls(opcode, tuple(atom(arg) for arg in args))
 
 
@@ -41,6 +51,12 @@ class Program:
         items = tuple(instructions)
         if not items:
             raise ValueError("program cannot be empty")
+        for ins in items:
+            if ins.opcode not in ARITIES:
+                raise ValueError(f"unknown VM opcode {ins.opcode!r}")
+            expected = ARITIES[ins.opcode]
+            if len(ins.args) != expected:
+                raise ValueError(f"{ins.opcode} expects {expected} args, got {len(ins.args)}")
         return cls(items, atom(label) if label else None)
 
 
