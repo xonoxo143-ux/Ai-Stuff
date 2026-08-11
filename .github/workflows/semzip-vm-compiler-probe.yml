@@ -1,0 +1,95 @@
+name: SemVM SmolLM Compiler Probe
+run-name: SemVM compiler probe #${{ github.run_number }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - semzip-vm
+    paths:
+      - "semzip/**"
+      - ".github/workflows/semzip-vm-compiler-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semzip-vm-compiler-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HF_HOME: ${{ runner.temp }}/huggingface
+      TOKENIZERS_PARALLELISM: "false"
+
+    steps:
+      - name: Checkout semzip-vm
+        uses: actions/checkout@v4
+        with:
+          ref: semzip-vm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: semzip/pyproject.toml
+
+      - name: Install SemVM and model runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e ./semzip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "transformers>=4.45,<5" safetensors
+
+      - name: Run SemVM v0.4 regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd semzip
+          python -m unittest tests.test_vm_v04 -v
+          python benchmarks/vm_progress_gate.py
+
+      - name: Download and probe SmolLM2-135M-Instruct
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd semzip
+          python benchmarks/compiler_probe_smollm.py | tee ../compiler-probe.log
+
+      - name: Upload compiler results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semvm-compiler-probe-${{ github.run_number }}
+          path: |
+            compiler-probe.log
+            semzip/compiler-probe-results.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# SemVM compiler probe"
+            echo
+            echo "Branch: semzip-vm"
+            echo "Model: HuggingFaceTB/SmolLM2-135M-Instruct"
+            if [[ -f semzip/compiler-probe-results.json ]]; then
+              echo
+              echo '```json'
+              python - <<'PY'
+          import json
+          p = json.load(open('semzip/compiler-probe-results.json'))
+          print(json.dumps({k:p[k] for k in ('model','cases','valid_json','valid_program','exact_program')}, indent=2))
+          PY
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
