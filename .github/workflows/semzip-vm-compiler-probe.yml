@@ -25,3 +25,19 @@ jobs:
           cd semzip
           python -m unittest tests.test_vm_v04 -v
           python benchmarks/vm_progress_gate.py
+
+      - name: Install CPU model runtime
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "transformers>=4.45,<5" safetensors
+
+      - name: Smoke-test SmolLM download
+        run: |
+          python - <<'PY'
+          from transformers import AutoTokenizer, AutoModelForCausalLM
+          model_id = "HuggingFaceTB/SmolLM2-135M-Instruct"
+          tok = AutoTokenizer.from_pretrained(model_id)
+          model = AutoModelForCausalLM.from_pretrained(model_id)
+          print("tokenizer_vocab", len(tok))
+          print("parameters", sum(p.numel() for p in model.parameters()))
+          PY
