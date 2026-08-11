@@ -1,0 +1,78 @@
+name: SemVM Semantic Composition Holdout
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [semzip-vm]
+    paths:
+      - ".github/workflows/semzip-vm-composition-holdout.yml"
+      - "semzip/benchmarks/compiler_composition_corpus.py"
+      - "semzip/benchmarks/train_composition_pointer_grid.py"
+      - "semzip/benchmarks/train_composition_subset.py"
+
+jobs:
+  pointer-grid:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: semvm-google-bert-l2-h128-v1
+      - run: python -m pip install -e ./semzip
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "transformers>=4.45,<5" safetensors
+      - name: Verify semantic split
+        run: |
+          cd semzip
+          python benchmarks/compiler_composition_corpus.py
+      - name: Train pointer-grid composition test
+        run: |
+          cd semzip
+          python benchmarks/train_composition_pointer_grid.py \
+            --train-samples 512 --eval-samples 96 --epochs 14 --batch-size 16 --none-weight 0.35
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semvm-composition-pointer-grid
+          path: semzip/compiler-relation-pointer-grid-results.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  subset-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: semvm-google-bert-l2-h128-v1
+      - run: python -m pip install -e ./semzip
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "transformers>=4.45,<5" safetensors
+      - name: Train subset composition control
+        run: |
+          cd semzip
+          python benchmarks/train_composition_subset.py \
+            --train-samples 512 --eval-samples 96 --epochs 14 --batch-size 16
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semvm-composition-subset-control
+          path: semzip/compiler-relation-subset-results.json
+          if-no-files-found: warn
+          retention-days: 14
