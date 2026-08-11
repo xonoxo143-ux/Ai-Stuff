@@ -31,13 +31,14 @@ jobs:
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install "transformers>=4.45,<5" safetensors
 
-      - name: Smoke-test SmolLM download
+      - name: Run SmolLM compiler baseline
         run: |
-          python - <<'PY'
-          from transformers import AutoTokenizer, AutoModelForCausalLM
-          model_id = "HuggingFaceTB/SmolLM2-135M-Instruct"
-          tok = AutoTokenizer.from_pretrained(model_id)
-          model = AutoModelForCausalLM.from_pretrained(model_id)
-          print("tokenizer_vocab", len(tok))
-          print("parameters", sum(p.numel() for p in model.parameters()))
-          PY
+          cd semzip
+          python benchmarks/compiler_probe_smollm.py
+
+      - name: Show compiler result
+        if: always()
+        run: |
+          if [ -f semzip/compiler-probe-results.json ]; then
+            cat semzip/compiler-probe-results.json
+          fi
