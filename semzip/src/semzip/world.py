@@ -209,12 +209,10 @@ class WorldModel:
             "POSSIBLE", "PROBABLE", "NECESSARY", "INTENDED",
             "ATTEMPTED", "COUNTERFACTUAL", "CONDITIONAL",
         }:
-            # Modal propositions are represented but do not update reality.
             self._modal.append((self._clock, meaning))
             return
 
         if op in {"CAUSE", "ENABLE", "PREVENT", "CORRELATE", "PRECEDE"}:
-            # Causal/temporal relations are explicit rather than inferred from order.
             self._relations.append((self._clock, meaning))
             return
 
@@ -238,6 +236,15 @@ class WorldModel:
         key = (subject, dimension)
         self._facts[key] = fact
         self._fact_timeline.setdefault(key, []).append(fact)
+
+    def entities_of_type(self, type_name: str) -> tuple[str, ...]:
+        target = _atom(type_name)
+        entities = [
+            subject
+            for (subject, dimension), fact in self._facts.items()
+            if dimension == "type" and fact.value == target
+        ]
+        return tuple(sorted(entities))
 
     def entity_is_a(self, subject: str, ancestor: str) -> bool | None:
         entity_type = self.fact(subject, "type")
