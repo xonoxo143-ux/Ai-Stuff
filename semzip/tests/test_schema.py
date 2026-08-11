@@ -14,6 +14,16 @@ class SchemaTests(unittest.TestCase):
             Meaning.build("BELIEVE", {"holder": "bob", "content": content})
         )
 
+    def test_nested_json_roundtrip_is_exact(self):
+        inner = Meaning.build(
+            "STATE",
+            {"subject": "key", "dimension": "owner", "value": "mary"},
+        )
+        original = Meaning.build("BELIEVE", {"holder": "bob", "content": inner})
+        restored = Meaning.from_json(original.canonical_json())
+        self.assertEqual(restored, original)
+        self.assertEqual(restored.semantic_hash(), original.semantic_hash())
+
     def test_missing_role_fails(self):
         with self.assertRaises(SemanticValidationError):
             validate_meaning(
