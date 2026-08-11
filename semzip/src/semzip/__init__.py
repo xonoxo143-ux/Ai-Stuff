@@ -1,7 +1,19 @@
-"""SemZip: experimental semantic codec."""
+"""SemZip: experimental semantic codec and world substrate."""
 
 from .codec import SemZipCodec, UnsupportedMeaningError
+from .meaning import Meaning
 from .model import SemanticGraph
+from .story import MiniWorldInterpreter, UnsupportedStorySentence
+from .world import Ontology, WorldModel
 
-__all__ = ["SemZipCodec", "SemanticGraph", "UnsupportedMeaningError"]
-__version__ = "0.1.0"
+__all__ = [
+    "Meaning",
+    "MiniWorldInterpreter",
+    "Ontology",
+    "SemZipCodec",
+    "SemanticGraph",
+    "UnsupportedMeaningError",
+    "UnsupportedStorySentence",
+    "WorldModel",
+]
+__version__ = "0.2.0"
