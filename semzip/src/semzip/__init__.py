@@ -20,7 +20,19 @@ from .vm_delta_bridge import (
 from .vm_kernel import Instruction, Program, SemanticVM, VMExecutionError
 from .vm_ledger import EventLedger, LedgerEvent
 from .vm_minds import MindSpace
-from .vm_patch import ReturnObligation, SemanticPatch, compile_semantic_patch
+from .vm_patch import (
+    ReturnObligation,
+    SemanticPatch,
+    compile_semantic_patch,
+    compose_semantic_patches,
+)
+from .vm_patch_bridge import (
+    PatchPrediction,
+    PatchPredictionError,
+    RelationCellPrediction,
+    ReturnObligationPrediction,
+    resolve_patch_prediction,
+)
 from .vm_relations import DEFAULT_RELATION_REGISTRY, RelationRegistry, RelationSpec
 
 __all__ = [
@@ -35,12 +47,16 @@ __all__ = [
     "MindSpace",
     "MiniWorldInterpreter",
     "Ontology",
+    "PatchPrediction",
+    "PatchPredictionError",
     "Program",
     "QueryAnswer",
+    "RelationCellPrediction",
     "RelationDelta",
     "RelationRegistry",
     "RelationSpec",
     "ReturnObligation",
+    "ReturnObligationPrediction",
     "SemanticDeltaFrame",
     "SemanticGraph",
     "SemanticPatch",
@@ -54,7 +70,9 @@ __all__ = [
     "WorldQueryEngine",
     "compile_delta_frame",
     "compile_semantic_patch",
+    "compose_semantic_patches",
     "resolve_delta_prediction",
+    "resolve_patch_prediction",
     "validate_meaning",
 ]
 __version__ = "0.4.0"
