@@ -10,25 +10,31 @@ class UnsupportedStorySentence(ValueError):
     pass
 
 
-class MiniWorldInterpreter:
-    """Dependency-free v0.2 parser for the world-model gate.
+class AmbiguousReferenceError(UnsupportedStorySentence):
+    pass
 
-    It deliberately covers a small grammar. The point is to validate the semantic
-    substrate; broad natural-language parsing remains an edge-adapter problem.
+
+class MiniWorldInterpreter:
+    """Dependency-free parser for the v0.2/v0.3 world-model gates.
+
+    The grammar is intentionally small. Entity identity is separate from lexical
+    type so multiple objects of the same kind can exist without being merged.
     """
 
     _OWNED = re.compile(
-        r"^(?P<owner>[A-Za-z][A-Za-z0-9_'-]*) owned (?:a|an|the) "
+        r"^(?P<owner>[A-Za-z][A-Za-z0-9_'-]*) owned (?P<article>a|an|the) "
         r"(?:(?P<modifier>[A-Za-z]+) )?(?P<object>[A-Za-z][A-Za-z0-9_'-]*)$",
         re.I,
     )
     _GAVE = re.compile(
-        r"^(?P<agent>[A-Za-z][A-Za-z0-9_'-]*) gave (?:the )?(?P<object>[A-Za-z][A-Za-z0-9_'-]*) to "
+        r"^(?P<agent>[A-Za-z][A-Za-z0-9_'-]*) gave (?:the )?"
+        r"(?P<object>[A-Za-z][A-Za-z0-9_'-]*) to "
         r"(?P<recipient>[A-Za-z][A-Za-z0-9_'-]*)$",
         re.I,
     )
     _PUT = re.compile(
-        r"^(?P<actor>[A-Za-z][A-Za-z0-9_'-]*) put (?P<object>it|the [A-Za-z][A-Za-z0-9_'-]*) in "
+        r"^(?P<actor>[A-Za-z][A-Za-z0-9_'-]*) put "
+        r"(?P<object>it|the [A-Za-z][A-Za-z0-9_'-]*) in "
         r"(?:the )?(?P<location>[A-Za-z][A-Za-z0-9_'-]*)$",
         re.I,
     )
@@ -53,6 +59,7 @@ class MiniWorldInterpreter:
     def __init__(self) -> None:
         self.world = WorldModel()
         self._last_object: str | None = None
+        self._entities_by_type: dict[str, list[str]] = {}
 
     def feed(self, sentence: str) -> tuple[Meaning, ...]:
         meanings = self.parse(self._normalize(sentence))
@@ -62,12 +69,18 @@ class MiniWorldInterpreter:
     def parse(self, text: str) -> tuple[Meaning, ...]:
         if match := self._OWNED.fullmatch(text):
             d = match.groupdict()
-            obj = d["object"].casefold()
+            noun = d["object"].casefold()
+            article = d["article"].casefold()
+            obj = (
+                self._new_entity(noun)
+                if article in {"a", "an"}
+                else self._resolve_type(noun)
+            )
             self._last_object = obj
             meanings = [
                 Meaning.build(
                     "STATE",
-                    {"subject": obj, "dimension": "type", "value": obj},
+                    {"subject": obj, "dimension": "type", "value": noun},
                 ),
                 Meaning.build(
                     "STATE",
@@ -89,7 +102,7 @@ class MiniWorldInterpreter:
 
         if match := self._GAVE.fullmatch(text):
             d = match.groupdict()
-            obj = d["object"].casefold()
+            obj = self._resolve_type(d["object"])
             self._last_object = obj
             return (
                 Meaning.build(
@@ -122,7 +135,7 @@ class MiniWorldInterpreter:
 
         if match := self._BELIEF.fullmatch(text):
             d = match.groupdict()
-            obj = d["object"].casefold()
+            obj = self._resolve_type(d["object"])
             self._last_object = obj
             content = Meaning.build(
                 "STATE",
@@ -141,7 +154,7 @@ class MiniWorldInterpreter:
 
         if match := self._MOVED.fullmatch(text):
             d = match.groupdict()
-            obj = d["object"].casefold()
+            obj = self._resolve_type(d["object"])
             self._last_object = obj
             return (
                 Meaning.build(
@@ -157,7 +170,7 @@ class MiniWorldInterpreter:
 
         if match := self._DOES_NOT_KNOW.fullmatch(text):
             d = match.groupdict()
-            obj = d["object"].casefold()
+            obj = self._resolve_type(d["object"])
             self._last_object = obj
             query = Meaning.build(
                 "KNOW_VALUE",
@@ -170,7 +183,7 @@ class MiniWorldInterpreter:
             return (Meaning.build("NOT", {"content": query}),)
 
         raise UnsupportedStorySentence(
-            f"v0.2 mini-world grammar cannot safely represent: {text!r}"
+            f"mini-world grammar cannot safely represent: {text!r}"
         )
 
     def _resolve_object(self, surface: str) -> str:
@@ -178,7 +191,26 @@ class MiniWorldInterpreter:
             if self._last_object is None:
                 raise UnsupportedStorySentence("pronoun 'it' has no known referent")
             return self._last_object
-        return re.sub(r"^the +", "", surface, flags=re.I).casefold()
+        noun = re.sub(r"^the +", "", surface, flags=re.I).casefold()
+        return self._resolve_type(noun)
+
+    def _new_entity(self, noun: str) -> str:
+        noun = noun.casefold()
+        bucket = self._entities_by_type.setdefault(noun, [])
+        entity_id = noun if not bucket else f"{noun}#{len(bucket) + 1}"
+        bucket.append(entity_id)
+        return entity_id
+
+    def _resolve_type(self, noun: str) -> str:
+        noun = noun.casefold()
+        candidates = self._entities_by_type.get(noun, [])
+        if not candidates:
+            raise UnsupportedStorySentence(f"no known referent for {noun!r}")
+        if len(candidates) > 1:
+            raise AmbiguousReferenceError(
+                f"reference {noun!r} matches multiple entities: {candidates}"
+            )
+        return candidates[0]
 
     @staticmethod
     def _normalize(text: str) -> str:
