@@ -74,6 +74,52 @@ class SemanticPatch:
         return self.transition_fingerprint() == other.transition_fingerprint()
 
 
+def compose_semantic_patches(*patches: SemanticPatch) -> SemanticPatch:
+    """Union already-understood meanings with exact conflict detection.
+
+    Composition is deterministic cognitive work. Identical facts contributed by
+    multiple chunks are deduplicated; incompatible transitions for the same
+    subject/relation are rejected instead of being silently ordered or overwritten.
+    """
+
+    if not patches:
+        raise ValueError("compose_semantic_patches requires at least one patch")
+
+    transitions: dict[tuple[str, str], tuple[str, str]] = {}
+    obligations: dict[tuple[str, str, str], ReturnObligation] = {}
+
+    for patch in patches:
+        if not isinstance(patch, SemanticPatch):
+            raise TypeError("all composed values must be SemanticPatch")
+        for delta in patch.deltas:
+            for relation in delta.relations:
+                key = (delta.subject, relation)
+                effect = (delta.source, delta.destination)
+                previous = transitions.get(key)
+                if previous is not None and previous != effect:
+                    raise ValueError(
+                        f"conflicting transitions for {key}: {previous} versus {effect}"
+                    )
+                transitions[key] = effect
+        for obligation in patch.return_obligations:
+            obligations[obligation.key()] = obligation
+
+    # Recombine relation cells that share subject/source/destination so the result
+    # stays compact without reintroducing event-class assumptions.
+    grouped: dict[tuple[str, str, str], list[str]] = {}
+    for (subject, relation), (source, destination) in transitions.items():
+        grouped.setdefault((subject, source, destination), []).append(relation)
+
+    deltas = tuple(
+        RelationDelta.build(subject, source, destination, tuple(relations))
+        for (subject, source, destination), relations in grouped.items()
+    )
+    return SemanticPatch.build(
+        deltas,
+        return_obligations=tuple(obligations.values()),
+    )
+
+
 def compile_semantic_patch(patch: SemanticPatch) -> Program:
     instructions: list[Instruction] = []
     for delta in patch.deltas:
