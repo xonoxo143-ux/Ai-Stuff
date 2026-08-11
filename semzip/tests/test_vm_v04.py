@@ -112,6 +112,18 @@ class SemVMV04Gate(unittest.TestCase):
         with self.assertRaises(VMProposalError):
             program_from_json(json.dumps({"instructions": [{"opcode": "MAGIC", "args": []}]}))
 
+    def test_external_program_bridge_rejects_wrong_arity(self):
+        with self.assertRaises(VMProposalError):
+            program_from_json(
+                json.dumps(
+                    {
+                        "instructions": [
+                            {"opcode": "K2", "args": ["book", "owner", "john", "extra"]}
+                        ]
+                    }
+                )
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
