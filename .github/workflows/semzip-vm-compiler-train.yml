@@ -1,6 +1,7 @@
 name: SemVM Compiler Fine-tune
 
 on:
+  workflow_dispatch:
   push:
     branches: [semzip-vm]
     paths:
