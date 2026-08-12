@@ -5,19 +5,19 @@ from itertools import combinations, permutations, product
 from typing import Sequence
 
 from .vm_delta import RelationDelta
-from .vm_patch import ReturnObligation, SemanticPatch
+from .vm_patch import ReturnObligation, SemanticPatch, StateAssignment, StateClear
 
 
-# Concrete semantic records. Relation names/effect kinds are constants; entity
-# positions are the only values abstracted into anonymous variables.
 ConcreteRecord = tuple[str, str, str, str, str]
 PatternRecord = tuple[str, str, str, str, str]
 
-
 RELATION_RECORD_COST = 5
+ASSIGNMENT_RECORD_COST = 4
+CLEAR_RECORD_COST = 3
 OBLIGATION_RECORD_COST = 4
 MACRO_DEFINITION_OVERHEAD = 2
 MACRO_CALL_OVERHEAD = 1
+_CONSTANT = "_"
 
 
 def patch_records(patch: SemanticPatch) -> tuple[ConcreteRecord, ...]:
@@ -25,21 +25,26 @@ def patch_records(patch: SemanticPatch) -> tuple[ConcreteRecord, ...]:
     for delta in patch.deltas:
         for relation in delta.relations:
             records.append(("REL", relation, delta.subject, delta.source, delta.destination))
+    for item in patch.assignments:
+        records.append(("SET", item.dimension, item.subject, item.value, _CONSTANT))
+    for item in patch.clears:
+        records.append(("CLEAR", item.dimension, item.subject, _CONSTANT, _CONSTANT))
     for obligation in patch.return_obligations:
-        records.append(
-            (
-                "EFF",
-                "return",
-                obligation.subject,
-                obligation.holder,
-                obligation.return_to,
-            )
-        )
+        records.append(("EFF", "return", obligation.subject, obligation.holder, obligation.return_to))
     return tuple(records)
 
 
 def _record_cost(record: ConcreteRecord | PatternRecord) -> int:
-    return RELATION_RECORD_COST if record[0] == "REL" else OBLIGATION_RECORD_COST
+    kind = record[0]
+    if kind == "REL":
+        return RELATION_RECORD_COST
+    if kind == "SET":
+        return ASSIGNMENT_RECORD_COST
+    if kind == "CLEAR":
+        return CLEAR_RECORD_COST
+    if kind == "EFF":
+        return OBLIGATION_RECORD_COST
+    raise ValueError(f"unknown semantic record kind {kind!r}")
 
 
 def raw_records_cost(records: Sequence[ConcreteRecord | PatternRecord]) -> int:
@@ -71,7 +76,6 @@ class PatchPattern:
 @dataclass(frozen=True, slots=True)
 class PatternInstance:
     pattern: PatchPattern
-    # V0, V1, ... in index order.
     bindings: tuple[str, ...]
 
 
@@ -101,14 +105,22 @@ class PatchMacro:
                 f"macro {self.macro_id} expects {self.pattern.variable_count} bindings, "
                 f"got {len(bindings)}"
             )
+
+        def concrete(token: str) -> str:
+            if token == _CONSTANT:
+                return _CONSTANT
+            if not token.startswith("V") or not token[1:].isdigit():
+                return token
+            return bindings[int(token[1:])]
+
         return records_to_patch(
             tuple(
                 (
                     record[0],
                     record[1],
-                    bindings[int(record[2][1:])],
-                    bindings[int(record[3][1:])],
-                    bindings[int(record[4][1:])],
+                    concrete(record[2]),
+                    concrete(record[3]),
+                    concrete(record[4]),
                 )
                 for record in self.pattern.records
             )
@@ -121,6 +133,8 @@ def _canonicalize_order(records: Sequence[ConcreteRecord]) -> PatternInstance:
     normalized: list[PatternRecord] = []
 
     def variable(entity: str) -> str:
+        if entity == _CONSTANT:
+            return _CONSTANT
         found = entity_to_var.get(entity)
         if found is not None:
             return found
@@ -135,12 +149,7 @@ def _canonicalize_order(records: Sequence[ConcreteRecord]) -> PatternInstance:
 
 
 def canonical_pattern(records: Sequence[ConcreteRecord]) -> PatternInstance:
-    """Canonicalize an effect pattern independently of entity names and record order.
-
-    Records with different semantic labels already have a deterministic order. Only
-    equal-label records need permutation search. This keeps the search tiny for the
-    patch sizes SemVM currently promotes while correctly handling symmetric exchanges.
-    """
+    """Canonicalize independently of entity names and record order."""
 
     concrete = tuple(records)
     if not concrete:
@@ -180,10 +189,16 @@ def records_to_patch(records: Sequence[ConcreteRecord]) -> SemanticPatch:
         raise ValueError("cannot construct an empty patch")
 
     grouped: dict[tuple[str, str, str], list[str]] = {}
+    assignments: list[StateAssignment] = []
+    clears: list[StateClear] = []
     obligations: list[ReturnObligation] = []
     for kind, label, a, b, c in records:
         if kind == "REL":
             grouped.setdefault((a, b, c), []).append(label)
+        elif kind == "SET":
+            assignments.append(StateAssignment.build(a, label, b))
+        elif kind == "CLEAR":
+            clears.append(StateClear.build(a, label))
         elif kind == "EFF" and label == "return":
             obligations.append(ReturnObligation.build(a, b, c))
         else:
@@ -193,7 +208,12 @@ def records_to_patch(records: Sequence[ConcreteRecord]) -> SemanticPatch:
         RelationDelta.build(subject, source, destination, tuple(relations))
         for (subject, source, destination), relations in grouped.items()
     )
-    return SemanticPatch.build(deltas, return_obligations=tuple(obligations))
+    return SemanticPatch.build(
+        deltas,
+        assignments=tuple(assignments),
+        clears=tuple(clears),
+        return_obligations=tuple(obligations),
+    )
 
 
 def _matching_subsets(
@@ -236,13 +256,6 @@ def factor_pattern(
     pattern: PatchPattern,
     component: PatchPattern,
 ) -> tuple[tuple[str, ...], ...] | None:
-    """Return an exact non-overlapping factorization into repeated components.
-
-    Bindings are expressed in the parent pattern's variables. This lets a learned
-    macro definition itself be rewritten in terms of a smaller learned macro without
-    consulting surface words or VM bytecode.
-    """
-
     if component.record_count >= pattern.record_count:
         return None
     records: tuple[ConcreteRecord, ...] = tuple(pattern.records)
@@ -259,8 +272,6 @@ def candidate_cost(
     corpus: Sequence[SemanticPatch],
     pattern: PatchPattern,
 ) -> PatchMacroCandidate:
-    """Score one macro by real non-overlapping substitution, not frequency alone."""
-
     base_cost = sum(raw_records_cost(patch_records(patch)) for patch in corpus)
     encoded_body_cost = 0
     occurrences = 0
@@ -294,8 +305,6 @@ def discover_patch_macro_candidates(
     max_records: int = 4,
     min_occurrences: int = 2,
 ) -> tuple[PatchMacroCandidate, ...]:
-    """Mine anonymous effect subpatterns and rank them by actual description savings."""
-
     if min_records < 1 or max_records < min_records:
         raise ValueError("invalid candidate record limits")
 
