@@ -85,15 +85,6 @@ class StateSnapshot:
             elif isinstance(effect, ClearEffect):
                 state.pop(effect.cell, None)
 
-        # Compatibility lowering for the old loan side effect. This lives here only
-        # until obligations are expressed entirely as ordinary semantic state.
-        for obligation in transform.patch.return_obligations:
-            subject = (
-                f"obligation:return:{obligation.subject}:"
-                f"{obligation.holder}:{obligation.return_to}"
-            )
-            state[(subject, "status")] = "active"
-
         return StateSnapshot.build(state)
 
 
