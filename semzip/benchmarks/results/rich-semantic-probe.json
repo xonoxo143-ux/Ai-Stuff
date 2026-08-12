@@ -1,0 +1,1043 @@
+{
+  "backbone_parameters": 4386560,
+  "contract": {
+    "arbitrary_patch_size": true,
+    "free_form_generation": false,
+    "lexical_event_classes": false,
+    "relation_combinations_are_unions_of_independent_probes": true,
+    "relation_conditioned_encoder": true,
+    "subject_conditioned_by_target_marker": true
+  },
+  "epochs": 8,
+  "eval_examples": 96,
+  "exact_patch": 74,
+  "exact_patch_accuracy": 0.7708333333333334,
+  "family_exact": {
+    "give": {
+      "exact": 18,
+      "total": 24
+    },
+    "lend": {
+      "exact": 8,
+      "total": 24
+    },
+    "move": {
+      "exact": 24,
+      "total": 24
+    },
+    "sell": {
+      "exact": 24,
+      "total": 24
+    }
+  },
+  "github_actions_run_id": 31547579391,
+  "head_parameters": 12417,
+  "loss_history": [
+    1.7472493751639766,
+    0.596163734793663,
+    0.4009291357028165,
+    0.27166783646680415,
+    0.17580523624617075,
+    0.13529399466850528,
+    0.11506948187057528,
+    0.08495682650807014
+  ],
+  "mistakes": [
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "watch"
+        ],
+        [
+          "E1",
+          "quinn"
+        ],
+        [
+          "E2",
+          "zara"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "violin"
+        ],
+        [
+          "E1",
+          "quinn"
+        ],
+        [
+          "E2",
+          "omar"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "give",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "tablet"
+        ],
+        [
+          "E1",
+          "omar"
+        ],
+        [
+          "E2",
+          "mateo"
+        ]
+      ],
+      "text": "The E0 changed hands from E1 to E2."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "tablet"
+        ],
+        [
+          "E1",
+          "quinn"
+        ],
+        [
+          "E2",
+          "mateo"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "give",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "notebook"
+        ],
+        [
+          "E1",
+          "yuki"
+        ],
+        [
+          "E2",
+          "priya"
+        ]
+      ],
+      "text": "The E0 changed hands from E1 to E2."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "helmet"
+        ],
+        [
+          "E1",
+          "mateo"
+        ],
+        [
+          "E2",
+          "priya"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "lantern"
+        ],
+        [
+          "E1",
+          "priya"
+        ],
+        [
+          "E2",
+          "quinn"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "lantern"
+        ],
+        [
+          "E1",
+          "quinn"
+        ],
+        [
+          "E2",
+          "mateo"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "helmet"
+        ],
+        [
+          "E1",
+          "omar"
+        ],
+        [
+          "E2",
+          "yuki"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "watch"
+        ],
+        [
+          "E1",
+          "zara"
+        ],
+        [
+          "E2",
+          "mateo"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "notebook"
+        ],
+        [
+          "E1",
+          "mateo"
+        ],
+        [
+          "E2",
+          "zara"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "helmet"
+        ],
+        [
+          "E1",
+          "zara"
+        ],
+        [
+          "E2",
+          "mateo"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "helmet"
+        ],
+        [
+          "E1",
+          "priya"
+        ],
+        [
+          "E2",
+          "yuki"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "give",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "watch"
+        ],
+        [
+          "E1",
+          "mateo"
+        ],
+        [
+          "E2",
+          "priya"
+        ]
+      ],
+      "text": "The E0 changed hands from E1 to E2."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "notebook"
+        ],
+        [
+          "E1",
+          "mateo"
+        ],
+        [
+          "E2",
+          "priya"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "give",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "lantern"
+        ],
+        [
+          "E1",
+          "yuki"
+        ],
+        [
+          "E2",
+          "quinn"
+        ]
+      ],
+      "text": "The E0 changed hands from E1 to E2."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "violin"
+        ],
+        [
+          "E1",
+          "quinn"
+        ],
+        [
+          "E2",
+          "zara"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "possessor",
+          "source": 2,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "return",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [],
+      "slots": [
+        [
+          "E0",
+          "lantern"
+        ],
+        [
+          "E1",
+          "priya"
+        ],
+        [
+          "E2",
+          "zara"
+        ]
+      ],
+      "text": "E2 temporarily lent the E0 out to E1."
+    },
+    {
+      "family": "give",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "tablet"
+        ],
+        [
+          "E1",
+          "omar"
+        ],
+        [
+          "E2",
+          "zara"
+        ]
+      ],
+      "text": "The E0 changed hands from E1 to E2."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "violin"
+        ],
+        [
+          "E1",
+          "priya"
+        ],
+        [
+          "E2",
+          "mateo"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    },
+    {
+      "family": "give",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "helmet"
+        ],
+        [
+          "E1",
+          "yuki"
+        ],
+        [
+          "E2",
+          "quinn"
+        ]
+      ],
+      "text": "The E0 changed hands from E1 to E2."
+    },
+    {
+      "family": "lend",
+      "gold": [
+        {
+          "active": 1,
+          "destination": 2,
+          "query_kind": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "active": 1,
+          "destination": 1,
+          "query_kind": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "predicted": [
+        {
+          "destination": 2,
+          "query": "owner",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 2,
+          "query": "possessor",
+          "source": 1,
+          "subject": 0
+        },
+        {
+          "destination": 1,
+          "query": "return",
+          "source": 2,
+          "subject": 0
+        }
+      ],
+      "slots": [
+        [
+          "E0",
+          "lantern"
+        ],
+        [
+          "E1",
+          "yuki"
+        ],
+        [
+          "E2",
+          "quinn"
+        ]
+      ],
+      "text": "E2 received the E0 from E1 as a loan."
+    }
+  ],
+  "mode": "query_conditioned_semantic_probes",
+  "model": "google/bert_uncased_L-2_H-128_A-2",
+  "positive_pointer_accuracy": 1.0,
+  "probe_active_accuracy": 0.9784226190476191,
+  "query_types": [
+    "owner",
+    "possessor",
+    "location",
+    "return"
+  ],
+  "total_parameters": 4398977,
+  "train_examples": 2048,
+  "train_probes": 28672
+}

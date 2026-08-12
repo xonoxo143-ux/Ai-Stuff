@@ -1,0 +1,1239 @@
+{
+  "backbone_parameters": 4385920,
+  "epochs": 8,
+  "eval_samples": 256,
+  "exact_slotization": 187,
+  "exact_slotization_accuracy": 0.73046875,
+  "exact_span_sentence_accuracy": 0.73046875,
+  "exact_span_sentences": 187,
+  "family_exact": {
+    "give": {
+      "exact": 43,
+      "total": 64
+    },
+    "lend": {
+      "exact": 51,
+      "total": 64
+    },
+    "move": {
+      "exact": 44,
+      "total": 64
+    },
+    "sell": {
+      "exact": 49,
+      "total": 64
+    }
+  },
+  "github_actions_run_id": 31548554023,
+  "head_parameters": 387,
+  "loss_history": [
+    0.43844705796800554,
+    0.05655463816947304,
+    0.021417049603769556,
+    0.010502717312192544,
+    0.008056910821323982,
+    0.004409242543260916,
+    0.004220068791255471,
+    0.0032069817225419683
+  ],
+  "mention_f1": 0.9118303571428571,
+  "mention_precision": 0.9118303571428571,
+  "mention_recall": 0.9118303571428571,
+  "mistakes": [
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "zara",
+        "bike helmet",
+        "omar",
+        "red coupon"
+      ],
+      "gold_slotted": "During the morning, E0 bought the E1 from E2 with the E3 near the fountain.",
+      "gold_spans": [
+        [
+          20,
+          24
+        ],
+        [
+          36,
+          47
+        ],
+        [
+          53,
+          57
+        ],
+        [
+          67,
+          77
+        ]
+      ],
+      "predicted_mentions": [
+        "za",
+        "bike helmet",
+        "omar",
+        "red coupon"
+      ],
+      "predicted_slotted": "During the morning, E0ra bought the E1 from E2 with the E3 near the fountain.",
+      "predicted_spans": [
+        [
+          20,
+          22
+        ],
+        [
+          36,
+          47
+        ],
+        [
+          53,
+          57
+        ],
+        [
+          67,
+          77
+        ]
+      ],
+      "text": "During the morning, zara bought the bike helmet from omar with the red coupon near the fountain."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "theo james",
+        "violin",
+        "lena park",
+        "small gem"
+      ],
+      "gold_slotted": "During the morning, E0 bought the E1 from E2 with the E3 near the fountain.",
+      "gold_spans": [
+        [
+          20,
+          30
+        ],
+        [
+          42,
+          48
+        ],
+        [
+          54,
+          63
+        ],
+        [
+          73,
+          82
+        ]
+      ],
+      "predicted_mentions": [
+        "theo",
+        "violin",
+        "lena park",
+        "small gem"
+      ],
+      "predicted_slotted": "During the morning, E0 james bought the E1 from E2 with the E3 near the fountain.",
+      "predicted_spans": [
+        [
+          20,
+          24
+        ],
+        [
+          42,
+          48
+        ],
+        [
+          54,
+          63
+        ],
+        [
+          73,
+          82
+        ]
+      ],
+      "text": "During the morning, theo james bought the violin from lena park with the small gem near the fountain."
+    },
+    {
+      "family": "lend",
+      "gold_mentions": [
+        "lena park",
+        "mateo",
+        "wrist watch"
+      ],
+      "gold_slotted": "At the station, E0 let E1 borrow the E2 until tomorrow.",
+      "gold_spans": [
+        [
+          16,
+          25
+        ],
+        [
+          30,
+          35
+        ],
+        [
+          47,
+          58
+        ]
+      ],
+      "predicted_mentions": [
+        "lena",
+        "mateo",
+        "wrist"
+      ],
+      "predicted_slotted": "At the station, E0 park let E1 borrow the E2 watch until tomorrow.",
+      "predicted_spans": [
+        [
+          16,
+          20
+        ],
+        [
+          30,
+          35
+        ],
+        [
+          47,
+          52
+        ]
+      ],
+      "text": "At the station, lena park let mateo borrow the wrist watch until tomorrow."
+    },
+    {
+      "family": "lend",
+      "gold_mentions": [
+        "lena park",
+        "priya",
+        "wooden box"
+      ],
+      "gold_slotted": "During the afternoon, E0 lent E1 the E2 beside the table.",
+      "gold_spans": [
+        [
+          22,
+          31
+        ],
+        [
+          37,
+          42
+        ],
+        [
+          47,
+          57
+        ]
+      ],
+      "predicted_mentions": [
+        "lena",
+        "priya",
+        "wooden box"
+      ],
+      "predicted_slotted": "During the afternoon, E0 park lent E1 the E2 beside the table.",
+      "predicted_spans": [
+        [
+          22,
+          26
+        ],
+        [
+          37,
+          42
+        ],
+        [
+          47,
+          57
+        ]
+      ],
+      "text": "During the afternoon, lena park lent priya the wooden box beside the table."
+    },
+    {
+      "family": "give",
+      "gold_mentions": [
+        "priya",
+        "zara",
+        "spiral notebook"
+      ],
+      "gold_slotted": "Yesterday E0 quietly gave E1 the E2 beside the window.",
+      "gold_spans": [
+        [
+          10,
+          15
+        ],
+        [
+          29,
+          33
+        ],
+        [
+          38,
+          53
+        ]
+      ],
+      "predicted_mentions": [
+        "za",
+        "spiral notebook"
+      ],
+      "predicted_slotted": "Yesterday priya quietly gave E0ra the E1 beside the window.",
+      "predicted_spans": [
+        [
+          29,
+          31
+        ],
+        [
+          38,
+          53
+        ]
+      ],
+      "text": "Yesterday priya quietly gave zara the spiral notebook beside the window."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "theo james",
+        "violin",
+        "lena park",
+        "small gem"
+      ],
+      "gold_slotted": "During the morning, E0 bought the E1 from E2 with the E3 near the fountain.",
+      "gold_spans": [
+        [
+          20,
+          30
+        ],
+        [
+          42,
+          48
+        ],
+        [
+          54,
+          63
+        ],
+        [
+          73,
+          82
+        ]
+      ],
+      "predicted_mentions": [
+        "theo",
+        "violin",
+        "lena park",
+        "small gem"
+      ],
+      "predicted_slotted": "During the morning, E0 james bought the E1 from E2 with the E3 near the fountain.",
+      "predicted_spans": [
+        [
+          20,
+          24
+        ],
+        [
+          42,
+          48
+        ],
+        [
+          54,
+          63
+        ],
+        [
+          73,
+          82
+        ]
+      ],
+      "text": "During the morning, theo james bought the violin from lena park with the small gem near the fountain."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "theo james",
+        "wrist watch",
+        "zara",
+        "small gem"
+      ],
+      "gold_slotted": "During the morning, E0 bought the E1 from E2 with the E3 near the fountain.",
+      "gold_spans": [
+        [
+          20,
+          30
+        ],
+        [
+          42,
+          53
+        ],
+        [
+          59,
+          63
+        ],
+        [
+          73,
+          82
+        ]
+      ],
+      "predicted_mentions": [
+        "theo",
+        "james",
+        "wrist",
+        "zara",
+        "small gem"
+      ],
+      "predicted_slotted": "During the morning, E0 E1 bought the E2 watch from E3 with the E4 near the fountain.",
+      "predicted_spans": [
+        [
+          20,
+          24
+        ],
+        [
+          25,
+          30
+        ],
+        [
+          42,
+          47
+        ],
+        [
+          59,
+          63
+        ],
+        [
+          73,
+          82
+        ]
+      ],
+      "text": "During the morning, theo james bought the wrist watch from zara with the small gem near the fountain."
+    },
+    {
+      "family": "lend",
+      "gold_mentions": [
+        "priya",
+        "wrist watch",
+        "zara"
+      ],
+      "gold_slotted": "After the rain stopped, E0 borrowed the E1 from E2 near the shelf.",
+      "gold_spans": [
+        [
+          24,
+          29
+        ],
+        [
+          43,
+          54
+        ],
+        [
+          60,
+          64
+        ]
+      ],
+      "predicted_mentions": [
+        "priya",
+        "wrist",
+        "zara"
+      ],
+      "predicted_slotted": "After the rain stopped, E0 borrowed the E1 watch from E2 near the shelf.",
+      "predicted_spans": [
+        [
+          24,
+          29
+        ],
+        [
+          43,
+          48
+        ],
+        [
+          60,
+          64
+        ]
+      ],
+      "text": "After the rain stopped, priya borrowed the wrist watch from zara near the shelf."
+    },
+    {
+      "family": "move",
+      "gold_mentions": [
+        "priya",
+        "drawing tablet",
+        "guest bedroom",
+        "front porch"
+      ],
+      "gold_slotted": "Before dinner, E0 carried the E1 from the E2 to the E3.",
+      "gold_spans": [
+        [
+          15,
+          20
+        ],
+        [
+          33,
+          47
+        ],
+        [
+          57,
+          70
+        ],
+        [
+          78,
+          89
+        ]
+      ],
+      "predicted_mentions": [
+        "ya",
+        "drawing tablet",
+        "guest bedroom",
+        "front porch"
+      ],
+      "predicted_slotted": "Before dinner, priE0 carried the E1 from the E2 to the E3.",
+      "predicted_spans": [
+        [
+          18,
+          20
+        ],
+        [
+          33,
+          47
+        ],
+        [
+          57,
+          70
+        ],
+        [
+          78,
+          89
+        ]
+      ],
+      "text": "Before dinner, priya carried the drawing tablet from the guest bedroom to the front porch."
+    },
+    {
+      "family": "give",
+      "gold_mentions": [
+        "lena park",
+        "drawing tablet",
+        "zara"
+      ],
+      "gold_slotted": "Near the doorway, E0 received the E1 from E2 after lunch.",
+      "gold_spans": [
+        [
+          18,
+          27
+        ],
+        [
+          41,
+          55
+        ],
+        [
+          61,
+          65
+        ]
+      ],
+      "predicted_mentions": [
+        "lena",
+        "drawing tablet",
+        "zara"
+      ],
+      "predicted_slotted": "Near the doorway, E0 park received the E1 from E2 after lunch.",
+      "predicted_spans": [
+        [
+          18,
+          22
+        ],
+        [
+          41,
+          55
+        ],
+        [
+          61,
+          65
+        ]
+      ],
+      "text": "Near the doorway, lena park received the drawing tablet from zara after lunch."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "theo james",
+        "wrist watch",
+        "lena park",
+        "bank note"
+      ],
+      "gold_slotted": "During the morning, E0 bought the E1 from E2 with the E3 near the fountain.",
+      "gold_spans": [
+        [
+          20,
+          30
+        ],
+        [
+          42,
+          53
+        ],
+        [
+          59,
+          68
+        ],
+        [
+          78,
+          87
+        ]
+      ],
+      "predicted_mentions": [
+        "theo",
+        "wrist",
+        "lena park",
+        "bank note"
+      ],
+      "predicted_slotted": "During the morning, E0 james bought the E1 watch from E2 with the E3 near the fountain.",
+      "predicted_spans": [
+        [
+          20,
+          24
+        ],
+        [
+          42,
+          47
+        ],
+        [
+          59,
+          68
+        ],
+        [
+          78,
+          87
+        ]
+      ],
+      "text": "During the morning, theo james bought the wrist watch from lena park with the bank note near the fountain."
+    },
+    {
+      "family": "give",
+      "gold_mentions": [
+        "priya",
+        "quinn",
+        "paper lantern"
+      ],
+      "gold_slotted": "Yesterday E0 quietly gave E1 the E2 beside the window.",
+      "gold_spans": [
+        [
+          10,
+          15
+        ],
+        [
+          29,
+          34
+        ],
+        [
+          39,
+          52
+        ]
+      ],
+      "predicted_mentions": [
+        "ya",
+        "quinn",
+        "paper lantern"
+      ],
+      "predicted_slotted": "Yesterday priE0 quietly gave E1 the E2 beside the window.",
+      "predicted_spans": [
+        [
+          13,
+          15
+        ],
+        [
+          29,
+          34
+        ],
+        [
+          39,
+          52
+        ]
+      ],
+      "text": "Yesterday priya quietly gave quinn the paper lantern beside the window."
+    },
+    {
+      "family": "move",
+      "gold_mentions": [
+        "zara",
+        "wrist watch",
+        "art studio",
+        "front porch"
+      ],
+      "gold_slotted": "Before dinner, E0 carried the E1 from the E2 to the E3.",
+      "gold_spans": [
+        [
+          15,
+          19
+        ],
+        [
+          32,
+          43
+        ],
+        [
+          53,
+          63
+        ],
+        [
+          71,
+          82
+        ]
+      ],
+      "predicted_mentions": [
+        "ra",
+        "wrist",
+        "art studio",
+        "front porch"
+      ],
+      "predicted_slotted": "Before dinner, zaE0 carried the E1 watch from the E2 to the E3.",
+      "predicted_spans": [
+        [
+          17,
+          19
+        ],
+        [
+          32,
+          37
+        ],
+        [
+          53,
+          63
+        ],
+        [
+          71,
+          82
+        ]
+      ],
+      "text": "Before dinner, zara carried the wrist watch from the art studio to the front porch."
+    },
+    {
+      "family": "lend",
+      "gold_mentions": [
+        "quinn",
+        "zara",
+        "wrist watch"
+      ],
+      "gold_slotted": "At the station, E0 let E1 borrow the E2 until tomorrow.",
+      "gold_spans": [
+        [
+          16,
+          21
+        ],
+        [
+          26,
+          30
+        ],
+        [
+          42,
+          53
+        ]
+      ],
+      "predicted_mentions": [
+        "quinn",
+        "zara",
+        "wrist"
+      ],
+      "predicted_slotted": "At the station, E0 let E1 borrow the E2 watch until tomorrow.",
+      "predicted_spans": [
+        [
+          16,
+          21
+        ],
+        [
+          26,
+          30
+        ],
+        [
+          42,
+          47
+        ]
+      ],
+      "text": "At the station, quinn let zara borrow the wrist watch until tomorrow."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "mateo",
+        "lena park",
+        "wrist watch",
+        "bank note"
+      ],
+      "gold_slotted": "At the crowded market, E0 sold E1 the E2 for the E3.",
+      "gold_spans": [
+        [
+          23,
+          28
+        ],
+        [
+          34,
+          43
+        ],
+        [
+          48,
+          59
+        ],
+        [
+          68,
+          77
+        ]
+      ],
+      "predicted_mentions": [
+        "mateo",
+        "lena park",
+        "wrist",
+        "bank note"
+      ],
+      "predicted_slotted": "At the crowded market, E0 sold E1 the E2 watch for the E3.",
+      "predicted_spans": [
+        [
+          23,
+          28
+        ],
+        [
+          34,
+          43
+        ],
+        [
+          48,
+          53
+        ],
+        [
+          68,
+          77
+        ]
+      ],
+      "text": "At the crowded market, mateo sold lena park the wrist watch for the bank note."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "lena park",
+        "mateo",
+        "wrist watch",
+        "bank note"
+      ],
+      "gold_slotted": "At the crowded market, E0 sold E1 the E2 for the E3.",
+      "gold_spans": [
+        [
+          23,
+          32
+        ],
+        [
+          38,
+          43
+        ],
+        [
+          48,
+          59
+        ],
+        [
+          68,
+          77
+        ]
+      ],
+      "predicted_mentions": [
+        "lena park",
+        "mateo",
+        "wrist",
+        "bank note"
+      ],
+      "predicted_slotted": "At the crowded market, E0 sold E1 the E2 watch for the E3.",
+      "predicted_spans": [
+        [
+          23,
+          32
+        ],
+        [
+          38,
+          43
+        ],
+        [
+          48,
+          53
+        ],
+        [
+          68,
+          77
+        ]
+      ],
+      "text": "At the crowded market, lena park sold mateo the wrist watch for the bank note."
+    },
+    {
+      "family": "give",
+      "gold_mentions": [
+        "lena park",
+        "yuki",
+        "bike helmet"
+      ],
+      "gold_slotted": "Yesterday E0 quietly gave E1 the E2 beside the window.",
+      "gold_spans": [
+        [
+          10,
+          19
+        ],
+        [
+          33,
+          37
+        ],
+        [
+          42,
+          53
+        ]
+      ],
+      "predicted_mentions": [
+        "lena",
+        "yuki",
+        "bike helmet"
+      ],
+      "predicted_slotted": "Yesterday E0 park quietly gave E1 the E2 beside the window.",
+      "predicted_spans": [
+        [
+          10,
+          14
+        ],
+        [
+          33,
+          37
+        ],
+        [
+          42,
+          53
+        ]
+      ],
+      "text": "Yesterday lena park quietly gave yuki the bike helmet beside the window."
+    },
+    {
+      "family": "move",
+      "gold_mentions": [
+        "wrist watch",
+        "town library",
+        "front porch",
+        "mateo"
+      ],
+      "gold_slotted": "While the television played, the E0 went from the E1 to the E2 when E3 moved it.",
+      "gold_spans": [
+        [
+          33,
+          44
+        ],
+        [
+          59,
+          71
+        ],
+        [
+          79,
+          90
+        ],
+        [
+          96,
+          101
+        ]
+      ],
+      "predicted_mentions": [
+        "wrist",
+        "town library",
+        "front porch",
+        "mateo"
+      ],
+      "predicted_slotted": "While the television played, the E0 watch went from the E1 to the E2 when E3 moved it.",
+      "predicted_spans": [
+        [
+          33,
+          38
+        ],
+        [
+          59,
+          71
+        ],
+        [
+          79,
+          90
+        ],
+        [
+          96,
+          101
+        ]
+      ],
+      "text": "While the television played, the wrist watch went from the town library to the front porch when mateo moved it."
+    },
+    {
+      "family": "sell",
+      "gold_mentions": [
+        "omar",
+        "quinn",
+        "wrist watch",
+        "small gem"
+      ],
+      "gold_slotted": "At the crowded market, E0 sold E1 the E2 for the E3.",
+      "gold_spans": [
+        [
+          23,
+          27
+        ],
+        [
+          33,
+          38
+        ],
+        [
+          43,
+          54
+        ],
+        [
+          63,
+          72
+        ]
+      ],
+      "predicted_mentions": [
+        "omar",
+        "quinn",
+        "wrist",
+        "small gem"
+      ],
+      "predicted_slotted": "At the crowded market, E0 sold E1 the E2 watch for the E3.",
+      "predicted_spans": [
+        [
+          23,
+          27
+        ],
+        [
+          33,
+          38
+        ],
+        [
+          43,
+          48
+        ],
+        [
+          63,
+          72
+        ]
+      ],
+      "text": "At the crowded market, omar sold quinn the wrist watch for the small gem."
+    },
+    {
+      "family": "give",
+      "gold_mentions": [
+        "zara",
+        "violin",
+        "omar"
+      ],
+      "gold_slotted": "Near the doorway, E0 received the E1 from E2 after lunch.",
+      "gold_spans": [
+        [
+          18,
+          22
+        ],
+        [
+          36,
+          42
+        ],
+        [
+          48,
+          52
+        ]
+      ],
+      "predicted_mentions": [
+        "za",
+        "violin",
+        "omar"
+      ],
+      "predicted_slotted": "Near the doorway, E0ra received the E1 from E2 after lunch.",
+      "predicted_spans": [
+        [
+          18,
+          20
+        ],
+        [
+          36,
+          42
+        ],
+        [
+          48,
+          52
+        ]
+      ],
+      "text": "Near the doorway, zara received the violin from omar after lunch."
+    },
+    {
+      "family": "move",
+      "gold_mentions": [
+        "wrist watch",
+        "art studio",
+        "town library",
+        "lena park"
+      ],
+      "gold_slotted": "While the television played, the E0 went from the E1 to the E2 when E3 moved it.",
+      "gold_spans": [
+        [
+          33,
+          44
+        ],
+        [
+          59,
+          69
+        ],
+        [
+          77,
+          89
+        ],
+        [
+          95,
+          104
+        ]
+      ],
+      "predicted_mentions": [
+        "wrist",
+        "art studio",
+        "town library",
+        "lena park"
+      ],
+      "predicted_slotted": "While the television played, the E0 watch went from the E1 to the E2 when E3 moved it.",
+      "predicted_spans": [
+        [
+          33,
+          38
+        ],
+        [
+          59,
+          69
+        ],
+        [
+          77,
+          89
+        ],
+        [
+          95,
+          104
+        ]
+      ],
+      "text": "While the television played, the wrist watch went from the art studio to the town library when lena park moved it."
+    },
+    {
+      "family": "lend",
+      "gold_mentions": [
+        "omar",
+        "theo james",
+        "wrist watch"
+      ],
+      "gold_slotted": "During the afternoon, E0 lent E1 the E2 beside the table.",
+      "gold_spans": [
+        [
+          22,
+          26
+        ],
+        [
+          32,
+          42
+        ],
+        [
+          47,
+          58
+        ]
+      ],
+      "predicted_mentions": [
+        "omar",
+        "theo james",
+        "wrist"
+      ],
+      "predicted_slotted": "During the afternoon, E0 lent E1 the E2 watch beside the table.",
+      "predicted_spans": [
+        [
+          22,
+          26
+        ],
+        [
+          32,
+          42
+        ],
+        [
+          47,
+          52
+        ]
+      ],
+      "text": "During the afternoon, omar lent theo james the wrist watch beside the table."
+    },
+    {
+      "family": "move",
+      "gold_mentions": [
+        "theo james",
+        "paper lantern",
+        "repair workshop",
+        "front porch"
+      ],
+      "gold_slotted": "After checking the clock, E0 relocated the E1 from the E2 into the E3.",
+      "gold_spans": [
+        [
+          26,
+          36
+        ],
+        [
+          51,
+          64
+        ],
+        [
+          74,
+          89
+        ],
+        [
+          99,
+          110
+        ]
+      ],
+      "predicted_mentions": [
+        "theo",
+        "james",
+        "paper lantern",
+        "repair workshop",
+        "front porch"
+      ],
+      "predicted_slotted": "After checking the clock, E0 E1 relocated the E2 from the E3 into the E4.",
+      "predicted_spans": [
+        [
+          26,
+          30
+        ],
+        [
+          31,
+          36
+        ],
+        [
+          51,
+          64
+        ],
+        [
+          74,
+          89
+        ],
+        [
+          99,
+          110
+        ]
+      ],
+      "text": "After checking the clock, theo james relocated the paper lantern from the repair workshop into the front porch."
+    },
+    {
+      "family": "lend",
+      "gold_mentions": [
+        "lena park",
+        "theo james",
+        "drawing tablet"
+      ],
+      "gold_slotted": "During the afternoon, E0 lent E1 the E2 beside the table.",
+      "gold_spans": [
+        [
+          22,
+          31
+        ],
+        [
+          37,
+          47
+        ],
+        [
+          52,
+          66
+        ]
+      ],
+      "predicted_mentions": [
+        "lena",
+        "theo james",
+        "drawing tablet"
+      ],
+      "predicted_slotted": "During the afternoon, E0 park lent E1 the E2 beside the table.",
+      "predicted_spans": [
+        [
+          22,
+          26
+        ],
+        [
+          37,
+          47
+        ],
+        [
+          52,
+          66
+        ]
+      ],
+      "text": "During the afternoon, lena park lent theo james the drawing tablet beside the table."
+    }
+  ],
+  "mode": "semantic_mention_bio",
+  "model": "google/bert_uncased_L-2_H-128_A-2",
+  "total_parameters": 4386307,
+  "train_samples": 2048
+}
