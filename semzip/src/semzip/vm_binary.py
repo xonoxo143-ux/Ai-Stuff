@@ -10,6 +10,7 @@ from .vm_relations import RelationRegistry
 _TAG_TRANSITION = 0
 _TAG_ASSIGNMENT = 1
 _TAG_CLEAR = 2
+# Storage optimization only: canonical semantics represents this as ordinary SET facts.
 _TAG_RETURN = 3
 _FORMAT_VERSION = 1
 
@@ -46,8 +47,6 @@ def decode_varint(data: bytes, offset: int = 0) -> tuple[int, int]:
 
 @dataclass(slots=True)
 class AtomTable:
-    """Shared string interning table for compact semantic storage."""
-
     atoms: list[str] = field(default_factory=list)
     _ids: dict[str, int] = field(default_factory=dict)
 
@@ -84,7 +83,12 @@ def encode_patch_binary(
     atoms: AtomTable,
     registry: RelationRegistry,
 ) -> bytes:
-    """Encode one patch; atom table and relation registry are shared externally."""
+    """Encode one patch; semantic-library structures may receive compact wire tags.
+
+    A compact tag never changes the canonical algebra. Return obligations are detected
+    from ordinary SetEffects, removed from the generic assignment stream, and encoded
+    compactly only at this storage layer.
+    """
 
     records: list[tuple] = []
     for delta in patch.deltas:
@@ -98,7 +102,16 @@ def encode_patch_binary(
                     atoms.intern(delta.destination),
                 )
             )
+
+    obligations = patch.return_obligations
+    compact_cells = {
+        effect.cell
+        for obligation in obligations
+        for effect in obligation.effects()
+    }
     for item in patch.assignments:
+        if item.cell in compact_cells:
+            continue
         records.append(
             (
                 _TAG_ASSIGNMENT,
@@ -115,7 +128,7 @@ def encode_patch_binary(
                 atoms.intern(item.subject),
             )
         )
-    for item in patch.return_obligations:
+    for item in obligations:
         records.append(
             (
                 _TAG_RETURN,
