@@ -14,11 +14,15 @@ class RelationSpec:
 
 
 class RelationRegistry:
-    """Versionable semantic-library relation vocabulary.
+    """Versionable semantic state-dimension vocabulary.
 
-    Relation IDs are compiler-facing handles, not VM opcodes. The Semantic VM
-    kernel can execute any normalized relation dimension; untrusted compilers may
-    only emit IDs present in the registry they were trained against.
+    The historical name is kept for compatibility. Entries such as `owner`,
+    `location`, `temperature`, or `powered` are state dimensions/fields; they are not
+    VM opcodes and do not all need to be relations in the linguistic sense.
+
+    IDs are compiler-facing handles. The kernel can execute any normalized dimension;
+    untrusted compilers may emit only IDs present in the registry they were trained
+    against.
     """
 
     def __init__(self, names=()):
@@ -33,7 +37,7 @@ class RelationRegistry:
             existing = self._by_name[normalized]
             if relation_id is not None and relation_id != existing.relation_id:
                 raise ValueError(
-                    f"relation {normalized!r} already has id {existing.relation_id}"
+                    f"dimension {normalized!r} already has id {existing.relation_id}"
                 )
             return existing
         if relation_id is None:
@@ -41,9 +45,9 @@ class RelationRegistry:
             while relation_id in self._by_id:
                 relation_id += 1
         if isinstance(relation_id, bool) or not isinstance(relation_id, int) or relation_id < 0:
-            raise ValueError("relation_id must be a non-negative integer")
+            raise ValueError("dimension id must be a non-negative integer")
         if relation_id in self._by_id:
-            raise ValueError(f"relation id {relation_id} is already registered")
+            raise ValueError(f"dimension id {relation_id} is already registered")
         spec = RelationSpec(relation_id, normalized)
         self._by_id[relation_id] = spec
         self._by_name[normalized] = spec
@@ -53,14 +57,14 @@ class RelationRegistry:
         try:
             return self._by_id[relation_id]
         except KeyError as exc:
-            raise KeyError(f"unknown relation id {relation_id}") from exc
+            raise KeyError(f"unknown semantic dimension id {relation_id}") from exc
 
     def resolve_name(self, name: str) -> RelationSpec:
         normalized = atom(name)
         try:
             return self._by_name[normalized]
         except KeyError as exc:
-            raise KeyError(f"unknown relation {normalized!r}") from exc
+            raise KeyError(f"unknown semantic dimension {normalized!r}") from exc
 
     def __contains__(self, value) -> bool:
         if isinstance(value, int) and not isinstance(value, bool):
@@ -85,3 +89,8 @@ class RelationRegistry:
 
 
 DEFAULT_RELATION_REGISTRY = RelationRegistry(("owner", "possessor", "location"))
+
+# Preferred algebra-facing vocabulary. Old names remain stable for experiment code.
+DimensionSpec = RelationSpec
+DimensionRegistry = RelationRegistry
+DEFAULT_DIMENSION_REGISTRY = DEFAULT_RELATION_REGISTRY
