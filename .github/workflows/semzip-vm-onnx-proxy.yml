@@ -1,0 +1,41 @@
+name: SemVM Tiny Encoder ONNX Proxy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [semzip-vm]
+    paths:
+      - ".github/workflows/semzip-vm-onnx-proxy.yml"
+      - "semzip/benchmarks/tiny_encoder_onnx_proxy.py"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TOKENIZERS_PARALLELISM: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: semvm-google-bert-l2-h128-v1
+      - run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install "transformers>=4.45,<5" safetensors onnx onnxruntime
+      - name: Export and benchmark ONNX FP32/int8
+        run: |
+          cd semzip
+          python benchmarks/tiny_encoder_onnx_proxy.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semvm-tiny-encoder-onnx-proxy
+          path: |
+            semzip/tiny-encoder-onnx-proxy.json
+            semzip/onnx-proxy/tiny-encoder-int8.onnx
+          if-no-files-found: warn
+          retention-days: 14
