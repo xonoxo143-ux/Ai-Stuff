@@ -1,709 +1,511 @@
-# SemZip Roadmap: From Toy Codec to Semantic Substrate
+# SemZip VM Roadmap — Discovering an Algebra of Meaning
 
-## Goal
+## North-star question
 
-SemZip is an experiment in semantic compression.
+> **What algebraic laws does ordinary meaning obey, and how small can the resulting
+> semantic instruction set become without losing the ability to reason, predict,
+> remember, and reconstruct important meaning?**
 
-Instead of treating different strings as fundamentally different objects, SemZip tries to convert language into a canonical, inspectable meaning representation that can be reused by memory, reasoning, simulation, translation, and eventually a broader Cognitive Engine.
+The `semzip` branch preserves the earlier v0.3 semantic-graph/codec line. This roadmap
+is for `semzip-vm`.
 
-The working hypothesis is:
-
-> A large portion of everyday language can be represented as compositions of a much smaller number of reusable semantic structures.
-
-We do **not** assume the final number of primitives in advance. The project should discover the useful level of decomposition empirically.
+The project does **not** assume that language words, graph predicates, or today's K0–K3
+kernel are the final semantic primitives.
 
 ---
 
-## Mental model
+## Working model
 
-Think of ordinary text as a rendered file format.
+A grounded assertion can often be viewed as a partial transformation on world state:
 
 ```text
-English sentence ─┐
-Spanish sentence ─┤
-Image observation ┼─> canonical meaning graph ─> reasoning / memory / planning
-Sensor event ─────┤
-Database record ──┘
+M : S -> S'
 ```
 
-Language is an encoder/decoder around the canonical meaning, not necessarily the canonical meaning itself.
+The current atomic state-effect hypotheses are:
 
-This is closer to an intermediate representation (IR) in a compiler than a dictionary.
+```text
+Set(entity, dimension, value)
+Shift(entity, dimension, before, after)
+Clear(entity, dimension)
+```
 
-A compiler may turn many source-level spellings into the same low-level operation. SemZip should attempt the same thing for meaning.
+with separate domain constraints when a required fact is not itself the source of a
+`Shift`.
+
+Higher meaning is composed rather than encoded as an ever-growing verb dictionary:
+
+```text
+atomic effects
+    ↓
+parallel transforms / ordered sequences / guards / projections
+    ↓
+reusable learned subexpressions
+    ↓
+semantic library
+    ↓
+K0–K3 execution
+```
+
+Language is one compiler boundary into this algebra, not the ontology itself.
 
 ---
 
-# Design principles
+# What is already established
 
-## 1. Meaning first, wording second
+## A. Ledger-first state
 
-Paraphrases should converge when they carry the same relevant meaning.
+Durable truth is an append-only event ledger. Current state is a projection/cache.
+Branches, history, provenance, uncertain observations, and separate minds use the same
+basic machinery.
+
+## B. Ownership is not possession
+
+Temporary possession no longer implies ownership transfer. This remains a permanent
+regression test because it exposed the danger of deriving ontology from words alone.
+
+## C. Tiny executable kernel
+
+The experimental kernel is:
+
+```text
+K0 SET
+K1 SHIFT
+K2 REQUIRE
+K3 CLEAR
+```
+
+A shift already checks its source value. K2 is therefore reserved for extra guards,
+not duplicated before every K1.
+
+## D. Atomic semantic effect algebra
+
+Canonical patches store one atomic effect per state cell. Grouped structures such as
+`RelationDelta(owner+possessor)` are compatibility/compression views, not semantic
+truth.
+
+The current law tests establish:
+
+- explicit identity / no-change
+- associative, commutative, idempotent parallel composition when compatible
+- explicit failure for conflicting simultaneous writes
+- associative, generally non-commutative sequence
+- local inverses for `Shift`
+- non-invertibility of `Set/Clear` without prior state
+- equivalence under selected projections
+
+These are empirical design commitments and may be revised if broader semantic tests
+break them.
+
+## E. Neural perception should stay narrow
+
+Controlled experiments strongly favor small purpose-fit semantic perception plus exact
+runtime composition over asking a larger decoder to regenerate low-level bytecode.
+
+Current best lessons:
+
+- architecture changes beat a 135M -> 360M parameter increase on the toy compiler task
+- a roughly 4.4M bidirectional encoder is already useful as a semantic perception unit
+- relation-conditioned probing improves disentanglement
+- deterministic composition of independently understood atomic clauses solved the clean
+  unseen-composition gate exactly
+
+These results are benchmark evidence, not claims of general language capability.
+
+---
+
+# Phase 1 — Consolidate the algebraic core
+
+**Status: active / mostly complete.**
+
+Goals:
+
+- one canonical state-effect algebra
+- explicit identities
+- guards/domain conditions
+- parallel versus ordered composition
+- layered/projection equivalence
+- compatibility adapters around older representations
+- a single public `semzip.vm` facade
+
+Remaining high-value work:
+
+- demote domain-specific compatibility effects such as return obligations into generic
+  semantic-library structures when a clean representation is available
+- decide whether a general expression AST is needed beyond patch + sequence; do not add
+  speculative operators just for completeness
+
+Gate:
+
+> Changing display grouping or bytecode layout must not change semantic identity.
+
+---
+
+# Phase 2 — Generic cognition over the algebra
+
+**Status: active.**
+
+Planning and simulation should consume semantic transformations rather than lexical
+actions.
+
+Architecture:
+
+```text
+ActionSchema
+    ↓ instantiate
+SemanticTransform(guards, effects)
+    ↓ pure apply
+StateSnapshot
+```
+
+The event ledger is durable memory, not an inner-loop scratch simulator.
+
+Gates:
+
+- planner can solve tasks using anonymous/generic transform schemas
+- no planner dependency on `give`, `move`, `sell`, etc.
+- candidate simulation does not rebuild event history
+- selected plans can still compile to K0–K3 and commit transactionally
+
+Future question:
+
+> Can useful action schemas themselves be discovered or compressed from repeated
+> experienced transformations rather than hand-authored?
+
+---
+
+# Phase 3 — Real description-length learning
+
+The current effect-level learner already discovers reusable anonymous world-change
+patterns and can factor a reciprocal exchange into two smaller transfer-shaped patterns.
+
+The next objective is stricter:
+
+```text
+TOTAL DESCRIPTION COST =
+    encoded experience
+  + semantic library definitions
+  + macro calls
+  + required atom/dimension tables
+  + optional execution penalty
+  + reconstruction/prediction loss
+```
+
+Near-term work:
+
+1. Make all abstraction discovery operate on canonical atomic semantic effects.
+2. Charge **actual encoded bytes** where possible instead of fixed hand-selected record
+   costs.
+3. Encode a corpus with promoted macros and prove exact reconstruction.
+4. Reject macros that save representation but harm prediction/reasoning behavior.
+5. Recursively factor learned macro definitions.
+
+A macro remains an optimization. It must never become true merely because it compresses.
+
+Gate:
+
+> Promotion must reduce the real objective after paying for the library definition.
+
+---
+
+# Phase 4 — Expand algebraic operators only when earned
+
+Do **not** create a checklist of linguistic operators and add them mechanically.
+
+Candidate mathematical domains to investigate include:
+
+- negation / complement
+- implication / conditional transformations
+- alternatives / branching
+- probability and confidence
+- sets and quantities
+- continuous dimensions and geometry
+- scoped belief/knowledge states
+- goals / desired-state constraints
+- discourse acts such as ASSERT / QUERY / REQUEST
+
+For every candidate, ask:
+
+1. Is this an algebraic operator, a data type, a scoped world, or merely a semantic
+   library macro?
+2. What laws should it obey?
+3. What counterexamples break those laws?
+4. Can it be reduced to existing operations without unacceptable cost or loss?
+5. Does adding it improve compression, reasoning, or prediction on held-out tasks?
+
+Examples:
+
+- probability may belong primarily on evidence/branches rather than as a kernel opcode
+- belief may be a scoped projection/ledger rather than a `BELIEVE` instruction
+- quantity may be a value/data algebra rather than a verb-like semantic operator
+- `ASSERT`, `QUERY`, and `REQUEST` may belong to a discourse/executive layer rather
+  than world-state transformation itself
+
+Gate:
+
+> No new primitive is accepted because its English name feels fundamental.
+
+---
+
+# Phase 5 — Layered equivalence
+
+SemZip should support several explicit equivalence relations instead of one universal
+semantic hash:
+
+```text
+surface
+pragmatic/discourse
+propositional
+full world transition
+projection-specific transition
+kernel behavior
+```
+
+Experiments should include sentences that deliberately diverge at one layer and
+converge at another.
+
+Example:
 
 ```text
 John gave Mary the book.
 Mary received the book from John.
-The book was given to Mary by John.
 ```
 
-should converge toward one semantic object.
+Expected:
 
-## 2. Preserve meaningful differences
+- surface: different
+- perspective/pragmatic focus: potentially different
+- relevant ownership/possession transition: potentially equal
 
-Compression must not erase distinctions such as:
+Gate:
 
-- John killed Bill.
-- John almost killed Bill.
-- John did not kill Bill.
-- John believes he killed Bill.
-- John might kill Bill.
-
-A shorter graph that merges these is a failed codec.
-
-## 3. Unknown is better than invented
-
-If SemZip cannot represent or parse something faithfully, it should say so or retain an unresolved structure. It must not silently manufacture a convenient interpretation.
-
-## 4. Ambiguity is data
-
-"I saw the man with the telescope" can have more than one valid analysis. The representation should be able to keep competing interpretations until context resolves them.
-
-## 5. Inference is not assertion
-
-If the input says:
-
-```text
-A robin is a bird.
-```
-
-and the ontology knows birds are animals, SemZip may infer that the robin is an animal, but it should distinguish the inferred fact from the explicitly supplied fact.
-
-## 6. Language independence is a target
-
-English grammar should not become the ontology by accident. Equivalent meanings in different languages should have a path toward the same canonical structure.
-
-## 7. Inspectability before cleverness
-
-Early versions should favor explicit Python structures and deterministic transformations. Learned parsers can assist at the edges later, but the semantic substrate should remain visible and testable.
+> Every canonicalization claim names the equivalence layer it is canonicalizing.
 
 ---
 
-# Architecture target
+# Phase 6 — Tiny raw-language perception
+
+The neural front end should predict bounded semantic evidence, not arbitrary JSON or
+bytecode.
+
+Preferred decomposition:
 
 ```text
-                 SEMZIP
-
-Input text
-   |
-   v
-Surface parser
-   |
-   v
-Candidate meaning graph
-   |
-   +--> ambiguity / uncertainty
-   |
-   v
-Canonicalizer
-   |
-   v
-Semantic IR
-   |\
-   | +--> ontology
-   | +--> inference engine
-   | +--> memory
-   | +--> semantic hash / deduplication
-   |
-   v
-Generator / downstream consumer
+raw text
+  ↓
+mention evidence
+  ↓
+identity resolution
+  ↓
+relation/dimension-conditioned semantic probes
+  ↓
+confidence-preserving atomic effects
+  ↓
+exact parser/algebraic composition
 ```
 
-The existing v0.1 prototype already demonstrates a tiny version of the parser -> canonical graph -> hash -> generator loop for TRANSFER events.
+Important rules:
+
+- entity spelling/identity is not generated by the neural model when a pointer can be
+  used
+- compiler outputs are bound to a signed/versioned semantic-dimension registry
+- near-ties and low confidence remain ambiguous evidence
+- exact union/sequence is runtime work, not neural memorization
+
+Next gates:
+
+1. raw mention detection on unseen names and multiword entities
+2. raw-text -> atomic-effect accuracy with gold mentions
+3. raw-text -> effects with predicted mentions
+4. adversarial paraphrases outside the synthetic training dialect
+5. shared-backbone versus separate tiny encoders
+6. calibration, not only top-1 accuracy
+
+Only after those gates should model size increase materially.
 
 ---
 
-# Phase 1 — Build the universal graph grammar
+# Phase 7 — Identity, reference, and coreference
 
-Before defining thousands of concepts, define the kinds of things the graph itself can express.
+Surface equality is not entity identity.
 
-## Core node kinds
+The identity store should preserve:
 
-Start with a deliberately small structural vocabulary:
+- mention occurrences
+- persistent entities
+- aliases
+- unresolved ambiguity
+- explicit evidence linking mentions to entities
 
-- ENTITY — a thing or identifiable participant
-- EVENT — something that happens
-- STATE — a condition that holds
-- PROPERTY — a quality or measurement
-- RELATION — a connection between things
-- PROPOSITION — a claim that can itself be believed, negated, questioned, etc.
+A learned resolver may propose links, but persistent IDs and alias history remain
+external structured state.
 
-These are graph machinery, not necessarily ultimate metaphysical categories.
+Gate:
 
-## Core edge / role families
-
-Examples:
-
-- actor / agent
-- patient / affected
-- theme / object
-- source
-- destination / goal
-- instrument
-- owner
-- location
-- time
-- cause
-- purpose
-- manner
-
-The exact names are less important than canonical consistency.
-
-## Why this comes first
-
-If the graph cannot represent nested propositions, uncertainty, time, or causation cleanly, adding 50,000 vocabulary concepts will only create a larger broken system.
-
-## Deliverable
-
-`model.py` evolves from the current simple event structure into a typed graph with stable canonical serialization.
-
-## Gate tests
-
-The graph must distinguish at minimum:
-
-```text
-Alice opened the door.
-Bob opened the door.
-Alice closed the door.
-Alice did not open the door.
-Alice might open the door.
-Alice believes Bob opened the door.
-Alice believes Bob did not open the door.
-```
+> Two identical names may remain distinct; two different names may resolve to one
+> entity when evidence supports it.
 
 ---
 
-# Phase 2 — State, change, and event decomposition
+# Phase 8 — Broader grounded universes
 
-This is the first real test of the "small semantic alphabet" idea.
+The current synthetic world is intentionally tiny. It must not become the ontology by
+accident.
 
-Instead of immediately treating OPEN, CLOSE, GIVE, TAKE, BUY, SELL, ENTER, LEAVE, etc. as unrelated atoms, define reusable change structures.
+Expand controlled environments across qualitatively different domains:
 
-Example:
+- containment and topology
+- resource/quantity changes
+- switches/process state
+- continuous temperature/position
+- simple social obligations/permissions
+- uncertainty/noisy observations
+- partial visibility and agent belief
 
-```text
-MOVE(x, source, destination)
-```
+Hold entire combinations/domains out during learning.
 
-can be understood as a change in location.
-
-```text
-TRANSFER_POSSESSION(x, A, B)
-```
-
-can be understood as a change in possession.
-
-A useful generic schema may look like:
-
-```text
-CHANGE
-  subject: X
-  dimension: LOCATION
-  before: A
-  after: B
-```
-
-or:
-
-```text
-CHANGE
-  subject: BOOK
-  dimension: OWNER
-  before: JOHN
-  after: MARY
-```
-
-## Why this matters
-
-If many verbs reduce to variations of CHANGE + a semantic dimension + constraints, that is real semantic compression rather than a renamed dictionary.
-
-## Gate tests
-
-SemZip should express and compare:
-
-- enter / leave
-- give / receive
-- buy / sell
-- borrow / lend
-- appear / disappear
-- heat / cool
-- grow / shrink
-
-while preserving perspective and special constraints.
+The important test is not whether the learner compresses one game world. It is whether
+reusable algebraic structures survive transfer to new domains.
 
 ---
 
-# Phase 3 — Identity, ontology, and inheritance
+# Phase 9 — Recursive controller
 
-Introduce concept identity independent of spelling.
-
-Example hierarchy:
+Once the algebra and semantic library are stable enough, train a tiny controller on:
 
 ```text
-physical_entity
-  -> living_entity
-     -> animal
-        -> mammal
-           -> dog
+semantic state + goal + available transforms
+        ↓
+next useful operation / query / simulation step
 ```
 
-WordNet-like resources are donors here, but SemZip should not copy the assumption that every useful concept is merely a word sense.
+The controller should not memorize factual world knowledge or redo deterministic
+search machinery that can be externalized.
 
-## Key distinctions
+Compare:
 
-- TYPE: dog
-- INSTANCE: Fido
-- PROPERTY: brown
-- RELATION: owns
+- explicit search
+- tiny recursive controller
+- hybrid controller + search
+- ordinary small LM baselines
 
-## Inference
-
-If:
-
-```text
-Fido instance_of DOG
-DOG is_a MAMMAL
-MAMMAL is_a ANIMAL
-```
-
-then SemZip can derive:
-
-```text
-Fido instance_of ANIMAL
-```
-
-and mark that result as inferred.
-
-## Gate tests
-
-- inheritance works transitively
-- exceptions can override defaults
-- identity is not confused with labels
-- aliases and synonyms can point to the same concept
-- polysemous words can point to different concepts
-
-Example: `bank` must not force riverbank and financial institution into one node.
+Measure capability per parameter and per unit of compute.
 
 ---
 
-# Phase 4 — Time and aspect
+# Phase 10 — Reverse compiler / language generation
 
-Time is not just a word such as "yesterday".
-
-Represent:
-
-- before / after / simultaneous
-- points and intervals
-- duration
-- event ordering
-- started / ongoing / completed
-- habitual / repeated
-
-Examples that must remain distinct:
+Only after internal meaning is useful independently of text:
 
 ```text
-Alice eats.
-Alice ate.
-Alice is eating.
-Alice had eaten.
-Alice used to eat there.
-Alice will have eaten before Bob arrives.
-```
-
-We do not need to reproduce every English tense label internally. We need to preserve the underlying temporal relationships.
-
----
-
-# Phase 5 — Negation, modality, and possible worlds
-
-This prevents a major category of semantic corruption.
-
-Represent at least:
-
-- NOT
-- POSSIBLE
-- PROBABLE
-- NECESSARY
-- INTENDED
-- ATTEMPTED
-- COUNTERFACTUAL
-- CONDITIONAL
-
-Examples:
-
-```text
-John opened the door.
-John did not open the door.
-John tried to open the door.
-John almost opened the door.
-John may open the door.
-John must open the door.
-If John opens the door, Mary will leave.
-```
-
-A proposition may therefore be embedded inside operators rather than flattened into the main world state.
-
----
-
-# Phase 6 — Minds: belief, knowledge, desire, speech
-
-The graph needs to represent different agents having different models of reality.
-
-Example:
-
-```text
-REALITY:
-  box contains KEY
-
-ALICE believes:
-  box contains COIN
-
-BOB knows:
-  box contains KEY
-```
-
-This is essential for conversation, planning, deception, fiction, social reasoning, and a future agent architecture.
-
-## Required operations
-
-- believe(P)
-- know(P)
-- want(P)
-- expect(P)
-- intend(P)
-- say(P)
-- ask(P)
-- command(P)
-
-The embedded proposition P is its own semantic object.
-
----
-
-# Phase 7 — Causation and counterfactual simulation
-
-Add explicit distinctions among:
-
-- cause
-- enable
-- prevent
-- correlate
-- precede
-
-The system should not infer causation merely because one event occurs before another.
-
-Examples:
-
-```text
-The collision broke the glass.
-The open window allowed the smoke to escape.
-The lock prevented the door from opening.
-```
-
-Later, this becomes the bridge from SemZip into a world simulator: a semantic cause can point to executable domain models rather than remaining only a language relation.
-
----
-
-# Phase 8 — Quantity, sets, and reference
-
-Represent:
-
-- one / many
-- exact quantities
-- ranges
-- all / some / none
-- groups and members
-- definite vs indefinite reference when it changes meaning
-- same entity vs another entity
-
-Examples:
-
-```text
-A dog barked.
-The dog barked again.
-Every dog barked.
-Some dogs barked.
-No dogs barked.
-Exactly three dogs barked.
-Most dogs barked.
-```
-
-This phase is important because many superficially similar sentences have very different truth conditions.
-
----
-
-# Phase 9 — Semantic molecules and lexical mapping
-
-Only after the graph substrate is capable enough do we aggressively map ordinary vocabulary into reusable structures.
-
-Donor resources can propose candidate frames/concepts. SemZip then asks whether they can be decomposed.
-
-Example family:
-
-```text
-TRANSFER
-  give
-  receive
-  donate
-  award
-  lend
-  borrow
-  steal
-
-EXCHANGE
-  buy
-  sell
-  trade
-```
-
-Each lexical concept can be modeled as:
-
-```text
-base structure
-+ constraints
-+ perspective
-+ conventional implications
-```
-
-Example idea:
-
-```text
-SELL =
-  exchange(goods, seller -> buyer)
-  exchange(payment, buyer -> seller)
-  agreement(participants)
-```
-
-The exact decomposition must be tested, not assumed.
-
----
-
-# Phase 10 — Primitive discovery experiment
-
-Do not hand-author a sacred list of primitives.
-
-Instead:
-
-1. Import a large sample of common concepts/events.
-2. Decompose each into reusable structures.
-3. Count repeated structures.
-4. Merge structures that behave equivalently.
-5. Try recursively decomposing those structures.
-6. Measure whether compression increases without harming fidelity.
-
-Track a curve:
-
-```text
-number of primitive concepts
-        vs
-semantic fidelity / representation cost
-```
-
-The likely useful answer may be a hierarchy, not one tiny irreducible vocabulary.
-
-For example:
-
-```text
-surface concepts
+semantic expression
     ↓
-frames
+optional macro/concept recognition
     ↓
-semantic molecules
+small generator
     ↓
-core operations
-    ↓
-small structural primitives
+human language
 ```
+
+Generation should preserve requested perspective and discourse information when that
+layer was retained; it should not pretend lower-level transition equivalence means the
+original wording was recoverable.
 
 ---
 
-# Phase 11 — Ambiguity and uncertainty
+# Phase 11 — Phone/native runtime
 
-A candidate graph can carry confidence and alternatives.
+Python is the research implementation, not the target deployment runtime.
 
-Example:
+Before a native rewrite, stabilize:
 
-```text
-"I saw the man with the telescope."
+- semantic algebra
+- registry format
+- binary format
+- event-block format
+- tiny neural input/output contract
 
-candidate A: telescope is instrument of SEE
-candidate B: man possesses telescope
-```
+Then evaluate a compact native implementation and phone inference runtime.
 
-Context may later collapse the alternatives.
+Track:
 
-Important rule: semantic hash equality should normally require resolved canonical meaning, not merely the same ambiguous surface sentence.
+- serialized semantic bytes
+- resident RAM
+- batch-1 latency
+- reasoning steps/second
+- model size before/after int8 quantization
+- battery/thermal behavior on actual ARM hardware
 
----
-
-# Phase 12 — Cross-lingual convergence
-
-Add a second language only after English-side semantics are stable enough to test something meaningful.
-
-The test is not translation quality by itself.
-
-The key experiment is:
-
-```text
-English sentence -> SemZip graph A
-Spanish sentence -> SemZip graph B
-
-A == B ?
-```
-
-Equivalent meanings should increasingly converge.
-
-If they systematically fail because the graph encodes English-specific syntax, redesign the graph rather than patching each language.
+GitHub x86 runner numbers are proxy measurements only.
 
 ---
 
-# Phase 13 — Connect SemZip to the Cognitive Engine
+# Benchmark families
 
-Once SemZip can reliably represent events, states, time, causation, beliefs, goals, and identity, it can become the shared substrate between modules.
+Every major claim needs adversarial tests.
 
-```text
-language parser ----┐
-vision system ------┤
-memory -------------┼-> SemZip/world model
-simulator -----------┤
-planner -------------┘
-```
+## Algebra laws
 
-At this point SemZip stops being merely a language experiment and becomes a candidate internal communication format for a modular AI system.
+Property-style tests for identity, associativity, conditional commutativity,
+non-commutative sequence, inverses, conflicts, and projection.
 
----
+## Paraphrase convergence
 
-# Benchmark strategy
+Different wording -> same relevant semantic effect when justified.
 
-Every feature must arrive with adversarial examples.
+## Minimal-pair discrimination
 
-## A. Paraphrase convergence
+Small meaning difference -> different semantic expression.
 
-Same meaning, different wording -> same or equivalent graph.
+## Novel composition
 
-## B. Minimal-pair discrimination
+Known atomic meanings combined in combinations absent from training.
 
-One small semantic difference -> different graph.
+## Temporal ordering
 
-Example:
+Parallel versus sequential updates must remain distinct.
 
-```text
-John gave Mary a book.
-Mary gave John a book.
-```
+## Uncertainty
 
-## C. Round-trip preservation
+Low-confidence evidence must not silently become accepted reality.
 
-```text
-text -> graph -> generated text
-```
+## Abstraction discovery
 
-Generated wording may change; important meaning must survive.
+Learned macros must be blind to action labels and bytecode serialization.
 
-## D. Inference preservation
+## Cross-domain transfer
 
-Graph should support valid derived facts without mixing them with asserted facts.
+Structures learned in one synthetic domain must remain useful in another.
 
-## E. Novel composition
+## Compression
 
-The system should represent meaningful but bizarre combinations rather than failing because the exact phrase was absent from a dictionary.
+Measure real encoded corpus + library cost, not only unique graph counts.
 
-## F. Contradiction tests
+## Phone efficiency
 
-The system should notice incompatibilities such as:
-
-```text
-The door is fully open.
-The same door is fully closed at the same time.
-```
-
-when the ontology says those states are mutually exclusive.
-
-## G. Compression measurements
-
-Measure at several levels:
-
-1. serialized bytes
-2. unique concept count
-3. unique relation count
-4. deduplication across paraphrases
-5. shared structure across a corpus
-
-Raw bytes are not the only useful measure. A verbose debug JSON representation may be physically larger than English while still exposing major structural deduplication potential.
+Measure model/runtime footprint without confusing desktop proxy numbers for device
+results.
 
 ---
 
-# Development order
+# Stop conditions for architecture work
 
-Recommended immediate sequence:
+A restructuring pass is justified when it:
 
-1. typed semantic graph
-2. propositions as first-class nodes
-3. negation and modality
-4. state/change representation
-5. ontology + identity
-6. time
-7. belief/knowledge/desire
-8. causation
-9. quantity/reference
-10. frame/lexical expansion
-11. ambiguity
-12. cross-lingual tests
-13. primitive-discovery tooling
-14. Cognitive Engine integration
+- removes a duplicated semantic authority
+- exposes a testable algebraic law
+- makes an invalid state unrepresentable or explicitly rejected
+- reduces neural responsibility
+- removes domain-specific assumptions from the core
+- materially improves asymptotic runtime/storage
+- makes experiments comparable/reproducible
 
-This ordering deliberately builds representational safety before vocabulary breadth.
+A restructuring pass is **not** justified merely to:
 
----
+- rename every historical file
+- obtain aesthetically perfect package nesting
+- replace stable compatibility adapters
+- add speculative operator classes with no benchmark
+- move code without changing which layer owns a concept
 
-# v0.2 concrete target
-
-The next code milestone should handle a compact but difficult mini-world involving people, objects, rooms, possession, movement, beliefs, and time.
-
-Example story:
-
-```text
-John owned a red key.
-John gave the key to Mary.
-Mary put it in the kitchen.
-Bob believes the key is still with John.
-Later, Mary moved the key to the garage.
-John does not know where the key is.
-```
-
-SemZip v0.2 should be able to answer from its graph:
-
-- Who owns the key now?
-- Where is it now?
-- Where was it before?
-- What does Bob believe?
-- Is Bob's belief true?
-- Does John know its location?
-
-without solving those questions from the original English strings.
-
-That is the first milestone where SemZip starts behaving like a tiny structured world model rather than a paraphrase demo.
-
----
-
-# Non-goals for now
-
-Do not yet:
-
-- train a giant neural model
-- chase every English word
-- optimize byte-level compression
-- build a polished UI
-- move the core to Rust
-- assume an LLM's generated graph is ground truth
-- declare a final primitive inventory
-
-First prove the representation deserves to exist.
+When only the latter class remains, resume experiments instead of polishing architecture.
