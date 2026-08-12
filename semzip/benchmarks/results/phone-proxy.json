@@ -1,0 +1,30 @@
+{
+  "batch_size": 1,
+  "caveat": "GitHub-hosted x86 CPU proxy only. This measures relative model compactness and CPU behavior, not Android/ARM latency, thermals, or accelerator support.",
+  "flattened_output_cosine_similarity": 0.9965412616729736,
+  "fp32_latency": {
+    "iterations": 200,
+    "mean_ms": 1.23415205,
+    "median_ms": 1.2305229999999998,
+    "p90_ms": 1.249801,
+    "p99_ms": 1.338132
+  },
+  "fp32_state_mb": 16.744977951049805,
+  "github_actions_run_id": 31549685782,
+  "int8_latency": {
+    "iterations": 200,
+    "mean_ms": 1.34772128,
+    "median_ms": 1.342744,
+    "p90_ms": 1.369028,
+    "p99_ms": 1.442366
+  },
+  "int8_state_mb": 15.582733154296875,
+  "latency_ratio_int8_over_fp32": 1.0911978077614153,
+  "mean_absolute_output_error": 0.06931406259536743,
+  "model": "google/bert_uncased_L-2_H-128_A-2",
+  "parameter_count": 4385920,
+  "quantization_backend": "torch_dynamic_qint8_linear",
+  "sequence_length": 64,
+  "size_ratio_int8_over_fp32": 0.9305914406008481,
+  "threads": 2
+}
