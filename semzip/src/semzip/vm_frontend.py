@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
-from .vm_delta import RelationDelta
+from .vm_effects import ClearEffect, SetEffect, ShiftEffect
 from .vm_mentions import SlottedText, slotize_mentions
-from .vm_patch import ReturnObligation, SemanticPatch, StateAssignment, StateClear
+from .vm_patch import SemanticPatch
 from .vm_semantic_parse import AtomicCompiler
 from .vm_sequence import SemanticSequence
 from .vm_sequence_parse import SemanticSequenceParse, parse_semantic_sequence
@@ -71,42 +71,35 @@ def _slot_value(value: str, entities: tuple[str, ...]) -> str:
 
 
 def ground_patch_slots(patch: SemanticPatch, entities: Sequence[str]) -> SemanticPatch:
+    """Resolve slots in the canonical atomic effect algebra exactly once."""
     table = tuple(str(value) for value in entities)
-    deltas = tuple(
-        RelationDelta.build(
-            _slot_value(delta.subject, table),
-            _slot_value(delta.source, table),
-            _slot_value(delta.destination, table),
-            delta.relations,
-        )
-        for delta in patch.deltas
-    )
-    assignments = tuple(
-        StateAssignment.build(
-            _slot_value(item.subject, table),
-            item.dimension,
-            _slot_value(item.value, table),
-        )
-        for item in patch.assignments
-    )
-    clears = tuple(
-        StateClear.build(_slot_value(item.subject, table), item.dimension)
-        for item in patch.clears
-    )
-    obligations = tuple(
-        ReturnObligation.build(
-            _slot_value(item.subject, table),
-            _slot_value(item.holder, table),
-            _slot_value(item.return_to, table),
-        )
-        for item in patch.return_obligations
-    )
-    return SemanticPatch.build(
-        deltas,
-        assignments=assignments,
-        clears=clears,
-        return_obligations=obligations,
-    )
+    grounded = []
+    for effect in patch.effects:
+        if isinstance(effect, ShiftEffect):
+            grounded.append(
+                ShiftEffect.build(
+                    _slot_value(effect.subject, table),
+                    effect.dimension,
+                    _slot_value(effect.source, table),
+                    _slot_value(effect.destination, table),
+                )
+            )
+        elif isinstance(effect, SetEffect):
+            grounded.append(
+                SetEffect.build(
+                    _slot_value(effect.subject, table),
+                    effect.dimension,
+                    _slot_value(effect.value, table),
+                )
+            )
+        elif isinstance(effect, ClearEffect):
+            grounded.append(
+                ClearEffect.build(
+                    _slot_value(effect.subject, table),
+                    effect.dimension,
+                )
+            )
+    return SemanticPatch.build(effects=tuple(grounded)) if grounded else SemanticPatch.empty()
 
 
 def ground_sequence_slots(
