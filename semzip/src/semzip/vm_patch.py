@@ -16,10 +16,11 @@ StateClear = ClearEffect
 
 @dataclass(frozen=True, slots=True)
 class ReturnObligation:
-    """Compatibility semantic-library effect for early loan experiments.
+    """Semantic-library adapter, not a core effect kind.
 
-    It is not a kernel instruction. A later consolidation may lower this entirely
-    into ordinary state effects once the obligation schema is generalized.
+    A return obligation expands into ordinary state assignments on an obligation
+    entity. The adapter remains so old loan experiments can construct/read the same
+    concept without making LOAN/OBLIGATION part of the semantic algebra or VM kernel.
     """
 
     subject: str
@@ -33,17 +34,53 @@ class ReturnObligation:
     def key(self) -> tuple[str, str, str]:
         return (self.subject, self.holder, self.return_to)
 
+    @property
+    def entity_id(self) -> str:
+        # Preserve the historical ID so existing world-state regressions remain valid.
+        return f"obligation:return:{self.subject}:{self.holder}:{self.return_to}"
+
+    def effects(self) -> tuple[SetEffect, ...]:
+        entity = self.entity_id
+        return (
+            SetEffect.build(entity, "kind", "return"),
+            SetEffect.build(entity, "subject", self.subject),
+            SetEffect.build(entity, "holder", self.holder),
+            SetEffect.build(entity, "return_to", self.return_to),
+            SetEffect.build(entity, "status", "active"),
+        )
+
+
+def _extract_return_obligations(effects: tuple[SemanticEffect, ...]) -> tuple[ReturnObligation, ...]:
+    values: dict[str, dict[str, str]] = {}
+    for effect in effects:
+        if isinstance(effect, SetEffect):
+            values.setdefault(effect.subject, {})[effect.dimension] = effect.value
+    found = []
+    for fields in values.values():
+        if fields.get("kind") != "return" or fields.get("status") != "active":
+            continue
+        if not {"subject", "holder", "return_to"}.issubset(fields):
+            continue
+        found.append(
+            ReturnObligation.build(
+                fields["subject"],
+                fields["holder"],
+                fields["return_to"],
+            )
+        )
+    return tuple(sorted(set(found), key=lambda item: item.key()))
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticPatch:
     """Canonical unordered semantic transformation.
 
-    The semantic truth is a set of atomic state effects. Grouping multiple dimensions
-    into one RelationDelta is retained only as a compatibility/compression view.
+    The semantic truth is **only** a set of atomic Set/Shift/Clear effects. Grouped
+    `RelationDelta` objects and domain concepts such as return obligations are derived
+    compatibility/library views.
     """
 
     effects: tuple[SemanticEffect, ...] = ()
-    return_obligations: tuple[ReturnObligation, ...] = ()
 
     @classmethod
     def empty(cls) -> "SemanticPatch":
@@ -52,7 +89,7 @@ class SemanticPatch:
 
     @property
     def is_empty(self) -> bool:
-        return not self.effects and not self.return_obligations
+        return not self.effects
 
     @classmethod
     def build(
@@ -80,8 +117,12 @@ class SemanticPatch:
         atomic.extend(tuple(effects))
         atomic.extend(tuple(assignments))
         atomic.extend(tuple(clears))
-        obligations = tuple(return_obligations)
-        if not atomic and not obligations:
+        for obligation in tuple(return_obligations):
+            if not isinstance(obligation, ReturnObligation):
+                raise TypeError("all return obligations must be ReturnObligation")
+            atomic.extend(obligation.effects())
+
+        if not atomic:
             raise ValueError("semantic patch cannot be empty; use SemanticPatch.empty() explicitly")
 
         occupied: dict[tuple[str, str], SemanticEffect] = {}
@@ -92,21 +133,16 @@ class SemanticPatch:
             previous = occupied.get(effect.cell)
             if previous is not None:
                 if previous == effect:
-                    raise ValueError(f"duplicate semantic effect for {effect.cell}")
+                    # Adapter expansion may encounter an already-explicit identical fact;
+                    # semantic sets are idempotent, so keep one canonical copy.
+                    continue
                 raise ValueError(
                     f"conflicting semantic effects for {effect.cell}: {previous} versus {effect}"
                 )
             occupied[effect.cell] = effect
             canonical.append(effect)
 
-        for obligation in obligations:
-            if not isinstance(obligation, ReturnObligation):
-                raise TypeError("all return obligations must be ReturnObligation")
-
-        return cls(
-            tuple(sorted(canonical, key=effect_key)),
-            tuple(sorted(obligations, key=lambda item: item.key())),
-        )
+        return cls(tuple(sorted(canonical, key=effect_key)))
 
     @property
     def deltas(self) -> tuple[RelationDelta, ...]:
@@ -135,11 +171,13 @@ class SemanticPatch:
     def clears(self) -> tuple[ClearEffect, ...]:
         return tuple(effect for effect in self.effects if isinstance(effect, ClearEffect))
 
+    @property
+    def return_obligations(self) -> tuple[ReturnObligation, ...]:
+        """Derived semantic-library view over ordinary state effects."""
+        return _extract_return_obligations(self.effects)
+
     def transition_fingerprint(self) -> tuple:
-        return (
-            tuple(effect_key(effect) for effect in self.effects),
-            tuple(obligation.key() for obligation in self.return_obligations),
-        )
+        return tuple(effect_key(effect) for effect in self.effects)
 
     def transition_equivalent(self, other: "SemanticPatch") -> bool:
         return self.transition_fingerprint() == other.transition_fingerprint()
@@ -152,7 +190,6 @@ def compose_semantic_patches(*patches: SemanticPatch) -> SemanticPatch:
         return SemanticPatch.empty()
 
     occupied: dict[tuple[str, str], SemanticEffect] = {}
-    obligations: dict[tuple[str, str, str], ReturnObligation] = {}
     for patch in patches:
         if not isinstance(patch, SemanticPatch):
             raise TypeError("all composed values must be SemanticPatch")
@@ -163,24 +200,14 @@ def compose_semantic_patches(*patches: SemanticPatch) -> SemanticPatch:
                     f"conflicting semantic effects for {effect.cell}: {previous} versus {effect}"
                 )
             occupied[effect.cell] = effect
-        for obligation in patch.return_obligations:
-            obligations[obligation.key()] = obligation
 
-    if not occupied and not obligations:
+    if not occupied:
         return SemanticPatch.empty()
-    return SemanticPatch.build(
-        effects=tuple(occupied.values()),
-        return_obligations=tuple(obligations.values()),
-    )
+    return SemanticPatch.build(effects=tuple(occupied.values()))
 
 
 def compile_semantic_patch(patch: SemanticPatch) -> Program:
-    """Lower atomic semantic effects to the tiny kernel.
-
-    ShiftEffect is already a partial transformation: its `source` is the required
-    previous value. K_SHIFT enforces that domain condition, so emitting K_REQUIRE for
-    the same cell would only duplicate information and computation.
-    """
+    """Lower atomic semantic effects to the tiny kernel."""
     instructions: list[Instruction] = []
     for effect in patch.effects:
         if isinstance(effect, ShiftEffect):
@@ -197,7 +224,4 @@ def compile_semantic_patch(patch: SemanticPatch) -> Program:
             instructions.append(Instruction.make(K_SET, effect.subject, effect.dimension, effect.value))
         elif isinstance(effect, ClearEffect):
             instructions.append(Instruction.make(K_CLEAR, effect.subject, effect.dimension))
-    for obligation in patch.return_obligations:
-        key = f"obligation:return:{obligation.subject}:{obligation.holder}:{obligation.return_to}"
-        instructions.append(Instruction.make(K_SET, key, "status", "active"))
     return Program.build(instructions, label="semantic_patch")
