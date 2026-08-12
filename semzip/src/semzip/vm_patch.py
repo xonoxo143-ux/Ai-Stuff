@@ -3,47 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .vm_delta import RelationDelta
+from .vm_effects import ClearEffect, SemanticEffect, SetEffect, ShiftEffect, effect_key
 from .vm_kernel import Instruction, Program, K_CLEAR, K_REQUIRE, K_SET, K_SHIFT
 from .vm_ledger import atom
 
 
-@dataclass(frozen=True, slots=True)
-class StateAssignment:
-    """Assign one semantic state dimension without asserting its previous value."""
-
-    subject: str
-    dimension: str
-    value: str
-
-    @classmethod
-    def build(cls, subject: str, dimension: str, value: str) -> "StateAssignment":
-        return cls(atom(subject), atom(dimension), atom(value))
-
-    def key(self) -> tuple[str, str, str]:
-        return (self.subject, self.dimension, self.value)
-
-
-@dataclass(frozen=True, slots=True)
-class StateClear:
-    """Remove one semantic state dimension from accepted state."""
-
-    subject: str
-    dimension: str
-
-    @classmethod
-    def build(cls, subject: str, dimension: str) -> "StateClear":
-        return cls(atom(subject), atom(dimension))
-
-    def key(self) -> tuple[str, str]:
-        return (self.subject, self.dimension)
+# Compatibility names used by earlier experiments. The canonical algebraic objects
+# are SetEffect / ClearEffect in vm_effects.
+StateAssignment = SetEffect
+StateClear = ClearEffect
 
 
 @dataclass(frozen=True, slots=True)
 class ReturnObligation:
-    """Compatibility semantic-library effect for the early loan experiments.
+    """Compatibility semantic-library effect for early loan experiments.
 
-    This is deliberately not a VM opcode. It lowers to ordinary SET state when a
-    patch is compiled and can later be replaced by a fully generic obligation schema.
+    It is not a kernel instruction. A later consolidation may lower this entirely
+    into ordinary state effects once the obligation schema is generalized.
     """
 
     subject: str
@@ -60,90 +36,108 @@ class ReturnObligation:
 
 @dataclass(frozen=True, slots=True)
 class SemanticPatch:
-    """Order-independent collection of grounded semantic state effects.
+    """Canonical unordered semantic transformation.
 
-    `RelationDelta` remains a compatibility/compact view for one or more dimensions
-    sharing a source/destination. Static assignments and clears are first-class patch
-    effects as well. Build canonicalizes equivalent groupings immediately so storage
-    layout cannot change semantic equality.
+    The semantic truth is a set of atomic state effects. Grouping multiple dimensions
+    into one RelationDelta is retained only as a compatibility/compression view.
     """
 
-    deltas: tuple[RelationDelta, ...] = ()
-    assignments: tuple[StateAssignment, ...] = ()
-    clears: tuple[StateClear, ...] = ()
+    effects: tuple[SemanticEffect, ...] = ()
     return_obligations: tuple[ReturnObligation, ...] = ()
+
+    @classmethod
+    def empty(cls) -> "SemanticPatch":
+        """Algebraic identity for parallel composition: an explicit no-change patch."""
+        return cls()
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.effects and not self.return_obligations
 
     @classmethod
     def build(
         cls,
         deltas=(),
         *,
+        effects=(),
         assignments=(),
         clears=(),
         return_obligations=(),
     ) -> "SemanticPatch":
-        incoming = tuple(deltas)
-        sets = tuple(assignments)
-        removals = tuple(clears)
-        obs = tuple(return_obligations)
-        if not incoming and not sets and not removals and not obs:
-            raise ValueError("semantic patch cannot be empty")
-
-        occupied: dict[tuple[str, str], tuple[str, tuple]] = {}
-        grouped: dict[tuple[str, str, str], list[str]] = {}
-
-        def claim(key: tuple[str, str], kind: str, payload: tuple) -> None:
-            previous = occupied.get(key)
-            if previous is not None:
-                if previous == (kind, payload):
-                    raise ValueError(f"duplicate semantic effect for {key}")
-                raise ValueError(
-                    f"conflicting semantic effects for {key}: {previous} versus {(kind, payload)}"
-                )
-            occupied[key] = (kind, payload)
-
-        for delta in incoming:
+        atomic: list[SemanticEffect] = []
+        for delta in tuple(deltas):
             if not isinstance(delta, RelationDelta):
                 raise TypeError("all deltas must be RelationDelta")
-            for relation in delta.relations:
-                claim(
-                    (delta.subject, relation),
-                    "shift",
-                    (delta.source, delta.destination),
+            for dimension in delta.relations:
+                atomic.append(
+                    ShiftEffect.build(
+                        delta.subject,
+                        dimension,
+                        delta.source,
+                        delta.destination,
+                    )
                 )
-                grouped.setdefault(
-                    (delta.subject, delta.source, delta.destination), []
-                ).append(relation)
+        atomic.extend(tuple(effects))
+        atomic.extend(tuple(assignments))
+        atomic.extend(tuple(clears))
+        obligations = tuple(return_obligations)
+        if not atomic and not obligations:
+            raise ValueError("semantic patch cannot be empty; use SemanticPatch.empty() explicitly")
 
-        for item in sets:
-            if not isinstance(item, StateAssignment):
-                raise TypeError("all assignments must be StateAssignment")
-            claim((item.subject, item.dimension), "set", (item.value,))
+        occupied: dict[tuple[str, str], SemanticEffect] = {}
+        canonical: list[SemanticEffect] = []
+        for effect in atomic:
+            if not isinstance(effect, (ShiftEffect, SetEffect, ClearEffect)):
+                raise TypeError("all patch effects must be ShiftEffect, SetEffect, or ClearEffect")
+            previous = occupied.get(effect.cell)
+            if previous is not None:
+                if previous == effect:
+                    raise ValueError(f"duplicate semantic effect for {effect.cell}")
+                raise ValueError(
+                    f"conflicting semantic effects for {effect.cell}: {previous} versus {effect}"
+                )
+            occupied[effect.cell] = effect
+            canonical.append(effect)
 
-        for item in removals:
-            if not isinstance(item, StateClear):
-                raise TypeError("all clears must be StateClear")
-            claim((item.subject, item.dimension), "clear", ())
-
-        for obligation in obs:
+        for obligation in obligations:
             if not isinstance(obligation, ReturnObligation):
                 raise TypeError("all return obligations must be ReturnObligation")
 
-        ds = tuple(
-            RelationDelta.build(subject, source, destination, tuple(relations))
-            for (subject, source, destination), relations in grouped.items()
+        return cls(
+            tuple(sorted(canonical, key=effect_key)),
+            tuple(sorted(obligations, key=lambda item: item.key())),
         )
-        ds = tuple(sorted(ds, key=lambda d: d.transition_key()))
-        sets = tuple(sorted(sets, key=lambda item: item.key()))
-        removals = tuple(sorted(removals, key=lambda item: item.key()))
-        obs = tuple(sorted(obs, key=lambda o: o.key()))
-        return cls(ds, sets, removals, obs)
+
+    @property
+    def deltas(self) -> tuple[RelationDelta, ...]:
+        """Compatibility view grouping atomic shifts with identical endpoints."""
+        grouped: dict[tuple[str, str, str], list[str]] = {}
+        for effect in self.effects:
+            if isinstance(effect, ShiftEffect):
+                grouped.setdefault(
+                    (effect.subject, effect.source, effect.destination), []
+                ).append(effect.dimension)
+        return tuple(
+            sorted(
+                (
+                    RelationDelta.build(subject, source, destination, tuple(dimensions))
+                    for (subject, source, destination), dimensions in grouped.items()
+                ),
+                key=lambda delta: delta.transition_key(),
+            )
+        )
+
+    @property
+    def assignments(self) -> tuple[SetEffect, ...]:
+        return tuple(effect for effect in self.effects if isinstance(effect, SetEffect))
+
+    @property
+    def clears(self) -> tuple[ClearEffect, ...]:
+        return tuple(effect for effect in self.effects if isinstance(effect, ClearEffect))
 
     def transition_fingerprint(self) -> tuple:
         return (
-            tuple(delta.transition_key() for delta in self.deltas),
-            tuple(item.key() for item in self.assignments),
-            tuple(item.key() for item in self.clears),
+            tuple(effect_key(effect) for effect in self.effects),
             tuple(obligation.key() for obligation in self.return_obligations),
         )
 
@@ -152,79 +146,56 @@ class SemanticPatch:
 
 
 def compose_semantic_patches(*patches: SemanticPatch) -> SemanticPatch:
-    """Union already-understood simultaneous meanings with exact conflict checks."""
+    """Partial commutative/idempotent composition of simultaneous meanings."""
 
     if not patches:
-        raise ValueError("compose_semantic_patches requires at least one patch")
+        return SemanticPatch.empty()
 
-    transitions: dict[tuple[str, str], tuple[str, str]] = {}
-    assignments: dict[tuple[str, str], StateAssignment] = {}
-    clears: dict[tuple[str, str], StateClear] = {}
+    occupied: dict[tuple[str, str], SemanticEffect] = {}
     obligations: dict[tuple[str, str, str], ReturnObligation] = {}
-    kinds: dict[tuple[str, str], str] = {}
-
-    def require_kind(key: tuple[str, str], kind: str) -> None:
-        previous = kinds.get(key)
-        if previous is not None and previous != kind:
-            raise ValueError(f"conflicting effect types for {key}: {previous} versus {kind}")
-        kinds[key] = kind
-
     for patch in patches:
         if not isinstance(patch, SemanticPatch):
             raise TypeError("all composed values must be SemanticPatch")
-        for delta in patch.deltas:
-            for relation in delta.relations:
-                key = (delta.subject, relation)
-                require_kind(key, "shift")
-                effect = (delta.source, delta.destination)
-                previous = transitions.get(key)
-                if previous is not None and previous != effect:
-                    raise ValueError(
-                        f"conflicting transitions for {key}: {previous} versus {effect}"
-                    )
-                transitions[key] = effect
-        for item in patch.assignments:
-            key = (item.subject, item.dimension)
-            require_kind(key, "set")
-            previous = assignments.get(key)
-            if previous is not None and previous != item:
-                raise ValueError(f"conflicting assignments for {key}")
-            assignments[key] = item
-        for item in patch.clears:
-            key = (item.subject, item.dimension)
-            require_kind(key, "clear")
-            clears[key] = item
+        for effect in patch.effects:
+            previous = occupied.get(effect.cell)
+            if previous is not None and previous != effect:
+                raise ValueError(
+                    f"conflicting semantic effects for {effect.cell}: {previous} versus {effect}"
+                )
+            occupied[effect.cell] = effect
         for obligation in patch.return_obligations:
             obligations[obligation.key()] = obligation
 
-    grouped: dict[tuple[str, str, str], list[str]] = {}
-    for (subject, relation), (source, destination) in transitions.items():
-        grouped.setdefault((subject, source, destination), []).append(relation)
-
-    deltas = tuple(
-        RelationDelta.build(subject, source, destination, tuple(relations))
-        for (subject, source, destination), relations in grouped.items()
-    )
+    if not occupied and not obligations:
+        return SemanticPatch.empty()
     return SemanticPatch.build(
-        deltas,
-        assignments=tuple(assignments.values()),
-        clears=tuple(clears.values()),
+        effects=tuple(occupied.values()),
         return_obligations=tuple(obligations.values()),
     )
 
 
 def compile_semantic_patch(patch: SemanticPatch) -> Program:
     instructions: list[Instruction] = []
-    for delta in patch.deltas:
-        for relation in delta.relations:
-            instructions.append(Instruction.make(K_REQUIRE, delta.subject, relation, delta.source))
+    for effect in patch.effects:
+        if isinstance(effect, ShiftEffect):
+            # K_SHIFT already validates the source value. The separate REQUIRE is
+            # retained for bytecode compatibility for now and removed in Pass 3.
             instructions.append(
-                Instruction.make(K_SHIFT, delta.subject, relation, delta.source, delta.destination)
+                Instruction.make(K_REQUIRE, effect.subject, effect.dimension, effect.source)
             )
-    for item in patch.assignments:
-        instructions.append(Instruction.make(K_SET, item.subject, item.dimension, item.value))
-    for item in patch.clears:
-        instructions.append(Instruction.make(K_CLEAR, item.subject, item.dimension))
+            instructions.append(
+                Instruction.make(
+                    K_SHIFT,
+                    effect.subject,
+                    effect.dimension,
+                    effect.source,
+                    effect.destination,
+                )
+            )
+        elif isinstance(effect, SetEffect):
+            instructions.append(Instruction.make(K_SET, effect.subject, effect.dimension, effect.value))
+        elif isinstance(effect, ClearEffect):
+            instructions.append(Instruction.make(K_CLEAR, effect.subject, effect.dimension))
     for obligation in patch.return_obligations:
         key = f"obligation:return:{obligation.subject}:{obligation.holder}:{obligation.return_to}"
         instructions.append(Instruction.make(K_SET, key, "status", "active"))

@@ -49,15 +49,23 @@ class Program:
     @classmethod
     def build(cls, instructions: Iterable[Instruction], *, label: str | None = None) -> "Program":
         items = tuple(instructions)
-        if not items:
-            raise ValueError("program cannot be empty")
         for ins in items:
             if ins.opcode not in ARITIES:
                 raise ValueError(f"unknown VM opcode {ins.opcode!r}")
             expected = ARITIES[ins.opcode]
             if len(ins.args) != expected:
                 raise ValueError(f"{ins.opcode} expects {expected} args, got {len(ins.args)}")
+        # Empty programs are the explicit identity transformation. Untrusted bridges
+        # still reject empty proposals unless their protocol explicitly permits NOOP.
         return cls(items, atom(label) if label else None)
+
+    @classmethod
+    def empty(cls, *, label: str | None = "identity") -> "Program":
+        return cls.build((), label=label)
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.instructions
 
 
 class VMExecutionError(RuntimeError):
