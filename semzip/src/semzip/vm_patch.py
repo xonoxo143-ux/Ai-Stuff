@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from .vm_delta import RelationDelta
 from .vm_effects import ClearEffect, SemanticEffect, SetEffect, ShiftEffect, effect_key
-from .vm_kernel import Instruction, Program, K_CLEAR, K_REQUIRE, K_SET, K_SHIFT
+from .vm_kernel import Instruction, Program, K_CLEAR, K_SET, K_SHIFT
 from .vm_ledger import atom
 
 
@@ -175,14 +175,15 @@ def compose_semantic_patches(*patches: SemanticPatch) -> SemanticPatch:
 
 
 def compile_semantic_patch(patch: SemanticPatch) -> Program:
+    """Lower atomic semantic effects to the tiny kernel.
+
+    ShiftEffect is already a partial transformation: its `source` is the required
+    previous value. K_SHIFT enforces that domain condition, so emitting K_REQUIRE for
+    the same cell would only duplicate information and computation.
+    """
     instructions: list[Instruction] = []
     for effect in patch.effects:
         if isinstance(effect, ShiftEffect):
-            # K_SHIFT already validates the source value. The separate REQUIRE is
-            # retained for bytecode compatibility for now and removed in Pass 3.
-            instructions.append(
-                Instruction.make(K_REQUIRE, effect.subject, effect.dimension, effect.source)
-            )
             instructions.append(
                 Instruction.make(
                     K_SHIFT,
