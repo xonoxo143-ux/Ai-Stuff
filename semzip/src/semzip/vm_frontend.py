@@ -39,12 +39,7 @@ def select_mentions(
     *,
     min_confidence: float = 0.80,
 ) -> tuple[tuple[int, int], ...]:
-    """Select non-overlapping high-confidence mention spans conservatively.
-
-    Overlapping accepted candidates are considered unresolved mention ambiguity and
-    raise instead of silently preferring a span. A learned detector can expose richer
-    alternatives later; this core function refuses to turn overlap into false certainty.
-    """
+    """Select non-overlapping high-confidence mention spans conservatively."""
 
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError("min_confidence must be in [0, 1]")
@@ -65,7 +60,9 @@ def select_mentions(
 
 
 def _slot_value(value: str, entities: tuple[str, ...]) -> str:
-    if len(value) >= 2 and value[0] == "E" and value[1:].isdigit():
+    # Semantic atoms are case-folded, so compiler-produced E2 becomes e2 after a
+    # patch is built. Slot identity must therefore be syntax-aware, not case-aware.
+    if len(value) >= 2 and value[0].casefold() == "e" and value[1:].isdigit():
         index = int(value[1:])
         if not 0 <= index < len(entities):
             raise ValueError(f"semantic patch references missing entity slot {value}")

@@ -35,15 +35,15 @@ class RawSemanticFrontendTests(unittest.TestCase):
                 ),
             )
 
-    def test_slot_patch_is_grounded_back_to_surface_entities(self):
+    def test_slot_patch_is_grounded_back_to_normalized_surface_entities(self):
         patch = SemanticPatch.build((
             RelationDelta.build("E2", "E0", "E1", ("owner", "possessor")),
         ))
         grounded = ground_patch_slots(patch, ("John", "Mary", "book"))
         delta = grounded.deltas[0]
         self.assertEqual(delta.subject, "book")
-        self.assertEqual(delta.source, "John")
-        self.assertEqual(delta.destination, "Mary")
+        self.assertEqual(delta.source, "john")
+        self.assertEqual(delta.destination, "mary")
 
     def test_raw_frontend_runs_mentions_slots_semantics_and_grounding(self):
         text = "John gave Mary the book."
@@ -66,15 +66,14 @@ class RawSemanticFrontendTests(unittest.TestCase):
         result = compile_raw_utterance(text, mentions, compiler)
         self.assertIsNotNone(result)
         self.assertEqual(result.slotted.text, "E0 gave E1 the E2.")
+        self.assertEqual(result.slotted.entities, ("John", "Mary", "book"))
         delta = result.grounded_sequence.steps[0].deltas[0]
-        self.assertEqual(delta.transition_key(), ("book", "John", "Mary", ("owner", "possessor")))
+        self.assertEqual(delta.transition_key(), ("book", "john", "mary", ("owner", "possessor")))
 
     def test_raw_frontend_can_return_ordered_sequence(self):
         text = "John to Mary then Mary to Alice"
 
         def mentions(_text):
-            # Surface mentions are intentionally separate here. Coreference resolution
-            # is a different layer and is not faked by string equality.
             return (
                 MentionCandidate(0, 4, 0.99),
                 MentionCandidate(8, 12, 0.99),

@@ -64,7 +64,8 @@ class SemanticPatch:
 
     `RelationDelta` remains a compatibility/compact view for one or more dimensions
     sharing a source/destination. Static assignments and clears are first-class patch
-    effects as well. Storage order is never semantic.
+    effects as well. Build canonicalizes equivalent groupings immediately so storage
+    layout cannot change semantic equality.
     """
 
     deltas: tuple[RelationDelta, ...] = ()
@@ -81,14 +82,15 @@ class SemanticPatch:
         clears=(),
         return_obligations=(),
     ) -> "SemanticPatch":
-        ds = tuple(deltas)
+        incoming = tuple(deltas)
         sets = tuple(assignments)
         removals = tuple(clears)
         obs = tuple(return_obligations)
-        if not ds and not sets and not removals and not obs:
+        if not incoming and not sets and not removals and not obs:
             raise ValueError("semantic patch cannot be empty")
 
         occupied: dict[tuple[str, str], tuple[str, tuple]] = {}
+        grouped: dict[tuple[str, str, str], list[str]] = {}
 
         def claim(key: tuple[str, str], kind: str, payload: tuple) -> None:
             previous = occupied.get(key)
@@ -100,7 +102,7 @@ class SemanticPatch:
                 )
             occupied[key] = (kind, payload)
 
-        for delta in ds:
+        for delta in incoming:
             if not isinstance(delta, RelationDelta):
                 raise TypeError("all deltas must be RelationDelta")
             for relation in delta.relations:
@@ -109,6 +111,9 @@ class SemanticPatch:
                     "shift",
                     (delta.source, delta.destination),
                 )
+                grouped.setdefault(
+                    (delta.subject, delta.source, delta.destination), []
+                ).append(relation)
 
         for item in sets:
             if not isinstance(item, StateAssignment):
@@ -124,6 +129,10 @@ class SemanticPatch:
             if not isinstance(obligation, ReturnObligation):
                 raise TypeError("all return obligations must be ReturnObligation")
 
+        ds = tuple(
+            RelationDelta.build(subject, source, destination, tuple(relations))
+            for (subject, source, destination), relations in grouped.items()
+        )
         ds = tuple(sorted(ds, key=lambda d: d.transition_key()))
         sets = tuple(sorted(sets, key=lambda item: item.key()))
         removals = tuple(sorted(removals, key=lambda item: item.key()))
@@ -188,7 +197,6 @@ def compose_semantic_patches(*patches: SemanticPatch) -> SemanticPatch:
         for obligation in patch.return_obligations:
             obligations[obligation.key()] = obligation
 
-    # Compact compatibility view: regroup shifts that share subject/source/destination.
     grouped: dict[tuple[str, str, str], list[str]] = {}
     for (subject, relation), (source, destination) in transitions.items():
         grouped.setdefault((subject, source, destination), []).append(relation)
