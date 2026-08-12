@@ -1,4 +1,8 @@
-"""SemZip: semantic codec prototype plus experimental Semantic VM."""
+"""SemZip: preserved semantic codec plus the experimental Semantic VM.
+
+The historical top-level exports remain for v0.3/v0.4 compatibility. New Semantic VM
+code should prefer ``semzip.vm`` for the canonical algebra-facing API.
+"""
 
 from .codec import SemZipCodec, UnsupportedMeaningError
 from .meaning import Meaning
@@ -85,4 +89,4 @@ __all__ = [
     "resolve_patch_prediction",
     "validate_meaning",
 ]
-__version__ = "0.4.0"
+__version__ = "0.5.0"
