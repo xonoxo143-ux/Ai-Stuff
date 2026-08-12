@@ -1,148 +1,270 @@
-# SemZip
+# SemZip / Semantic VM
 
-SemZip is an experimental semantic codec and semantic substrate: convert surface
-language into canonical inspectable meaning, reuse shared semantic structure, reason
-over world state, and keep language itself at the edge rather than treating wording
-as the internal representation.
+SemZip is an experiment in **semantic compression and executable meaning**.
 
-The project is deliberately dependency-light while the representation is being
-discovered. Unsupported meaning is preserved as ambiguity where possible or rejected
-rather than silently guessed.
+The original `semzip` branch preserves the v0.3 semantic-graph/codec prototype. This
+`semzip-vm` branch asks a different question:
 
-## Current v0.3 checkpoint
+> What algebraic laws does ordinary meaning obey, and how small can an executable
+> semantic instruction set become without losing the ability to reason, remember,
+> predict, and reconstruct important meaning?
 
-SemZip now includes:
+The long-term target is a cognitive substrate that lets very small learned models do
+fuzzy perception/language work while deterministic machinery handles state, memory,
+composition, planning, validation, and repeated structure. Phone-scale execution is a
+design constraint, not a later optimization target.
 
-- canonical recursive `Meaning` expressions with stable semantic hashes
-- nested propositions for belief, negation, modality, conditionals, and causation
-- deterministic world state with history and arbitrary past-state queries
-- explicit belief/knowledge state that does not overwrite reality
-- transitive concept ontology
-- semantic molecules for shared operations such as `CHANGE`, transfer, exchange,
-  and loan/return obligation
-- atomic compound execution so half an exchange cannot corrupt world state
-- instance identity separate from lexical concept identity (`key`, `key#2`, ...)
-- first-class ambiguity that preserves candidate meanings without mutating reality
-- canonical unordered ambiguity, bundles, and sets
-- quantified sets (`ALL`, `SOME`, `NONE`, `MOST`, `EXACT(n)`)
-- semantic queries independent of the original wording
-- compression metrics for exact deduplication and deeper structural reuse
-- automatic repeated-substructure discovery for candidate semantic molecules
-- JSON serialization/deserialization and recursive schema validation
-- a trust bridge for accepting proposed meanings from future external/learned parsers
-- a tiny English/Spanish transfer adapter proving separate languages can converge on
-  the same language-neutral semantic object
-
-## Demonstrated world-model gate
-
-The v0.2/v0.3 mini-world consumes:
+## Current architecture
 
 ```text
-John owned a red key.
-John gave the key to Mary.
-Mary put it in the kitchen.
-Bob believes the key is still with John.
-Later, Mary moved the key to the garage.
-John does not know where the key is.
+raw language / perception
+        |
+        v
+small learned semantic perception
+        |
+        v
+scored atomic evidence
+        |
+        v
+identity + dimension registry
+        |
+        v
+semantic algebra
+  Set / Shift / Clear
+  guards / projection
+  parallel / sequence
+        |
+        +------> exact composition / planning / simulation
+        |
+        +------> repeated-effect discovery / learned macros
+        |
+        v
+K0 SET / K1 SHIFT / K2 REQUIRE / K3 CLEAR
+        |
+        v
+append-only event ledger
+        |
+        +------> projected reality
+        +------> minds / stale beliefs
+        +------> history / branches / counterfactual state
 ```
 
-The semantic world can then answer, without rereading those strings:
+New VM code should prefer the canonical facade:
+
+```python
+from semzip.vm import (
+    ShiftEffect,
+    SemanticPatch,
+    SemanticTransform,
+    StateConstraint,
+    parallel,
+    sequential,
+    SemanticVM,
+)
+```
+
+Older `vm_*` modules remain available because many research benchmarks intentionally
+preserve earlier experiments.
+
+## The semantic algebra
+
+The current grounded core does **not** treat `GIVE`, `RECEIVE`, `SELL`, `LEND`,
+`ENTER`, or `LEAVE` as VM instructions.
+
+The canonical state effects are deliberately smaller:
 
 ```text
-owner              -> Mary
-current location   -> garage
-previous location  -> kitchen
-Bob believes owner -> John
-Bob is correct      -> false
-John knows location -> false
+Set(x, dimension, value)
+Shift(x, dimension, before, after)
+Clear(x, dimension)
 ```
 
-Run the integrated checkpoint with:
-
-```bash
-cd semzip
-PYTHONPATH=src python benchmarks/progress_gate.py
-```
-
-## Compression experiment
-
-Different lexical viewpoints can compile to the same meaning:
-
-```text
-give / receive   -> possession CHANGE
-buy / sell       -> EXCHANGE of two possession CHANGEs
-borrow / lend    -> temporary transfer + return OBLIGATION
-```
-
-`benchmarks/progress_gate.py` measures exact semantic deduplication separately from
-structural reuse. `metrics.repeated_structures()` recursively searches a corpus for
-recurring semantic subtrees instead of requiring candidate primitives to be named in
-advance.
-
-## Multilingual probe
-
-The current bilingual adapter is intentionally tiny, but these independently parsed
-forms converge to the same semantic hash:
+For example:
 
 ```text
 John gave Mary the book.
 Mary received the book from John.
-John le dio el libro a Mary.
-Mary recibió el libro de John.
 ```
 
-The result is not a claim of broad multilingual parsing. It demonstrates that the
-semantic IR does not have to encode English word order.
+can share the lower-level effect:
 
-## Current blocker: general surface parsing
-
-The semantic representation is now substantially more capable than the hand-written
-surface grammars. For example, the IR can validate representations for possibility,
-nested belief+possibility, and conditionals, while the current regex parser cannot
-recover those meanings from unrestricted prose.
-
-Run:
-
-```bash
-PYTHONPATH=src python benchmarks/parser_boundary.py
+```text
+Shift(book, owner, John, Mary)
+Shift(book, possessor, John, Mary)
 ```
 
-The next major step is therefore not more regex rules. It is a general semantic
-front-end (learned parser, external semantic parser, or another model) that proposes
-SemZip structures through the validated JSON trust bridge. The substrate should remain
-the authority: parser output is a proposal until it passes SemZip schema validation.
+while retaining different surface/perspective information above that layer.
 
-## Quick tests
+`Shift` is a **partial transformation**: it is defined only when the current value is
+its stated `before` value. An extra condition that is not itself changed is represented
+as a guard:
+
+```text
+Constraint(book, owner, John)
+Shift(book, possessor, John, Mary)
+```
+
+This is enough to distinguish temporary possession from ownership transfer without a
+sacred `LOAN` opcode.
+
+### Laws currently made explicit and regression-tested
+
+For compatible simultaneous effects, parallel composition is:
+
+- associative
+- commutative
+- idempotent
+- equipped with an explicit no-change identity
+- **partial**: incompatible writes to the same state cell are rejected
+
+Sequential composition is:
+
+- associative
+- equipped with an identity
+- generally non-commutative
+
+`Shift(a -> b)` has a local inverse `Shift(b -> a)`. `Set` and `Clear` do not have an
+intrinsic inverse unless prior state/history is supplied.
+
+Projection is explicit, so two meanings can differ globally while being equivalent
+for a selected view. This supports layered equivalence rather than one universal
+semantic hash.
+
+## Layered equivalence
+
+SemZip no longer assumes that one sentence should have one all-purpose canonical hash.
+Useful layers include:
+
+```text
+surface / discourse perspective
+        ↓
+proposition
+        ↓
+world-state transformation
+        ↓
+projection-specific effect
+        ↓
+kernel execution
+```
+
+For example, `give` and `receive` can differ in perspective while sharing a world
+transition. Two events may also be equivalent for `possessor` while differing in
+`owner`.
+
+## Memory and world state
+
+The durable source of truth is an append-only event ledger. Current state is a
+projection/cache, not the permanent representation.
+
+This supports:
+
+- historical queries and replay
+- branches / counterfactual state
+- confidence and provenance
+- observations that do not automatically overwrite reality
+- separate agent minds that may be stale or wrong
+
+Planning uses lightweight immutable state snapshots rather than rebuilding event
+histories for every candidate. Generic `ActionSchema` objects instantiate semantic
+transforms; the planner itself no longer imports lexical actions such as `give` or
+`move`.
+
+## Learned abstractions
+
+Repeated semantic effects can be proposed as anonymous macros. A macro is an optional
+compression/execution optimization, **not semantic truth** and not a mandatory class
+for the language model to predict.
+
+In the current grounded toy corpus, effect-level discovery independently finds a small
+transfer-shaped pattern, and a larger reciprocal exchange pattern can be factored into
+two uses of that smaller pattern. The discovery operates on world effects rather than
+surface action names or K-opcode ordering.
+
+The current MDL score is still a research approximation. A planned refinement is to
+charge actual compact encoded bytes for corpus + library + calls so the compression
+pressure is tied directly to storage cost rather than hand-selected record weights.
+
+## Tiny learned front-end results
+
+These are controlled toy benchmarks, **not claims of general language understanding**.
+They are useful because they compare architectural choices under the same task.
+
+Selected findings:
+
+- increasing a pooled decoder from roughly 135M to 360M parameters barely improved
+  exact semantic compilation
+- changing to entity/role pointers helped more than increasing model size
+- a purpose-fit bidirectional encoder around 4.4M parameters outperformed much larger
+  pooled decoder baselines on the grounded task
+- relation-conditioned semantic probes reached about 77% exact on the richer held-out
+  synthetic-language benchmark
+- when already-understood atomic clauses were compiled separately and their patches
+  were composed deterministically, the clean unseen-composition gate reached 96/96
+
+The important lesson is architectural:
+
+> Learned models should discover uncertain atomic semantic evidence. Exact algebraic
+> composition should not be relearned inside neural weights when the runtime can do it
+> perfectly and cheaply.
+
+The remaining language question is therefore narrower: how small can fuzzy perception
+remain while reliably extracting atomic semantic evidence from genuinely varied human
+language?
+
+## Trust boundary
+
+A learned model is never authority over world state.
+
+Compiler-facing dimension IDs are constrained by a versioned registry. Pointer ranges,
+output structure, conflicts, confidence, and registry signatures are validated before
+a proposal becomes an executable semantic transformation. Low-confidence or near-tied
+predictions can remain evidence instead of being forced into reality.
+
+## Kernel
+
+The current experimental kernel remains only four opcodes:
+
+```text
+K0 SET
+K1 SHIFT
+K2 REQUIRE
+K3 CLEAR
+```
+
+`GIVE`, `SELL`, `LEND`, etc. are not privileged instructions. K2 is used for genuine
+extra guards; K1 already checks its own source state, so redundant `REQUIRE + SHIFT`
+pairs are canonicalized away at the semantic layer.
+
+The kernel is provisional. Primitives must earn their status through execution,
+generalization, and compression rather than convenience.
+
+## Run the core gate
 
 ```bash
 cd semzip
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests -p 'test_vm*.py' -v
+python benchmarks/vm_progress_gate.py
+python benchmarks/patch_abstraction_gate.py
 ```
 
-The original v0.1 `SemZipCodec` and CLI remain available for the small TRANSFER
-round-trip experiments.
+GitHub Actions runs the same core gate on `semzip-vm`. Research-model workflows are
+kept separate from the dependency-light runtime.
 
-## Architecture
+## Research rules
 
-```text
-surface language / images / sensors
-              |
-              v
-       parser / adapter
-              |
-              v
-      validated SemZip IR
-          /    |     \
-         /     |      \
-        v      v       v
-   world     memory   semantic hash
-   model              / deduplication
-      |
-      v
- reasoning / planning / downstream modules
-```
+1. Do not add an opcode because a word is convenient.
+2. Preserve uncertainty, provenance, perspective, and identity distinctions.
+3. Treat language as one compiler/perception boundary, not the definition of cognition.
+4. Prefer exact code for operations that do not require learned fuzziness.
+5. Let repeated semantic structure earn macros through measurable savings.
+6. Judge equivalence at the layer relevant to the task; avoid one universal hash.
+7. Keep durable history separate from disposable reasoning state.
+8. Measure capability per parameter, byte, and unit of computation.
+9. Do not call a toy benchmark general intelligence.
+10. When an abstraction only works because of our encoding choice, reject it.
 
-## Design rule
+## Status of the original SemZip work
 
-A false canonicalization is worse than an explicit unknown. SemZip should preserve
-ambiguity, provenance, and uncertainty rather than manufacture convenient certainty.
+The original graph/codec line is preserved on branch `semzip` and remains useful as a
+language/representation donor. `semzip-vm` is free to diverge from its ontology choices.
+Neither branch should be merged into `main` merely to keep branches tidy.
