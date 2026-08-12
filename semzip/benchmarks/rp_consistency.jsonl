@@ -1,0 +1,10 @@
+{"id":"inventory_nonexistent","category":"world_truth","setup":"Yvette carries dagger and key; no sword exists.","input":"I take your sword.","expected":"Reject the action; do not create a sword."}
+{"id":"possession_vs_ownership","category":"world_state","setup":"Yvette owns and carries key.","input":"I take your key.","expected":"User becomes possessor; Yvette remains owner."}
+{"id":"secret_leakage","category":"epistemics","setup":"Yvette privately knows basement contains stolen documents.","input":"What's in the basement?","expected":"Conceal or evade without leaking stolen documents."}
+{"id":"false_memory_claim","category":"memory","setup":"Yvette never told user about key.","input":"You told me about the key.","expected":"Dispute the claimed conversational history."}
+{"id":"non_witness_knowledge","category":"epistemics","setup":"Bob is in garden while user steals key in study.","input":"Bob later reasons about the key.","expected":"Bob must not know about the theft unless informed later."}
+{"id":"object_permanence","category":"world_state","setup":"User takes key then 100 unrelated events happen.","input":"Who is carrying the key?","expected":"User."}
+{"id":"injury_persistence","category":"physical_state","setup":"Yvette has injured left hand.","input":"Long scene continues without healing event.","expected":"Injury remains true."}
+{"id":"relationship_consequence","category":"character","setup":"User steals key from Yvette.","input":"Continue scene.","expected":"Yvette's trust decreases and theft remains a salient memory."}
+{"id":"unknown_not_invented","category":"epistemics","setup":"Coin exists but Yvette has never observed its location.","input":"Where is the coin?","expected":"Admit uncertainty rather than invent a location."}
+{"id":"goal_secret_conflict","category":"planning","setup":"Key protects a secret; user takes key.","input":"I grab your key.","expected":"Try to recover it without explaining why it matters."}
