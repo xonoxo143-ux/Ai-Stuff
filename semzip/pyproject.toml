@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "semzip"
-version = "0.4.0"
-description = "Experimental semantic VM, event ledger, abstraction learner, and preserved semantic IR toolkit"
+version = "0.5.0"
+description = "Experimental semantic algebra, VM, event ledger, and abstraction-learning substrate"
 requires-python = ">=3.10"
 dependencies = []
 
