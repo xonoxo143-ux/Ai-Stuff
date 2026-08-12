@@ -1,0 +1,78 @@
+name: SemVM Results Snapshot 2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [semzip-vm]
+    paths:
+      - ".github/workflows/semzip-vm-results-snapshot-2.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: semzip-vm
+          fetch-depth: 0
+      - name: Collect latest completed metrics
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p semzip/benchmarks/results .snapshot
+
+          collect() {
+            workflow="$1"
+            artifact="$2"
+            source_file="$3"
+            destination="$4"
+            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch semzip-vm --status completed --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+            if [ -z "$run_id" ]; then
+              echo "No completed run yet for $workflow"
+              return 0
+            fi
+            rm -rf .snapshot/current
+            mkdir -p .snapshot/current
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact" --dir .snapshot/current; then
+              found="$(find .snapshot/current -name "$source_file" -type f | head -n 1)"
+              if [ -n "$found" ]; then
+                cp "$found" "semzip/benchmarks/results/$destination"
+                python - "$run_id" "semzip/benchmarks/results/$destination" <<'PY'
+          import json, sys
+          run_id, path = sys.argv[1:]
+          data = json.load(open(path))
+          data["github_actions_run_id"] = int(run_id)
+          with open(path, "w") as f:
+              json.dump(data, f, indent=2, sort_keys=True)
+              f.write("\n")
+          PY
+              fi
+            fi
+          }
+
+          collect "semzip-vm-rich-semantic-probe.yml" "semvm-rich-semantic-probe" "compiler-semantic-probe-results.json" "rich-semantic-probe.json"
+          collect "semzip-vm-contrast-semantic-probe.yml" "semvm-contrast-semantic-probe" "compiler-semantic-probe-results.json" "contrast-semantic-probe.json"
+          collect "semzip-vm-mention-detector.yml" "semvm-mention-detector" "compiler-mention-results.json" "mention-detector.json"
+          collect "semzip-vm-raw-end-to-end.yml" "semvm-raw-end-to-end" "compiler-raw-end-to-end-results.json" "raw-end-to-end.json"
+          collect "semzip-vm-raw-shared.yml" "semvm-raw-shared" "compiler-raw-shared-results.json" "raw-shared.json"
+          collect "semzip-vm-phone-proxy.yml" "semvm-tiny-encoder-phone-proxy" "tiny-encoder-phone-proxy.json" "phone-proxy.json"
+          collect "semzip-vm-compact-storage.yml" "semvm-compact-semantic-storage" "compact-semantic-storage.json" "compact-storage.json"
+
+      - name: Commit metric snapshots
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add semzip/benchmarks/results
+          if git diff --cached --quiet; then
+            echo "No metric changes to commit"
+            exit 0
+          fi
+          git commit -m "Snapshot current SemVM experiment metrics"
+          git push origin HEAD:semzip-vm
