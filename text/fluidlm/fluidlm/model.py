@@ -17,6 +17,7 @@ class FluidConfig:
     pressure: float = 0.60
     source_scale: float = 0.08
     force_scale: float = 0.06
+    drag: float = 0.20
     velocity_clip: float = 2.0
 
 
@@ -101,6 +102,13 @@ class FluidLM(nn.Module):
         # A token redistributes density rather than creating unlimited mass.
         source = source - source.mean(dim=(-2, -1), keepdim=True)
 
+        # Keep token forcing momentum-neutral on the closed periodic grid.
+        # Without this, repeated token forcing can accelerate the entire fluid
+        # forever because viscosity only damps velocity gradients, not the
+        # spatially uniform velocity mode.
+        force_x = force_x - force_x.mean(dim=(-2, -1), keepdim=True)
+        force_y = force_y - force_y.mean(dim=(-2, -1), keepdim=True)
+
         ux, uy = velocity[:, 0], velocity[:, 1]
 
         flux_x = rho * ux
@@ -125,12 +133,14 @@ class FluidLM(nn.Module):
             -advect_x
             - cfg.pressure * grad_rho_x
             + cfg.viscosity * self._laplacian(ux)
+            - cfg.drag * ux
             + cfg.force_scale * force_x
         )
         uy_next = uy + cfg.dt * (
             -advect_y
             - cfg.pressure * grad_rho_y
             + cfg.viscosity * self._laplacian(uy)
+            - cfg.drag * uy
             + cfg.force_scale * force_y
         )
 
