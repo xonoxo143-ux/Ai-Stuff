@@ -1,0 +1,129 @@
+name: FluidLM experiment
+
+on:
+  push:
+    branches:
+      - fluidlm-experiment
+    paths:
+      - "text/fluidlm/**"
+      - ".github/workflows/fluidlm-train.yml"
+  workflow_dispatch:
+    inputs:
+      corpus:
+        description: Training corpus
+        required: true
+        default: tiny-shakespeare
+        type: choice
+        options:
+          - synthetic
+          - tiny-shakespeare
+          - alice
+      steps:
+        description: Optimization steps
+        required: true
+        default: "1000"
+        type: string
+      seed:
+        description: Random seed
+        required: true
+        default: "1337"
+        type: string
+      grid_size:
+        description: Fluid grid width/height
+        required: true
+        default: "6"
+        type: string
+      viscosity:
+        description: Velocity smoothing
+        required: true
+        default: "0.08"
+        type: string
+      diffusion:
+        description: Density smoothing
+        required: true
+        default: "0.08"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    defaults:
+      run:
+        working-directory: text/fluidlm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: text/fluidlm/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Resolve experiment settings
+        id: settings
+        shell: bash
+        run: |
+          echo "corpus=${{ inputs.corpus || 'synthetic' }}" >> "$GITHUB_OUTPUT"
+          echo "steps=${{ inputs.steps || '200' }}" >> "$GITHUB_OUTPUT"
+          echo "seed=${{ inputs.seed || '1337' }}" >> "$GITHUB_OUTPUT"
+          echo "grid_size=${{ inputs.grid_size || '6' }}" >> "$GITHUB_OUTPUT"
+          echo "viscosity=${{ inputs.viscosity || '0.08' }}" >> "$GITHUB_OUTPUT"
+          echo "diffusion=${{ inputs.diffusion || '0.08' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Train FluidLM
+        run: |
+          python train.py \
+            --corpus "${{ steps.settings.outputs.corpus }}" \
+            --steps "${{ steps.settings.outputs.steps }}" \
+            --seed "${{ steps.settings.outputs.seed }}" \
+            --grid-size "${{ steps.settings.outputs.grid_size }}" \
+            --viscosity "${{ steps.settings.outputs.viscosity }}" \
+            --diffusion "${{ steps.settings.outputs.diffusion }}" \
+            --out-dir outputs/github \
+            --device cpu
+
+      - name: Render flow diagnostics
+        run: |
+          python visualize.py outputs/github/trace.npz \
+            --out outputs/github/flow.png
+
+      - name: Experiment summary
+        run: |
+          echo "## FluidLM run" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Corpus: ${{ steps.settings.outputs.corpus }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Steps: ${{ steps.settings.outputs.steps }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Seed: ${{ steps.settings.outputs.seed }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Grid: ${{ steps.settings.outputs.grid_size }}x${{ steps.settings.outputs.grid_size }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Viscosity: ${{ steps.settings.outputs.viscosity }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Diffusion: ${{ steps.settings.outputs.diffusion }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Generated sample" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          head -c 1200 outputs/github/sample.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload experiment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluidlm-${{ github.sha }}
+          path: text/fluidlm/outputs/github/
+          if-no-files-found: error
+          retention-days: 14
