@@ -40,6 +40,18 @@ class FluidLMTests(unittest.TestCase):
         vort = FluidLM.vorticity(velocity)
         self.assertTrue(torch.allclose(vort, torch.zeros_like(vort)))
 
+    def test_token_force_does_not_add_net_momentum(self):
+        torch.manual_seed(7)
+        model = FluidLM(FluidConfig(vocab_size=8, grid_size=5))
+        rho, velocity = model.init_state(batch_size=3)
+        token = torch.tensor([1, 2, 3], dtype=torch.long)
+        _, (_, next_velocity) = model.step(token, (rho, velocity))
+
+        mean_velocity = next_velocity.mean(dim=(-2, -1))
+        self.assertTrue(
+            torch.allclose(mean_velocity, torch.zeros_like(mean_velocity), atol=1e-6)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
