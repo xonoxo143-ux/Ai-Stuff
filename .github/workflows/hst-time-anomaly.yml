@@ -1,0 +1,51 @@
+name: HST time anomaly scan
+
+on:
+  push:
+    branches: [hst-time-anomaly]
+    paths:
+      - "time_anomaly/**"
+      - ".github/workflows/hst-time-anomaly.yml"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install astronomy stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas scipy matplotlib astropy reproject requests beautifulsoup4
+
+      - name: Run MACS J1149 first-pass scan
+        env:
+          HST_OUT: hst_time_anomaly_output
+        run: |
+          python time_anomaly/hst_scan.py
+
+      - name: Inventory
+        if: always()
+        run: |
+          find hst_time_anomaly_output -maxdepth 2 -type f -printf '%p\t%s bytes\n' | sort || true
+          cat hst_time_anomaly_output/summary.json || true
+          head -30 hst_time_anomaly_output/candidates.csv || true
+
+      - name: Remove raw FITS before artifact upload
+        if: always()
+        run: rm -rf hst_time_anomaly_output/data
+
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hst-time-anomaly-macs1149-first-pass
+          path: hst_time_anomaly_output
+          if-no-files-found: warn
+          retention-days: 14
