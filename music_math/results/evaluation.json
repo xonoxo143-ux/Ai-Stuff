@@ -1,0 +1,35 @@
+{
+  "n_tracks": 12,
+  "genres": [
+    "ambient",
+    "classical",
+    "electronic",
+    "jazz",
+    "metal",
+    "rock"
+  ],
+  "tracks_per_genre": {
+    "jazz": 2,
+    "rock": 2,
+    "metal": 2,
+    "ambient": 2,
+    "electronic": 2,
+    "classical": 2
+  },
+  "nearest_neighbor_same_genre_accuracy": 0.08333333333333333,
+  "random_nn_baseline": 0.09090909090909091,
+  "within_mean_distance": 16.600561909270706,
+  "between_mean_distance": 16.800477063925907,
+  "within_between_ratio": 0.9881006263158765,
+  "permutation_p_value": 0.3113377324535093,
+  "pca_explained_variance": [
+    0.32837797761685755,
+    0.24788290117787717,
+    0.13226337184603748,
+    0.04639470268261985,
+    0.03147127013078194,
+    0.02600606604159053
+  ],
+  "recurrence_epsilon": 2.0018764359431764,
+  "representation": "24 log-spaced physical spectral-energy bands + relative frame energy; no conventional musical features"
+}
