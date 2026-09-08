@@ -89,9 +89,12 @@ def science_score(url: str):
         return -5000
     score=0
     if "wfc3" in n: score+=100
-    if "60mas" in n: score+=40
-    if "65mas" in n: score+=35
-    if "30mas" in n: score+=25
+    # Match the CLASH reference grid: prefer 30 mas products on both sides.
+    if "30mas" in n: score+=60
+    if "60mas" in n: score+=30
+    if "65mas" in n: score+=25
+    if "hffpar" in n: score-=80
+    if "bkgdcor" in n: score-=10
     if "_drz" in n or "_drc" in n: score+=30
     if "sci" in n: score+=15
     if n.endswith(".fits"): score+=5
