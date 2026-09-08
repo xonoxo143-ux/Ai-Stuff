@@ -1,0 +1,39 @@
+name: CoreLife asset fetch
+
+on:
+  push:
+    branches:
+      - corelife-fetch
+    paths:
+      - ".github/workflows/corelife-fetch.yml"
+      - "tools/corelife_mirror.py"
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mirror dependencies
+        run: python -m pip install requests beautifulsoup4
+
+      - name: Fetch CoreLife public assets
+        run: python tools/corelife_mirror.py --out corelife_mirror
+
+      - name: Show inventory
+        run: |
+          find corelife_mirror -type f -printf '%p\t%s bytes\n' | sort
+          du -sh corelife_mirror
+
+      - name: Upload mirror
+        uses: actions/upload-artifact@v4
+        with:
+          name: corelife-public-assets
+          path: corelife_mirror
+          if-no-files-found: error
+          retention-days: 7
