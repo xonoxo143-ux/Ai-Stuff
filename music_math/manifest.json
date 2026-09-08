@@ -1,0 +1,14 @@
+[
+  {"id":"J1","genre":"jazz","title":"HoliznaCC0 - 1 (jazz)","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/HoliznaCC0%20-%201%20%28jazz%29.mp3"},
+  {"id":"J2","genre":"jazz","title":"John Bartmann - Robot Gypsy Jazz","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/chosic.com/John_Bartmann_-_13_-_Robot_Gypsy_Jazz%28chosic.com%29.mp3"},
+  {"id":"R1","genre":"rock","title":"Loyalty Freak Music - Ghost Surf Rock","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/Loyalty%20Freak%20Music%20-%20Ghost%20Surf%20Rock.mp3"},
+  {"id":"R2","genre":"rock","title":"John Bartmann - Secret Agent Rock","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/John%20Bartmann%20-%20Secret%20Agent%20Rock.mp3"},
+  {"id":"M1","genre":"metal","title":"Loyalty Freak Music - HYPRA METAL","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/Loyalty%20Freak%20Music%20-%20HYPRA%20METAL.mp3"},
+  {"id":"M2","genre":"metal","title":"File Under Toner - speedmetal machine music","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/File%20Under%20Toner%20-%20speedmetal%20machine%20music.mp3"},
+  {"id":"A1","genre":"ambient","title":"h92o - ambient sky noises 1","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/h92o%20-%20ambient_sky_noises_1.mp3"},
+  {"id":"A2","genre":"ambient","title":"Ambient Bongos","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freepd.com/Ambient%20Bongos.mp3"},
+  {"id":"E1","genre":"electronic","title":"Monplaisir - Dance of the electronic fairies","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/Monplaisir%20-%20Dance%20of%20the%20electronic%20fairies.mp3"},
+  {"id":"E2","genre":"electronic","title":"Komiku - Action Techno","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/freemusicarchive.org/Komiku%20-%20Action%20Techno.mp3"},
+  {"id":"C1","genre":"classical","title":"Bach - Orchestral Suite No. 3","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/chosic.com/Bach-Orchestral-Suite-no.-3-in-D-major-BWV-1068-Download-free-sheet-music%28chosic.com%29.mp3"},
+  {"id":"C2","genre":"classical","title":"Beethoven - Pastoral Sonata III Scherzo","url":"https://raw.githubusercontent.com/SoundSafari/CC0-1.0-Music/main/chosic.com/Karine_Gilanyan_-_Beethoven_-_Piano_Sonata_nr15_in_D_major_op28_Pastoral_-_III_Scherzo_Allegro_Vivace%28chosic.com%29.mp3"}
+]
