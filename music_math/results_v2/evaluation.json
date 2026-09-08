@@ -1,0 +1,45 @@
+{
+  "n_tracks": 80,
+  "category_counts": {
+    "acoustic": 10,
+    "ambient": 10,
+    "chiptune": 10,
+    "classical": 10,
+    "funk": 10,
+    "house": 10,
+    "jazz": 10,
+    "synthwave": 10
+  },
+  "representation": "24 physical log-spaced spectral-energy bands + relative energy; no conventional music features",
+  "state_pca_variance": [
+    0.32031321111401884,
+    0.17503760009110386,
+    0.11576404457255302,
+    0.05151643980029791,
+    0.039340055501971775,
+    0.03685553573188691,
+    0.028659076548987063,
+    0.025379207955981812
+  ],
+  "rqa_global_epsilon": 0.4634646858788532,
+  "scalar_evaluation": {
+    "name": "scalar_phenotype",
+    "nearest_neighbor_same_category": 0.2,
+    "chance_nn": 0.11392405063291136,
+    "within_between_ratio": 0.967120201369657,
+    "permutation_p_value": 0.005997001499250375,
+    "silhouette_by_category": -0.09117325471046363,
+    "ARI_8clusters": 0.09117467443510985,
+    "NMI_8clusters": 0.3042306141424169
+  },
+  "network_evaluation": {
+    "name": "reaction_network_phenotype",
+    "nearest_neighbor_same_category": 0.25,
+    "chance_nn": 0.11392405063291136,
+    "within_between_ratio": 0.9774245748111421,
+    "permutation_p_value": 0.004497751124437781,
+    "silhouette_by_category": -0.06583207122876655,
+    "ARI_8clusters": 0.020191207412055663,
+    "NMI_8clusters": 0.20655783962105248
+  }
+}

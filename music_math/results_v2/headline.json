@@ -1,0 +1,361 @@
+{
+  "evaluation": {
+    "n_tracks": 80,
+    "category_counts": {
+      "acoustic": 10,
+      "ambient": 10,
+      "chiptune": 10,
+      "classical": 10,
+      "funk": 10,
+      "house": 10,
+      "jazz": 10,
+      "synthwave": 10
+    },
+    "representation": "24 physical log-spaced spectral-energy bands + relative energy; no conventional music features",
+    "state_pca_variance": [
+      0.32031321111401884,
+      0.17503760009110386,
+      0.11576404457255302,
+      0.05151643980029791,
+      0.039340055501971775,
+      0.03685553573188691,
+      0.028659076548987063,
+      0.025379207955981812
+    ],
+    "rqa_global_epsilon": 0.4634646858788532,
+    "scalar_evaluation": {
+      "name": "scalar_phenotype",
+      "nearest_neighbor_same_category": 0.2,
+      "chance_nn": 0.11392405063291136,
+      "within_between_ratio": 0.967120201369657,
+      "permutation_p_value": 0.005997001499250375,
+      "silhouette_by_category": -0.09117325471046363,
+      "ARI_8clusters": 0.09117467443510985,
+      "NMI_8clusters": 0.3042306141424169
+    },
+    "network_evaluation": {
+      "name": "reaction_network_phenotype",
+      "nearest_neighbor_same_category": 0.25,
+      "chance_nn": 0.11392405063291136,
+      "within_between_ratio": 0.9774245748111421,
+      "permutation_p_value": 0.004497751124437781,
+      "silhouette_by_category": -0.06583207122876655,
+      "ARI_8clusters": 0.020191207412055663,
+      "NMI_8clusters": 0.20655783962105248
+    }
+  },
+  "alien_axes": [
+    {
+      "axis": 1,
+      "variance": 0.27225658961487675,
+      "top": [
+        [
+          "detailed_balance_violation",
+          0.3263580723890616
+        ],
+        [
+          "triplet_irreversibility",
+          0.3259778567740474
+        ],
+        [
+          "transition_entropy_norm",
+          0.312643042380315
+        ],
+        [
+          "self_retention",
+          -0.3061620620477424
+        ],
+        [
+          "speed_mean",
+          0.2951977267640455
+        ],
+        [
+          "entropy_norm",
+          0.29425989068820774
+        ]
+      ]
+    },
+    {
+      "axis": 2,
+      "variance": 0.2347230027302095,
+      "top": [
+        [
+          "rqa_determinism",
+          0.3574871700790149
+        ],
+        [
+          "rqa_laminarity",
+          0.33464087044225926
+        ],
+        [
+          "rqa_mean_diag",
+          0.32791464276552096
+        ],
+        [
+          "rqa_trapping_time",
+          0.32475412429930306
+        ],
+        [
+          "rqa_recurrence_rate",
+          0.3139220747518204
+        ],
+        [
+          "rqa_max_diag",
+          0.3003954629385534
+        ]
+      ]
+    },
+    {
+      "axis": 3,
+      "variance": 0.10167965313282838,
+      "top": [
+        [
+          "permutation_entropy",
+          0.47318226115279693
+        ],
+        [
+          "statistical_complexity",
+          -0.4410425825723303
+        ],
+        [
+          "turn_angle_mean",
+          0.42189442653002324
+        ],
+        [
+          "topo_h1_entropy",
+          -0.2846897443781725
+        ],
+        [
+          "topo_h1_count",
+          -0.27083931202388284
+        ],
+        [
+          "speed_cv",
+          -0.24260229361752048
+        ]
+      ]
+    },
+    {
+      "axis": 4,
+      "variance": 0.06246040145117094,
+      "top": [
+        [
+          "topo_h1_max",
+          0.39363428961671654
+        ],
+        [
+          "topo_h1_sig_count",
+          0.37679035953616813
+        ],
+        [
+          "heat_capacity",
+          -0.33089459985500674
+        ],
+        [
+          "free_energy_range",
+          -0.30574455162891967
+        ],
+        [
+          "hurst_pc1",
+          0.2633713566414886
+        ],
+        [
+          "time_asymmetry_tau1",
+          0.25265589420738616
+        ]
+      ]
+    },
+    {
+      "axis": 5,
+      "variance": 0.04870533765794944,
+      "top": [
+        [
+          "tortuosity",
+          0.5248231255905109
+        ],
+        [
+          "rqa_max_diag",
+          0.3204261559647767
+        ],
+        [
+          "metastability_slem",
+          -0.2977611028520421
+        ],
+        [
+          "topo_h1_count",
+          0.2567708603358324
+        ],
+        [
+          "rqa_mean_diag",
+          0.2452465850929794
+        ],
+        [
+          "rqa_trapping_time",
+          0.23919361467469832
+        ]
+      ]
+    }
+  ],
+  "strongest_null_effects": [
+    {
+      "control": "shuffle",
+      "metric": "metastability_slem",
+      "mean_delta": 0.5710856002714015,
+      "median_delta": 0.5882589591654477,
+      "positive_fraction": 0.9975,
+      "n": 800
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "metastability_slem",
+      "mean_delta": 0.5598324604435537,
+      "median_delta": 0.5679128600544119,
+      "positive_fraction": 1.0,
+      "n": 80
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "topo_h1_total",
+      "mean_delta": -0.3865788044873625,
+      "median_delta": -0.40610818564891815,
+      "positive_fraction": 0.325,
+      "n": 80
+    },
+    {
+      "control": "shuffle",
+      "metric": "self_retention",
+      "mean_delta": 0.2798083115559729,
+      "median_delta": 0.27706447693394687,
+      "positive_fraction": 0.9975,
+      "n": 800
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "transition_entropy_norm",
+      "mean_delta": 0.2041036314887786,
+      "median_delta": 0.22110399354019528,
+      "positive_fraction": 0.875,
+      "n": 80
+    },
+    {
+      "control": "shuffle",
+      "metric": "hurst_pc1",
+      "mean_delta": 0.19144026791934862,
+      "median_delta": 0.20311531480255934,
+      "positive_fraction": 0.95125,
+      "n": 800
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "self_retention",
+      "mean_delta": -0.1677783386044277,
+      "median_delta": -0.18799982713224583,
+      "positive_fraction": 0.2625,
+      "n": 80
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "rqa_mean_diag",
+      "mean_delta": 0.28750841094511126,
+      "median_delta": 0.18376716137444404,
+      "positive_fraction": 0.925,
+      "n": 80
+    },
+    {
+      "control": "shuffle",
+      "metric": "rqa_mean_diag",
+      "mean_delta": 0.25459758849597325,
+      "median_delta": 0.16588234941131352,
+      "positive_fraction": 0.935,
+      "n": 800
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "rqa_laminarity",
+      "mean_delta": 0.1911116118854897,
+      "median_delta": 0.16567926223773083,
+      "positive_fraction": 0.9,
+      "n": 80
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "rqa_determinism",
+      "mean_delta": 0.1757675602439401,
+      "median_delta": 0.14391977765118713,
+      "positive_fraction": 0.9375,
+      "n": 80
+    },
+    {
+      "control": "shuffle",
+      "metric": "transition_entropy_norm",
+      "mean_delta": -0.14732126880743265,
+      "median_delta": -0.13412803721312738,
+      "positive_fraction": 0.0025,
+      "n": 800
+    },
+    {
+      "control": "shuffle",
+      "metric": "statistical_complexity",
+      "mean_delta": 0.13208560745588718,
+      "median_delta": 0.12893708734967557,
+      "positive_fraction": 1.0,
+      "n": 800
+    },
+    {
+      "control": "shuffle",
+      "metric": "rqa_laminarity",
+      "mean_delta": 0.14360302154015508,
+      "median_delta": 0.12526385619436498,
+      "positive_fraction": 0.8925,
+      "n": 800
+    },
+    {
+      "control": "shuffle",
+      "metric": "rqa_determinism",
+      "mean_delta": 0.13093790196829405,
+      "median_delta": 0.11064424279281172,
+      "positive_fraction": 0.96375,
+      "n": 800
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "statistical_complexity",
+      "mean_delta": 0.10959274755372457,
+      "median_delta": 0.10398770710856584,
+      "positive_fraction": 0.95,
+      "n": 80
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "triplet_irreversibility",
+      "mean_delta": 0.13290571320045724,
+      "median_delta": 0.09871141170454034,
+      "positive_fraction": 0.9625,
+      "n": 80
+    },
+    {
+      "control": "shuffle",
+      "metric": "permutation_entropy",
+      "mean_delta": -0.09084029128328641,
+      "median_delta": -0.08553458205588732,
+      "positive_fraction": 0.0,
+      "n": 800
+    },
+    {
+      "control": "phase_randomized",
+      "metric": "permutation_entropy",
+      "mean_delta": -0.07748731892899552,
+      "median_delta": -0.07189671050928881,
+      "positive_fraction": 0.0375,
+      "n": 80
+    },
+    {
+      "control": "block_shuffle",
+      "metric": "rqa_mean_diag",
+      "mean_delta": 0.10913143180954198,
+      "median_delta": 0.07004502503541632,
+      "positive_fraction": 0.77875,
+      "n": 800
+    }
+  ]
+}
