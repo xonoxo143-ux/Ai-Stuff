@@ -1,0 +1,562 @@
+[
+  {
+    "id": "ACO01",
+    "category": "acoustic",
+    "title": "Acoustic Guitar Rpg Tune With Strings And Pi",
+    "source_path": "assets/music/acoustic/Acoustic_Guitar_Rpg_Tune_With_Strings_And_Pi.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Acoustic_Guitar_Rpg_Tune_With_Strings_And_Pi.ogg"
+  },
+  {
+    "id": "ACO02",
+    "category": "acoustic",
+    "title": "LaDaDa Guitar",
+    "source_path": "assets/music/acoustic/LaDaDa_Guitar.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/LaDaDa_Guitar.ogg"
+  },
+  {
+    "id": "ACO03",
+    "category": "acoustic",
+    "title": "Revelation",
+    "source_path": "assets/music/acoustic/Revelation.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Revelation.ogg"
+  },
+  {
+    "id": "ACO04",
+    "category": "acoustic",
+    "title": "Dialup Song",
+    "source_path": "assets/music/acoustic/Dialup_Song.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Dialup_Song.ogg"
+  },
+  {
+    "id": "ACO05",
+    "category": "acoustic",
+    "title": "Happy Ukelele Island Surfing Theme",
+    "source_path": "assets/music/acoustic/Happy_Ukelele_Island_Surfing_Theme.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Happy_Ukelele_Island_Surfing_Theme.ogg"
+  },
+  {
+    "id": "ACO06",
+    "category": "acoustic",
+    "title": "Midi Pack 1 24 New Tunes",
+    "source_path": "assets/music/acoustic/Midi_Pack_1_24_New_Tunes.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Midi_Pack_1_24_New_Tunes.ogg"
+  },
+  {
+    "id": "ACO07",
+    "category": "acoustic",
+    "title": "Wine Less Cry More",
+    "source_path": "assets/music/acoustic/Wine_Less_Cry_More.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Wine_Less_Cry_More.ogg"
+  },
+  {
+    "id": "ACO08",
+    "category": "acoustic",
+    "title": "A Small Fire Will Do Calming Loop",
+    "source_path": "assets/music/acoustic/A_Small_Fire_Will_Do_Calming_Loop.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/A_Small_Fire_Will_Do_Calming_Loop.ogg"
+  },
+  {
+    "id": "ACO09",
+    "category": "acoustic",
+    "title": "Fouler l horizon",
+    "source_path": "assets/music/acoustic/Fouler_l_horizon.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Fouler_l_horizon.ogg"
+  },
+  {
+    "id": "ACO10",
+    "category": "acoustic",
+    "title": "Gypselectric Guitar",
+    "source_path": "assets/music/acoustic/Gypselectric_Guitar.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/acoustic/Gypselectric_Guitar.ogg"
+  },
+  {
+    "id": "AMB01",
+    "category": "ambient",
+    "title": "Creepy Ambient Loop",
+    "source_path": "assets/music/ambient/Creepy_Ambient_Loop.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Creepy_Ambient_Loop.ogg"
+  },
+  {
+    "id": "AMB02",
+    "category": "ambient",
+    "title": "Desolate 6",
+    "source_path": "assets/music/ambient/Desolate_6.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Desolate_6.ogg"
+  },
+  {
+    "id": "AMB03",
+    "category": "ambient",
+    "title": "Ambient loading screen game music Pack",
+    "source_path": "assets/music/ambient/Ambient_loading_screen_game_music_Pack.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Ambient_loading_screen_game_music_Pack.ogg"
+  },
+  {
+    "id": "AMB04",
+    "category": "ambient",
+    "title": "ambient horror track01",
+    "source_path": "assets/music/ambient/ambient_horror_track01.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/ambient_horror_track01.ogg"
+  },
+  {
+    "id": "AMB05",
+    "category": "ambient",
+    "title": "PS2 horror mystery ambient theme",
+    "source_path": "assets/music/ambient/PS2_horror_mystery_ambient_theme.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/PS2_horror_mystery_ambient_theme.ogg"
+  },
+  {
+    "id": "AMB06",
+    "category": "ambient",
+    "title": "Ambient The Beach Where Dreams Die",
+    "source_path": "assets/music/ambient/Ambient_The_Beach_Where_Dreams_Die.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Ambient_The_Beach_Where_Dreams_Die.ogg"
+  },
+  {
+    "id": "AMB07",
+    "category": "ambient",
+    "title": "Sunset Walk Ambient Quiet Sweet Loop",
+    "source_path": "assets/music/ambient/Sunset_Walk_Ambient_Quiet_Sweet_Loop.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Sunset_Walk_Ambient_Quiet_Sweet_Loop.ogg"
+  },
+  {
+    "id": "AMB08",
+    "category": "ambient",
+    "title": "Crimson Space Station Bgm Ambient Music 2 Sh",
+    "source_path": "assets/music/ambient/Crimson_Space_Station_Bgm_Ambient_Music_2_Sh.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Crimson_Space_Station_Bgm_Ambient_Music_2_Sh.ogg"
+  },
+  {
+    "id": "AMB09",
+    "category": "ambient",
+    "title": "Feel good slow ambient track with a beat",
+    "source_path": "assets/music/ambient/Feel_good_slow_ambient_track_with_a_beat.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/Feel_good_slow_ambient_track_with_a_beat.ogg"
+  },
+  {
+    "id": "AMB10",
+    "category": "ambient",
+    "title": "ambient sound creepy",
+    "source_path": "assets/music/ambient/ambient_sound_creepy.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/ambient/ambient_sound_creepy.ogg"
+  },
+  {
+    "id": "CHP01",
+    "category": "chiptune",
+    "title": "A Wonderful Nightmare Chiptune version",
+    "source_path": "assets/music/chiptune/A_Wonderful_Nightmare_Chiptune_version.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/A_Wonderful_Nightmare_Chiptune_version.ogg"
+  },
+  {
+    "id": "CHP02",
+    "category": "chiptune",
+    "title": "Sometimes",
+    "source_path": "assets/music/chiptune/Sometimes.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Sometimes.ogg"
+  },
+  {
+    "id": "CHP03",
+    "category": "chiptune",
+    "title": "Pretty Good Chiptune don t know what to call",
+    "source_path": "assets/music/chiptune/Pretty_Good_Chiptune_don_t_know_what_to_call.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Pretty_Good_Chiptune_don_t_know_what_to_call.ogg"
+  },
+  {
+    "id": "CHP04",
+    "category": "chiptune",
+    "title": "Aeitia PD Famitracker Chiptune Dump",
+    "source_path": "assets/music/chiptune/Aeitia_PD_Famitracker_Chiptune_Dump.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Aeitia_PD_Famitracker_Chiptune_Dump.ogg"
+  },
+  {
+    "id": "CHP05",
+    "category": "chiptune",
+    "title": "Lo fi chiptune glitch D n B",
+    "source_path": "assets/music/chiptune/Lo_fi_chiptune_glitch_D_n_B.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Lo_fi_chiptune_glitch_D_n_B.ogg"
+  },
+  {
+    "id": "CHP06",
+    "category": "chiptune",
+    "title": "Chiptune Plucked",
+    "source_path": "assets/music/chiptune/Chiptune_Plucked.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Chiptune_Plucked.ogg"
+  },
+  {
+    "id": "CHP07",
+    "category": "chiptune",
+    "title": "Classical Pop Chiptune",
+    "source_path": "assets/music/chiptune/Classical_Pop_Chiptune.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Classical_Pop_Chiptune.ogg"
+  },
+  {
+    "id": "CHP08",
+    "category": "chiptune",
+    "title": "Bebop Chiptune",
+    "source_path": "assets/music/chiptune/Bebop_Chiptune.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Bebop_Chiptune.ogg"
+  },
+  {
+    "id": "CHP09",
+    "category": "chiptune",
+    "title": "Something",
+    "source_path": "assets/music/chiptune/Something.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/Something.ogg"
+  },
+  {
+    "id": "CHP10",
+    "category": "chiptune",
+    "title": "chiptune police loop",
+    "source_path": "assets/music/chiptune/chiptune_police_loop.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/chiptune/chiptune_police_loop.ogg"
+  },
+  {
+    "id": "CLA01",
+    "category": "classical",
+    "title": "01 0x2A721 Lake Aria",
+    "source_path": "assets/music/classical/01_0x2A721_Lake_Aria.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/01_0x2A721_Lake_Aria.ogg"
+  },
+  {
+    "id": "CLA02",
+    "category": "classical",
+    "title": "Intensity Buffer Electronic",
+    "source_path": "assets/music/classical/Intensity_Buffer_Electronic.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Intensity_Buffer_Electronic.ogg"
+  },
+  {
+    "id": "CLA03",
+    "category": "classical",
+    "title": "05 0x2A725 Moon Cave",
+    "source_path": "assets/music/classical/05_0x2A725_Moon_Cave.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/05_0x2A725_Moon_Cave.ogg"
+  },
+  {
+    "id": "CLA04",
+    "category": "classical",
+    "title": "02 0x2A722 Rachels Weave",
+    "source_path": "assets/music/classical/02_0x2A722_Rachels_Weave.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/02_0x2A722_Rachels_Weave.ogg"
+  },
+  {
+    "id": "CLA05",
+    "category": "classical",
+    "title": "Natures Beauty",
+    "source_path": "assets/music/classical/Natures_Beauty.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Natures_Beauty.ogg"
+  },
+  {
+    "id": "CLA06",
+    "category": "classical",
+    "title": "Swordfight",
+    "source_path": "assets/music/classical/Swordfight.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Swordfight.ogg"
+  },
+  {
+    "id": "CLA07",
+    "category": "classical",
+    "title": "Warden",
+    "source_path": "assets/music/classical/Warden.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Warden.ogg"
+  },
+  {
+    "id": "CLA08",
+    "category": "classical",
+    "title": "Bluebonnet",
+    "source_path": "assets/music/classical/Bluebonnet.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Bluebonnet.ogg"
+  },
+  {
+    "id": "CLA09",
+    "category": "classical",
+    "title": "Dance Of The Little Swans You Need Bashers T",
+    "source_path": "assets/music/classical/Dance_Of_The_Little_Swans_You_Need_Bashers_T.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Dance_Of_The_Little_Swans_You_Need_Bashers_T.ogg"
+  },
+  {
+    "id": "CLA10",
+    "category": "classical",
+    "title": "Spinning 2 Versions",
+    "source_path": "assets/music/classical/Spinning_2_Versions.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/classical/Spinning_2_Versions.ogg"
+  },
+  {
+    "id": "FNK01",
+    "category": "funk",
+    "title": "Rythm factory rythm garden raspberry jam sec",
+    "source_path": "assets/music/funk/Rythm_factory_rythm_garden_raspberry_jam_sec.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Rythm_factory_rythm_garden_raspberry_jam_sec.ogg"
+  },
+  {
+    "id": "FNK02",
+    "category": "funk",
+    "title": "Detour",
+    "source_path": "assets/music/funk/Detour.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Detour.ogg"
+  },
+  {
+    "id": "FNK03",
+    "category": "funk",
+    "title": "Barriers",
+    "source_path": "assets/music/funk/Barriers.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Barriers.ogg"
+  },
+  {
+    "id": "FNK04",
+    "category": "funk",
+    "title": "Komiku Helice Awesome Dance Adventure 07 The",
+    "source_path": "assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_07_The.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_07_The.ogg"
+  },
+  {
+    "id": "FNK05",
+    "category": "funk",
+    "title": "Xenocity Sidekick",
+    "source_path": "assets/music/funk/Xenocity_Sidekick.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Xenocity_Sidekick.ogg"
+  },
+  {
+    "id": "FNK06",
+    "category": "funk",
+    "title": "04 HoliznaCC0 Make Money",
+    "source_path": "assets/music/funk/04_HoliznaCC0_Make_Money.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/04_HoliznaCC0_Make_Money.ogg"
+  },
+  {
+    "id": "FNK07",
+    "category": "funk",
+    "title": "Komiku Helice Awesome Dance Adventure 05 Cap",
+    "source_path": "assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_05_Cap.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_05_Cap.ogg"
+  },
+  {
+    "id": "FNK08",
+    "category": "funk",
+    "title": "Komiku Helice Awesome Dance Adventure 01 An",
+    "source_path": "assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_01_An.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_01_An.ogg"
+  },
+  {
+    "id": "FNK09",
+    "category": "funk",
+    "title": "Komiku Helice Awesome Dance Adventure 03 I m",
+    "source_path": "assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_03_I_m.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Komiku_Helice_Awesome_Dance_Adventure_03_I_m.ogg"
+  },
+  {
+    "id": "FNK10",
+    "category": "funk",
+    "title": "Wednesday Night Funk Fusion",
+    "source_path": "assets/music/funk/Wednesday_Night_Funk_Fusion.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/funk/Wednesday_Night_Funk_Fusion.ogg"
+  },
+  {
+    "id": "HOU01",
+    "category": "house",
+    "title": "Pacific Ocean",
+    "source_path": "assets/music/house/Pacific_Ocean.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Pacific_Ocean.ogg"
+  },
+  {
+    "id": "HOU02",
+    "category": "house",
+    "title": "Funky House Of Far Different Nature Fupi Con",
+    "source_path": "assets/music/house/Funky_House_Of_Far_Different_Nature_Fupi_Con.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Funky_House_Of_Far_Different_Nature_Fupi_Con.ogg"
+  },
+  {
+    "id": "HOU03",
+    "category": "house",
+    "title": "The Bass of the Future",
+    "source_path": "assets/music/house/The_Bass_of_the_Future.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/The_Bass_of_the_Future.ogg"
+  },
+  {
+    "id": "HOU04",
+    "category": "house",
+    "title": "Coming After You",
+    "source_path": "assets/music/house/Coming_After_You.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Coming_After_You.ogg"
+  },
+  {
+    "id": "HOU05",
+    "category": "house",
+    "title": "Synthwave House Loop",
+    "source_path": "assets/music/house/Synthwave_House_Loop.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Synthwave_House_Loop.ogg"
+  },
+  {
+    "id": "HOU06",
+    "category": "house",
+    "title": "Progress",
+    "source_path": "assets/music/house/Progress.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Progress.ogg"
+  },
+  {
+    "id": "HOU07",
+    "category": "house",
+    "title": "Blitsky TECHNO Meditation Relaxing Peaceful",
+    "source_path": "assets/music/house/Blitsky_TECHNO_Meditation_Relaxing_Peaceful.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Blitsky_TECHNO_Meditation_Relaxing_Peaceful.ogg"
+  },
+  {
+    "id": "HOU08",
+    "category": "house",
+    "title": "Slampe Synthwave House",
+    "source_path": "assets/music/house/Slampe_Synthwave_House.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Slampe_Synthwave_House.ogg"
+  },
+  {
+    "id": "HOU09",
+    "category": "house",
+    "title": "Out of world trippy techno country track",
+    "source_path": "assets/music/house/Out_of_world_trippy_techno_country_track.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/Out_of_world_trippy_techno_country_track.ogg"
+  },
+  {
+    "id": "HOU10",
+    "category": "house",
+    "title": "owzers chamber",
+    "source_path": "assets/music/house/owzers_chamber.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/house/owzers_chamber.ogg"
+  },
+  {
+    "id": "JAZ01",
+    "category": "jazz",
+    "title": "jazz synth dec 17",
+    "source_path": "assets/music/jazz/jazz_synth_dec_17.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/jazz_synth_dec_17.ogg"
+  },
+  {
+    "id": "JAZ02",
+    "category": "jazz",
+    "title": "Electronic Jazz Chromatic",
+    "source_path": "assets/music/jazz/Electronic_Jazz_Chromatic.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/Electronic_Jazz_Chromatic.ogg"
+  },
+  {
+    "id": "JAZ03",
+    "category": "jazz",
+    "title": "Jazz",
+    "source_path": "assets/music/jazz/Jazz.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/Jazz.ogg"
+  },
+  {
+    "id": "JAZ04",
+    "category": "jazz",
+    "title": "jazz improvisation july 14",
+    "source_path": "assets/music/jazz/jazz_improvisation_july_14.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/jazz_improvisation_july_14.ogg"
+  },
+  {
+    "id": "JAZ05",
+    "category": "jazz",
+    "title": "NES chiptune Swingshot Swing Jazz",
+    "source_path": "assets/music/jazz/NES_chiptune_Swingshot_Swing_Jazz.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/NES_chiptune_Swingshot_Swing_Jazz.ogg"
+  },
+  {
+    "id": "JAZ06",
+    "category": "jazz",
+    "title": "jazz chromatic",
+    "source_path": "assets/music/jazz/jazz_chromatic.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/jazz_chromatic.ogg"
+  },
+  {
+    "id": "JAZ07",
+    "category": "jazz",
+    "title": "jazz aug 10 1256 2021",
+    "source_path": "assets/music/jazz/jazz_aug_10_1256_2021.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/jazz_aug_10_1256_2021.ogg"
+  },
+  {
+    "id": "JAZ08",
+    "category": "jazz",
+    "title": "Jazz flute",
+    "source_path": "assets/music/jazz/Jazz_flute.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/Jazz_flute.ogg"
+  },
+  {
+    "id": "JAZ09",
+    "category": "jazz",
+    "title": "jazz saxaphone",
+    "source_path": "assets/music/jazz/jazz_saxaphone.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/jazz_saxaphone.ogg"
+  },
+  {
+    "id": "JAZ10",
+    "category": "jazz",
+    "title": "Ragtime Jazz",
+    "source_path": "assets/music/jazz/Ragtime_Jazz.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/jazz/Ragtime_Jazz.ogg"
+  },
+  {
+    "id": "SYN01",
+    "category": "synthwave",
+    "title": "Nova",
+    "source_path": "assets/music/synthwave/Nova.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Nova.ogg"
+  },
+  {
+    "id": "SYN02",
+    "category": "synthwave",
+    "title": "Stranger synth retro ambient soundtrack",
+    "source_path": "assets/music/synthwave/Stranger_synth_retro_ambient_soundtrack.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Stranger_synth_retro_ambient_soundtrack.ogg"
+  },
+  {
+    "id": "SYN03",
+    "category": "synthwave",
+    "title": "Eyeless Retrowave",
+    "source_path": "assets/music/synthwave/Eyeless_Retrowave.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Eyeless_Retrowave.ogg"
+  },
+  {
+    "id": "SYN04",
+    "category": "synthwave",
+    "title": "Futility Belt",
+    "source_path": "assets/music/synthwave/Futility_Belt.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Futility_Belt.ogg"
+  },
+  {
+    "id": "SYN05",
+    "category": "synthwave",
+    "title": "Aerobics Synth Wave",
+    "source_path": "assets/music/synthwave/Aerobics_Synth_Wave.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Aerobics_Synth_Wave.ogg"
+  },
+  {
+    "id": "SYN06",
+    "category": "synthwave",
+    "title": "Synthwave Auferstanden aus Ruinen 2 45",
+    "source_path": "assets/music/synthwave/Synthwave_Auferstanden_aus_Ruinen_2_45.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Synthwave_Auferstanden_aus_Ruinen_2_45.ogg"
+  },
+  {
+    "id": "SYN07",
+    "category": "synthwave",
+    "title": "Tech rave",
+    "source_path": "assets/music/synthwave/Tech_rave.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Tech_rave.ogg"
+  },
+  {
+    "id": "SYN08",
+    "category": "synthwave",
+    "title": "03 HoliznaCC0 Cyber Anxiety",
+    "source_path": "assets/music/synthwave/03_HoliznaCC0_Cyber_Anxiety.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/03_HoliznaCC0_Cyber_Anxiety.ogg"
+  },
+  {
+    "id": "SYN09",
+    "category": "synthwave",
+    "title": "Good Ending Diamond Dust",
+    "source_path": "assets/music/synthwave/Good_Ending_Diamond_Dust.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/Good_Ending_Diamond_Dust.ogg"
+  },
+  {
+    "id": "SYN10",
+    "category": "synthwave",
+    "title": "04 HoliznaCC0 Lost In The Jungle",
+    "source_path": "assets/music/synthwave/04_HoliznaCC0_Lost_In_The_Jungle.ogg",
+    "url": "https://raw.githubusercontent.com/euuuuuuan/todak-public/main/assets/music/synthwave/04_HoliznaCC0_Lost_In_The_Jungle.ogg"
+  }
+]
