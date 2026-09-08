@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
+from astropy.nddata import Cutout2D
 import astropy.units as u
 from scipy.ndimage import gaussian_filter, label, find_objects
 from reproject import reproject_interp
@@ -202,9 +203,23 @@ def main():
 
     h1,pre,wpre,head1=first_image_hdu(paths["pre_clash"])
     h2,post,wpost,head2=first_image_hdu(paths["ff_epoch1"])
-    print("pre shape",pre.shape,"post shape",post.shape)
+    print("full pre shape",pre.shape,"full post shape",post.shape)
 
-    # Reproject old image onto Frontier Fields epoch-1 grid.
+    # Work at native 30 mas resolution, but crop around the calibration lens
+    # before reprojection so a standard GitHub runner never holds two
+    # ~100-million-pixel reprojection workspaces in memory.
+    roi_arcsec=float(os.environ.get("HST_ROI_ARCSEC","90"))
+    pre_cut=Cutout2D(pre, REFSDAL, (roi_arcsec*u.arcsec, roi_arcsec*u.arcsec),
+                     wcs=wpre, mode="partial", fill_value=np.nan, copy=True)
+    post_cut=Cutout2D(post, REFSDAL, (roi_arcsec*u.arcsec, roi_arcsec*u.arcsec),
+                      wcs=wpost, mode="partial", fill_value=np.nan, copy=True)
+    pre=np.asarray(pre_cut.data,dtype=np.float32)
+    post=np.asarray(post_cut.data,dtype=np.float32)
+    wpre=pre_cut.wcs
+    wpost=post_cut.wcs
+    print("ROI arcsec",roi_arcsec,"pre shape",pre.shape,"post shape",post.shape)
+
+    # Reproject old image onto Frontier Fields epoch-1 ROI grid.
     if pre.shape==post.shape:
         # Even identical shape does not guarantee identical WCS; compare sample world coords.
         same=False
@@ -348,6 +363,7 @@ def main():
         "filter":"HST WFC3/IR F160W",
         "pre_url":manifest["pre_clash"]["chosen"],
         "post_url":manifest["ff_epoch1"]["chosen"],
+        "roi_arcsec":roi_arcsec,
         "post_shape":list(post.shape),
         "photometric_scale_a":a,
         "photometric_offset_b":b,
