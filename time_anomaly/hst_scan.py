@@ -161,6 +161,8 @@ def normalize_pair(pre, post, mask):
 
 def cutout(arr,wcs,coord,size_arcsec=24):
     x,y=wcs.world_to_pixel(coord)
+    x=float(np.asarray(x).squeeze())
+    y=float(np.asarray(y).squeeze())
     # estimate pix scale from celestial WCS
     try:
         scale=np.mean(np.abs(wcs.proj_plane_pixel_scales()))*3600
@@ -282,8 +284,15 @@ def main():
     if len(df):
         df=df.sort_values(["peak_abs_sigma","sum_abs_sigma"],ascending=False).reset_index(drop=True)
     df.to_csv(OUT/"candidates.csv",index=False)
+    nearby = df[df["distance_to_refsdal_arcsec"] <= 15].copy() if len(df) else df.copy()
+    if len(nearby):
+        nearby = nearby.sort_values(["distance_to_refsdal_arcsec","peak_abs_sigma"], ascending=[True,False])
+    nearby.to_csv(OUT/"refsdal_nearby_candidates.csv", index=False)
     print("candidates",len(df))
-    if len(df):
+    print("candidates within 15 arcsec of published Refsdal position",len(nearby))
+    if len(nearby):
+        print(nearby.head(30).to_string(index=False))
+    elif len(df):
         print(df.head(20).to_string(index=False))
 
     # Known Refsdal cutout diagnostic
@@ -343,6 +352,11 @@ def main():
         "difference_sigma":sig,
         "threshold_sigma":7.0,
         "candidate_count":int(len(df)),
+        "refsdal_nearby_candidate_count":int(len(nearby)),
+        "nearest_refsdal_candidate": (
+            nearby.iloc[0].to_dict() if len(nearby)
+            else (df.sort_values("distance_to_refsdal_arcsec").iloc[0].to_dict() if len(df) else None)
+        ),
         "published_refsdal_ra_deg":float(REFSDAL.ra.deg),
         "published_refsdal_dec_deg":float(REFSDAL.dec.deg),
     }
