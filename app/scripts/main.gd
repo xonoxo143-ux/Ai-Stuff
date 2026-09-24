@@ -86,6 +86,10 @@ func _ready() -> void:
 	_refresh_workspace_status()
 
 func _build_ui() -> void:
+	var mobile_theme := Theme.new()
+	mobile_theme.default_font_size = 24
+	theme = mobile_theme
+
 	var background := ColorRect.new()
 	background.color = Color("151923")
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -93,14 +97,14 @@ func _build_ui() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
 	add_child(margin)
 
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
+	root.add_theme_constant_override("separation", 14)
 	margin.add_child(root)
 
 	var header := HBoxContainer.new()
@@ -109,17 +113,19 @@ func _build_ui() -> void:
 
 	var title := Label.new()
 	title.text = "AI Workbench"
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", 34)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
 	pull_button = Button.new()
 	pull_button.text = "↓ Pull"
+	pull_button.custom_minimum_size.y = 56
 	pull_button.pressed.connect(_on_pull_pressed)
 	header.add_child(pull_button)
 
 	push_button = Button.new()
 	push_button.text = "↑ Push"
+	push_button.custom_minimum_size.y = 56
 	push_button.pressed.connect(_on_push_pressed)
 	header.add_child(push_button)
 
@@ -154,6 +160,17 @@ func _build_ui() -> void:
 	_build_data_tab(data_page)
 
 	_build_token_dialog()
+	_apply_mobile_touch_targets(self)
+
+func _apply_mobile_touch_targets(node: Node) -> void:
+	for child in node.get_children():
+		if child is Button or child is OptionButton or child is SpinBox or child is LineEdit:
+			var control := child as Control
+			control.custom_minimum_size.y = maxf(control.custom_minimum_size.y, 54.0)
+		if child is ProgressBar:
+			var progress := child as Control
+			progress.custom_minimum_size.y = maxf(progress.custom_minimum_size.y, 34.0)
+		_apply_mobile_touch_targets(child)
 
 func _new_page(name_value: String) -> ScrollContainer:
 	var scroll := ScrollContainer.new()
@@ -162,7 +179,7 @@ func _new_page(name_value: String) -> ScrollContainer:
 	var body := VBoxContainer.new()
 	body.name = "Body"
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 10)
+	body.add_theme_constant_override("separation", 14)
 	scroll.add_child(body)
 	return scroll
 
@@ -174,37 +191,48 @@ func _build_run_tab(page: ScrollContainer) -> void:
 
 	var model_title := Label.new()
 	model_title.text = "Local model"
-	model_title.add_theme_font_size_override("font_size", 20)
+	model_title.add_theme_font_size_override("font_size", 28)
 	body.add_child(model_title)
-
-	var model_row := HBoxContainer.new()
-	model_row.add_theme_constant_override("separation", 6)
-	body.add_child(model_row)
 
 	model_select = OptionButton.new()
 	model_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	model_select.custom_minimum_size.y = 58
 	model_select.item_selected.connect(_on_model_selected)
-	model_row.add_child(model_select)
+	body.add_child(model_select)
+
+	var model_actions := GridContainer.new()
+	model_actions.columns = 2
+	model_actions.add_theme_constant_override("h_separation", 10)
+	model_actions.add_theme_constant_override("v_separation", 10)
+	body.add_child(model_actions)
 
 	download_button = Button.new()
 	download_button.text = "Download"
+	download_button.custom_minimum_size.y = 58
+	download_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	download_button.pressed.connect(_on_download_pressed)
-	model_row.add_child(download_button)
+	model_actions.add_child(download_button)
 
 	load_button = Button.new()
 	load_button.text = "Load"
+	load_button.custom_minimum_size.y = 58
+	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_button.pressed.connect(_on_load_pressed)
-	model_row.add_child(load_button)
+	model_actions.add_child(load_button)
 
 	unload_button = Button.new()
 	unload_button.text = "Unload"
+	unload_button.custom_minimum_size.y = 58
+	unload_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	unload_button.pressed.connect(_on_unload_pressed)
-	model_row.add_child(unload_button)
+	model_actions.add_child(unload_button)
 
 	delete_button = Button.new()
 	delete_button.text = "Delete"
+	delete_button.custom_minimum_size.y = 58
+	delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	delete_button.pressed.connect(_on_delete_pressed)
-	model_row.add_child(delete_button)
+	model_actions.add_child(delete_button)
 
 	model_description = Label.new()
 	model_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -219,13 +247,13 @@ func _build_run_tab(page: ScrollContainer) -> void:
 
 	var settings_title := Label.new()
 	settings_title.text = "Runtime"
-	settings_title.add_theme_font_size_override("font_size", 20)
+	settings_title.add_theme_font_size_override("font_size", 28)
 	body.add_child(settings_title)
 
 	var settings_grid := GridContainer.new()
-	settings_grid.columns = 4
-	settings_grid.add_theme_constant_override("h_separation", 8)
-	settings_grid.add_theme_constant_override("v_separation", 6)
+	settings_grid.columns = 2
+	settings_grid.add_theme_constant_override("h_separation", 14)
+	settings_grid.add_theme_constant_override("v_separation", 10)
 	body.add_child(settings_grid)
 
 	context_spin = _add_spin(settings_grid, "Context", 512, 32768, 512, 4096)
@@ -249,7 +277,7 @@ func _build_chat_tab(page: ScrollContainer) -> void:
 	body.add_child(system_label)
 
 	system_prompt = TextEdit.new()
-	system_prompt.custom_minimum_size.y = 82
+	system_prompt.custom_minimum_size.y = 120
 	system_prompt.text = "You are a useful local assistant. Be accurate, direct, and concise."
 	body.add_child(system_prompt)
 
@@ -257,11 +285,11 @@ func _build_chat_tab(page: ScrollContainer) -> void:
 	chat_view.bbcode_enabled = true
 	chat_view.fit_content = false
 	chat_view.scroll_active = true
-	chat_view.custom_minimum_size.y = 520
+	chat_view.custom_minimum_size.y = 560
 	body.add_child(chat_view)
 
 	prompt_input = TextEdit.new()
-	prompt_input.custom_minimum_size.y = 105
+	prompt_input.custom_minimum_size.y = 140
 	prompt_input.placeholder_text = "Type a message…"
 	body.add_child(prompt_input)
 
@@ -312,7 +340,7 @@ func _build_bench_tab(page: ScrollContainer) -> void:
 
 	var title := Label.new()
 	title.text = "Benchmark"
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 28)
 	body.add_child(title)
 
 	var row := HBoxContainer.new()
@@ -348,7 +376,7 @@ func _build_bench_tab(page: ScrollContainer) -> void:
 
 	benchmark_preview = RichTextLabel.new()
 	benchmark_preview.bbcode_enabled = true
-	benchmark_preview.custom_minimum_size.y = 420
+	benchmark_preview.custom_minimum_size.y = 520
 	body.add_child(benchmark_preview)
 
 func _build_data_tab(page: ScrollContainer) -> void:
@@ -356,7 +384,7 @@ func _build_data_tab(page: ScrollContainer) -> void:
 
 	var title := Label.new()
 	title.text = "Data / workspace"
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 28)
 	body.add_child(title)
 
 	var explanation := Label.new()
@@ -387,7 +415,8 @@ func _build_token_dialog() -> void:
 	token_input = LineEdit.new()
 	token_input.secret = true
 	token_input.placeholder_text = "github_pat_…"
-	token_input.custom_minimum_size.x = 650
+	token_input.custom_minimum_size.x = 420
+	token_input.custom_minimum_size.y = 56
 	token_dialog.add_child(token_input)
 
 func _add_spin(parent: GridContainer, label_text: String, min_value: float, max_value: float, step: float, value: float) -> SpinBox:
@@ -402,6 +431,7 @@ func _add_spin(parent: GridContainer, label_text: String, min_value: float, max_
 	spin.allow_greater = false
 	spin.allow_lesser = false
 	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spin.custom_minimum_size.y = 54
 	parent.add_child(spin)
 	return spin
 
