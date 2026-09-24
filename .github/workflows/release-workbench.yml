@@ -54,7 +54,11 @@ jobs:
           set -euo pipefail
           sha="$(sha256sum workbench.zip | awk '{print $1}')"
           version="${GITHUB_RUN_NUMBER}"
-          cp workbench.zip workspace/releases/workbench.zip
+
+          # Preserve the generated release files while rebasing publication onto
+          # the latest aistuff head. This avoids non-fast-forward failures when
+          # kernel work lands while the bundle is being built.
+          cp workbench.zip /tmp/workbench.zip
           python3 - <<PY
           import json, os
           manifest = {
@@ -73,8 +77,14 @@ jobs:
               json.dump(manifest, f, indent=2)
               f.write("\n")
           PY
+          cp workspace/releases/current.json /tmp/current.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin aistuff
+          git checkout -B publish origin/aistuff
+          mkdir -p workspace/releases
+          cp /tmp/workbench.zip workspace/releases/workbench.zip
+          cp /tmp/current.json workspace/releases/current.json
           git add workspace/releases/current.json workspace/releases/workbench.zip
           git commit -m "Publish workbench bundle v${version}" || exit 0
           git push origin HEAD:aistuff
