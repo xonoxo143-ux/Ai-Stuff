@@ -2,161 +2,148 @@
 
 ## Principle
 
-> Stable APK kernel + mutable experiment workspace.
+> Stable native Android kernel + mutable GitHub-delivered web workbench.
 
-The Android application is not an IDE and GitHub is not model storage. The APK provides durable device/native capabilities; the `aistuff` workspace tells it what experiment to run.
+The active app no longer uses Godot as its application/update architecture. The old Godot implementation remains in the repository only as a reference/fallback prototype and its CI is manual-only.
 
-## Layer 1 — Godot
+## Layer 1 — Native Android kernel
 
-Godot owns user-facing and experiment-level behavior:
+`android-shell/` is the durable device layer.
 
+It owns capabilities that genuinely require an APK/native boundary:
+
+- Android lifecycle and secure WebView host
+- app-private storage
+- model download/resume + SHA-256 verification
+- Android-Keystore-backed credential storage
+- llama.cpp/JNI runtime
+- GGUF load/unload
+- cancellation
+- native performance measurement
+- GitHub workbench bundle updater
+- append-only result upload
+
+The kernel exposes a narrow message API to the workbench. The WebView bridge uses `WebViewCompat.addWebMessageListener` restricted to the local `appassets.androidplatform.net` origin; it does not use a globally exposed `addJavascriptInterface`.
+
+## Layer 2 — Mutable web workbench
+
+`workbench-web/` contains ordinary application behavior:
+
+- HTML
+- CSS
+- JavaScript
 - Run / Chat / Bench / Data surfaces
+- prompt construction
 - conversation state
-- prompt formatting
-- model catalogue
-- benchmark execution
-- objective benchmark checks
-- result serialization
-- local workspace/outbox management
-- GitHub pull/push protocol
+- benchmark orchestration
+- result formatting
+- update controls
 
-Godot does not perform tensor math.
+This layer is intentionally replaceable without rebuilding the APK.
 
-## Layer 2 — Kotlin Android plugin
-
-`LocalAIPlugin.kt` owns Android-specific/native integration:
-
-- model download/resume
-- SHA-256 verification
-- app-specific model storage
-- stable anonymous device ID
-- Android-Keystore-backed secret storage
-- JNI calls into llama.cpp
-- lifecycle cleanup
-- native event forwarding
-
-The GitHub token is encrypted locally and never enters repository files or benchmark artifacts.
+The APK includes a bundled fallback workbench. A verified newer bundle in app-internal storage overrides it.
 
 ## Layer 3 — llama.cpp
 
-The native library owns:
+The current native path is ARM64 CPU with:
 
-- GGUF loading
-- tokenization
-- context allocation
-- prompt decode
-- sampling/decode loop
-- cancellation
-- timing
-- cleanup
+- `GGML_CPU_KLEIDIAI=ON`
+- `GGML_NATIVE=OFF`
+- `GGML_CPU_REPACK=ON`
+- `GGML_OPENMP=OFF`
+- `GGML_LLAMAFILE=OFF`
+- `LLAMA_OPENSSL=OFF`
+- forced optimized C/C++ native flags even in the debug-signed APK
 
-Current backend: ARM64 CPU.
+KleidiAI is compiled into the native library and selects compatible Arm kernels at runtime.
 
-Backend-facing metrics intentionally separate:
+The generation loop also keeps a token/KV prefix cache. A subsequent prompt reuses the longest exact token prefix and evaluates only the suffix when possible.
+
+Streaming is chunked across JNI rather than emitting one Java/Godot callback per token.
+
+Backend metrics separate:
 
 ```text
-prompt processing
+prompt token count
+cached prompt tokens
+evaluated prompt tokens
+prompt processing time
 TTFT
-token decode
+decode tokens/s
 total latency
 ```
 
-so optimization does not accidentally improve one stage while hiding regressions in another.
+## Update flow
 
-## Mutable workspace
-
-CI copies repository `workspace/` into the APK as the first-run seed.
-
-At runtime it is copied into:
+GitHub Actions owns the mutable-workbench build:
 
 ```text
-user://workspace/
+workbench-web/
+      ↓
+validate JS + benchmark JSON
+      ↓
+build workbench.zip
+      ↓
+GitHub OIDC/Sigstore artifact attestation
+      ↓
+workspace/releases/workbench.zip
+workspace/releases/current.json
+      ↓
+phone checks manifest
+      ↓
+repo/ref/kernel compatibility + SHA-256 verification
+      ↓
+safe unzip to app-internal storage
+      ↓
+atomic activation
+      ↓
+reload WebView
 ```
 
-A Pull replaces/adds workspace files from the `aistuff` branch without changing the APK.
+The manifest records the GitHub attestation URL and source commit.
 
-Current workspace classes:
+### Current trust boundary
+
+GitHub Actions currently generates a real keyless Sigstore/GitHub artifact attestation for each workbench bundle. The Android kernel currently enforces the expected repository, expected branch/ref, kernel compatibility, approved raw-GitHub URL, and exact SHA-256 before activation.
+
+The kernel does **not yet perform full Sigstore attestation verification on-device**. Do not describe the current device-side check as attestation verification until that verifier is implemented.
+
+No user-provided signing key is required for workbench releases.
+
+## GitHub result flow
+
+Model weights remain local.
+
+Small experiment outputs can be pushed append-only:
 
 ```text
-workspace/
-  manifest.json
-  benchmarks/
-  presets/
-  recipes/
-  model-manifests/
+phone
+  ↓
+devices/<device-id>/results/<file>.json
 ```
 
-## Result flow
+Pull/update of the public workbench needs no GitHub credential. Result pushes currently require a fine-grained Contents-write token stored through Android Keystore.
 
-Benchmarks and selected manual chat traces are saved locally first.
+## Legacy Godot implementation
 
-```text
-generation
-   ↓
-user://results/
-   +
-user://outbox/
-   ↓ explicit Push
-devices/<device-id>/results/
-```
+The old `app/` + `android-plugin/` implementation proved:
 
-Uploads are append-only in v0. Successful uploads move the local outbox file to `user://sent/`.
+- Android/JNI/llama.cpp model loading works on the physical phone
+- first benchmark execution works
+- the original inference path was far too slow
+- fixed 9:16 Godot scaling was unsuitable on the Fold outer display
 
-No automatic destructive synchronization is allowed in v0.
+It is retained as a before-baseline and historical implementation, not the active trajectory.
 
-## Credential boundary
+## Hardware falsification target
 
-Pulling the public workspace does not require a token.
+The first native-kernel phone test should use the same 360M Q4 model as the Godot baseline and measure:
 
-Pushing requires a fine-grained GitHub token with Contents write permission. On Android it is encrypted with an AES-GCM key held by Android Keystore.
+1. prompt tokens,
+2. cached prompt tokens,
+3. evaluated prompt tokens,
+4. prompt tok/s,
+5. TTFT,
+6. decode tok/s.
 
-The repository never contains the credential.
-
-## Benchmark boundary
-
-A benchmark suite defines prompts, thread IDs, qualitative criteria, and optional deterministic checks.
-
-The runner preserves history independently per thread. This allows suites to test:
-
-- abrupt mode switching
-- returning to earlier threads
-- cross-domain reasoning
-- objective tasks
-- epistemic restraint
-- coding
-- repeated reusable computation
-
-Qualitative criteria are stored with the response for later judging. They are **not** falsely treated as deterministic scores.
-
-## Large-file boundary
-
-Weights/datasets stay outside Git.
-
-Repository manifests may describe:
-
-- model/source
-- filename
-- size
-- SHA-256
-- quantization
-- prompt template
-- recommended runtime settings
-
-This lets storage scale independently of Git history.
-
-## First physical-device boundary
-
-The phone is not needed to validate application structure.
-
-It becomes necessary for:
-
-- actual ARM throughput
-- TTFT
-- memory pressure/OOM behavior
-- thermal throttling
-- battery use
-- Android process/lifecycle behavior
-- USB vs internal-storage model loading
-- Fold UI ergonomics
-
-Everything before those hardware truths should be tested in CI or headless/emulated environments first.
+The second same-thread turn should show substantial prefix reuse. If the 360M model still crawls after optimized KleidiAI + KV reuse + chunked streaming, treat that as evidence of a deeper native/runtime issue rather than normal phone performance.
