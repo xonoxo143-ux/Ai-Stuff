@@ -247,107 +247,40 @@ The app is useful when it can:
 
 without rebuilding the APK.
 
+## Update architecture — implemented trajectory
 
-## Update architecture — required before the next APK
+The active update architecture is no longer Godot/PCK based.
 
-The next physical APK should establish a permanent separation between the native kernel and the mutable workbench.
+The durable APK is a native Android kernel under `android-shell/`. Ordinary application behavior lives in `workbench-web/` as HTML/CSS/JavaScript.
 
 ### APK kernel
 
-Rebuilding/reinstalling the APK should only be necessary for changes such as:
+Reinstall/rebuild should be needed only for native-boundary changes such as:
 
-- Android manifest or permissions,
-- Godot engine version,
-- Kotlin/JNI bridge changes,
-- llama.cpp/native library changes,
-- cryptographic trust-root changes,
-- capabilities that cannot be represented by the mutable Godot layer.
+- Android permissions / manifest
+- Kotlin/JNI bridge
+- llama.cpp or native backend
+- secure storage / updater implementation
+- capabilities that cannot be expressed in the web workbench
 
-### GitHub-delivered workbench layer
+### GitHub-delivered workbench
 
-Ordinary changes should not require a new APK. This includes:
+Changes that should update without a new APK include:
 
-- UI layout and styling,
-- Run / Chat / Bench / Data screens,
-- GDScript behavior,
-- benchmark logic,
-- prompts and presets,
-- model catalogue/manifests,
-- experiment recipes,
-- routing/configuration,
-- most non-native bug fixes.
+- layout and styling
+- Run / Chat / Bench / Data UI
+- benchmark behavior
+- prompts/presets
+- model catalog logic
+- experiment controls
+- most ordinary workbench bug fixes
 
-Godot supports runtime PCK/ZIP resource packs containing scenes, scripts, and assets. The kernel should use a small immutable bootstrap that loads a verified workbench pack before loading the main workbench scene.
+GitHub Actions builds `workbench.zip`, attests it using GitHub OIDC/Sigstore, and publishes `workspace/releases/current.json`.
 
-### Proposed flow
+The phone checks the expected repository/ref, kernel compatibility, URL policy and SHA-256 before staging and atomically activating the bundle from app-internal storage.
 
-```text
-APK launches immutable bootstrap
-        |
-        v
-check user://updates/current.pck
-        |
-        +-- valid + compatible --> load_resource_pack(..., true)
-        |                         |
-        |                         v
-        |                   launch workbench
-        |
-        +-- missing/invalid --> launch bundled fallback workbench
-```
+A bundled fallback workbench remains inside the APK.
 
-The Pull action should also check a GitHub update manifest:
+Full Sigstore attestation verification is not yet performed on-device; the attestation is generated and recorded for provenance while device-side enforcement currently uses the fixed GitHub source/ref plus hash.
 
-```text
-workspace/app-update.json
-```
-
-Suggested fields:
-
-```json
-{
-  "schema": 1,
-  "channel": "aistuff",
-  "version": 1,
-  "kernel_min": 1,
-  "kernel_max": 1,
-  "pack": {
-    "path": "workspace/releases/workbench-v1.pck",
-    "sha256": "...",
-    "signature": "..."
-  }
-}
-```
-
-Update sequence:
-
-1. Pull update manifest.
-2. Compare version and kernel compatibility.
-3. Download the new PCK into app-internal storage as a staging file.
-4. Verify SHA-256.
-5. Verify an asymmetric signature using a public key embedded in the APK kernel.
-6. Atomically promote staging to `current.pck`.
-7. Restart/reload through the bootstrap.
-8. If loading fails, disable the pack and fall back to the bundled workbench.
-
-The pack must be loaded before the main workbench scene/scripts are loaded so it can replace those resources cleanly.
-
-### Security rule
-
-Do not trust a PCK merely because it came from GitHub or because its SHA-256 matches a manifest downloaded from the same location.
-
-Patch packs can contain executable GDScript. The kernel therefore needs an embedded public verification key and should load only packs signed by the corresponding private key. Store downloaded packs only in app-internal storage.
-
-### Practical result
-
-After this kernel ships, a change like mobile scaling, button layout, benchmark behavior, or a new workbench screen should become:
-
-```text
-edit in aistuff
--> CI builds signed workbench PCK
--> phone taps Pull (or checks on launch)
--> pack downloads and verifies
--> restart workbench
-```
-
-No APK reinstall.
-
+No user-provided signing key is required for mutable workbench releases.
