@@ -20,5 +20,6 @@
       "devices/<device-id>/outbox/"
     ]
   },
-  "large_files": "local-only"
+  "large_files": "local-only",
+  "workbench_version": "0.2"
 }
