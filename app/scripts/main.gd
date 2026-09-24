@@ -574,9 +574,10 @@ func _on_run_benchmark_pressed() -> void:
 	if benchmark_select.item_count == 0:
 		benchmark_status.text = "No benchmark suite is available."
 		return
-	var filename := benchmark_select.get_item_metadata(benchmark_select.selected)
-	if filename == null:
-		filename = benchmark_select.get_item_text(benchmark_select.selected)
+	var filename_value: Variant = benchmark_select.get_item_metadata(benchmark_select.selected)
+	var filename: String = benchmark_select.get_item_text(benchmark_select.selected)
+	if filename_value != null:
+		filename = str(filename_value)
 	var parsed: Variant = store.read_json(store.benchmark_path(str(filename)))
 	if typeof(parsed) != TYPE_DICTIONARY or typeof(parsed.get("turns", null)) != TYPE_ARRAY:
 		benchmark_status.text = "Benchmark JSON is invalid."
@@ -757,7 +758,7 @@ func _finish_benchmark(complete: bool) -> void:
 		},
 		"turns": benchmark_results
 	}
-	var saved := store.queue_result(payload, "benchmark")
+	var saved: String = str(store.queue_result(payload, "benchmark"))
 	benchmark_status.text = "%s Saved locally and queued for push: %s" % [
 		"Complete." if complete else "Stopped.",
 		saved
@@ -796,12 +797,12 @@ func _evaluate_checks(response: String, checks_value: Variant) -> Array:
 func _queue_chat_rating(rating: String) -> void:
 	if last_chat_exchange.is_empty():
 		return
-	var payload := last_chat_exchange.duplicate(true)
+	var payload: Dictionary = last_chat_exchange.duplicate(true)
 	payload["schema"] = 1
 	payload["type"] = "chat_rating"
 	payload["rating"] = rating
 	payload["device_id"] = _device_id()
-	var saved := store.queue_result(payload, "chat")
+	var saved: String = str(store.queue_result(payload, "chat"))
 	good_button.disabled = true
 	poor_button.disabled = true
 	_set_status("Saved %s rating to outbox: %s" % [rating, saved.get_file()])
