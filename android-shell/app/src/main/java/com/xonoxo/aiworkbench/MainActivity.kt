@@ -124,7 +124,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
                     isMainFrame: Boolean,
                     replyProxy: JavaScriptReplyProxy
                 ) {
-                    if (!isMainFrame || sourceOrigin.toString() != APP_ORIGIN) return
+                    if (!isMainFrame || sourceOrigin.scheme != "https" || sourceOrigin.host != "appassets.androidplatform.net") return
                     handleRequest(message.data ?: "")
                 }
             }
