@@ -23,3 +23,10 @@ local.properties
 .vscode/
 .DS_Store
 *.iml
+
+# AI workbench local-only payloads
+models/
+datasets/
+local-data/
+*.gguf
+*.safetensors
