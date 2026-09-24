@@ -52,6 +52,24 @@ jobs:
           rm -rf app/workspace
           cp -a workspace app/workspace
 
+      - name: Download Godot and export templates
+        shell: bash
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d templates-temp
+          cp -r templates-temp/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}/"
+
+      - name: Validate Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path app --import --quit
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -88,6 +106,13 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      - name: Cache native llama.cpp build
+        uses: actions/cache@v4
+        with:
+          path: android-plugin/plugin/.cxx
+          key: local-ai-native-${{ runner.os }}-${{ hashFiles('android-plugin/plugin/src/main/cpp/CMakeLists.txt', 'android-plugin/plugin/build.gradle.kts') }}
+          restore-keys: |
+            local-ai-native-${{ runner.os }}-
       - name: Build LocalAI Android plugin
         shell: bash
         run: |
@@ -96,24 +121,6 @@ jobs:
           mkdir -p app/addons/LocalAI/bin/debug
           cp android-plugin/plugin/build/outputs/aar/LocalAI-debug.aar \
              app/addons/LocalAI/bin/debug/LocalAI-debug.aar
-
-      - name: Download Godot and export templates
-        shell: bash
-        run: |
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
-          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
-          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
-          unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d templates-temp
-          cp -r templates-temp/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}/"
-
-      - name: Validate Godot scripts
-        shell: bash
-        run: |
-          set -euo pipefail
-          godot --headless --path app --import --quit
 
       - name: Create debug keystore
         shell: bash
