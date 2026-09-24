@@ -250,7 +250,8 @@ Java_com_xonoxo_localai_LocalAIPlugin_nativeGenerate(
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(std::max(0.01f, static_cast<float>(temperature))));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
-    const auto start = std::chrono::steady_clock::now();
+    using clock = std::chrono::steady_clock;
+    const auto start = clock::now();
     int generated = 0;
 
     const size_t batch_limit = 1024;
@@ -266,10 +267,19 @@ Java_com_xonoxo_localai_LocalAIPlugin_nativeGenerate(
         }
     }
 
+    const auto prompt_end = clock::now();
+    auto first_token_time = prompt_end;
+    bool saw_first_token = false;
+
     for (int i = 0; i < predict && !g_stop.load(); ++i) {
         const llama_token next = llama_sampler_sample(sampler, g_context, -1);
         llama_sampler_accept(sampler, next);
         if (llama_vocab_is_eog(g_vocab, next)) break;
+
+        if (!saw_first_token) {
+            first_token_time = clock::now();
+            saw_first_token = true;
+        }
 
         const std::string piece = token_piece(next);
         if (!piece.empty() && !emit_token(env, self, piece)) {
@@ -288,16 +298,24 @@ Java_com_xonoxo_localai_LocalAIPlugin_nativeGenerate(
 
     llama_sampler_free(sampler);
 
-    const auto end = std::chrono::steady_clock::now();
-    const double seconds = std::chrono::duration<double>(end - start).count();
-    const double rate = seconds > 0.0 ? generated / seconds : 0.0;
+    const auto end = clock::now();
+    const double prompt_seconds = std::chrono::duration<double>(prompt_end - start).count();
+    const double ttft_seconds = saw_first_token
+        ? std::chrono::duration<double>(first_token_time - start).count()
+        : prompt_seconds;
+    const double generation_seconds = std::chrono::duration<double>(end - prompt_end).count();
+    const double total_seconds = std::chrono::duration<double>(end - start).count();
+    const double rate = generation_seconds > 0.0 ? generated / generation_seconds : 0.0;
 
     std::ostringstream fields;
-    fields << "\"tokens\":" << generated
-           << ",\"seconds\":" << seconds
-           << ",\"tokens_per_second\":" << rate
-           << ",\"stopped\":" << (g_stop.load() ? "true" : "false");
-
+    fields << "\\"prompt_tokens\\":" << prompt_tokens.size()
+           << ",\\"tokens\\":" << generated
+           << ",\\"prompt_seconds\\":" << prompt_seconds
+           << ",\\"ttft_seconds\\":" << ttft_seconds
+           << ",\\"generation_seconds\\":" << generation_seconds
+           << ",\\"total_seconds\\":" << total_seconds
+           << ",\\"tokens_per_second\\":" << rate
+           << ",\\"stopped\\":" << (g_stop.load() ? "true" : "false");
     const std::string result = ok_json(fields.str());
     return env->NewStringUTF(result.c_str());
 }
