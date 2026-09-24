@@ -24,12 +24,14 @@ android {
                 cppFlags += listOf("-std=c++17", "-O3", "-fexceptions", "-frtti")
                 arguments += listOf(
                     "-DANDROID_STL=c++_shared",
+                    "-DCMAKE_BUILD_TYPE=Release",
                     "-DGGML_NATIVE=OFF",
                     "-DGGML_CPU_KLEIDIAI=ON",
                     "-DGGML_CPU_REPACK=ON",
                     "-DGGML_OPENMP=OFF",
                     "-DGGML_LLAMAFILE=OFF",
                     "-DGGML_BACKEND_DL=OFF",
+                    "-DLLAMA_OPENSSL=OFF",
                     "-DLLAMA_BUILD_TESTS=OFF",
                     "-DLLAMA_BUILD_TOOLS=OFF",
                     "-DLLAMA_BUILD_EXAMPLES=OFF",
