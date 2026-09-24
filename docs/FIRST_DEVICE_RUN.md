@@ -1,77 +1,87 @@
-# First Physical-Device Checkpoint
+# Physical-Device Checkpoint — Native Kernel
 
-Do not involve the phone until CI produces a clean APK artifact.
+## Baseline already established
 
-## What should already work before installation
+The original Godot implementation proved the full Android -> JNI -> llama.cpp path could load the 360M Q4 model, but the physical-device benchmark exposed unacceptable performance:
 
-- Run / Chat / Bench / Data tabs parse and export.
-- llama.cpp ARM64 backend compiles.
-- model download/resume + SHA-256 verification compiles.
-- prompt processing, TTFT, decode rate, and total latency are reported separately.
-- bundled workspace seeds first-run state.
-- Pull updates workspace files from the `aistuff` branch.
-- benchmark suites preserve independent thread histories.
-- benchmark results are saved locally and copied to an explicit outbox.
-- GitHub push credentials are encrypted using Android Keystore.
-- Push writes append-only result files under `devices/<device-id>/results/`.
+- Turn 1 streamed slowly.
+- Turn 2 had a blank-response TTFT of at least ~52 seconds in the recorded session.
+- The old runtime cleared KV state every turn and recomputed full thread history.
+- Streaming crossed the native/UI bridge per token and repeatedly redrew accumulated output.
+- The native build did not use the current optimized KleidiAI Android path.
 
-## First device session
+Keep the old app installed temporarily as the before-baseline.
 
-The first session is intentionally narrow:
+## Native-kernel candidate
 
-1. Install the CI APK.
-2. Launch AI Workbench.
-3. Pull workspace.
-4. Download the tiny validation GGUF.
-5. Load it.
-6. Send one chat message.
-7. Run `chatbot-v0`.
-8. Configure the GitHub token once.
-9. Push outbox.
-10. Let ChatGPT inspect the uploaded result.
+The replacement app is a separate Android package:
 
-## What the phone is testing
+- package: `com.xonoxo.aiworkbench`
+- kernel version: 1
+- app version: `0.3.0-kernel1`
+- workflow run: `36064813529`
+- artifact id: `10836101506`
+- APK SHA-256: `3f95c3683d6cf72c7aff12a67cb892ac6104f640a85dfec38b6ee0ea5e0eaf4a`
+- GitHub artifact attestation: `https://github.com/xonoxo143-ux/Ai-Stuff/attestations/50006854`
 
-This is not a model-quality test yet.
+CI verified the APK signature, package id, launcher activity, native ARM64 library, bundled fallback web workbench, and benchmark payload.
 
-The first phone session establishes:
+The native library contains KleidiAI kernels and is built with Android-safe llama.cpp settings plus forced optimized native flags.
 
-- real ARM64 model loading,
-- RAM behavior,
-- TTFT,
-- prompt-processing rate,
-- decode tokens/s,
-- Android lifecycle stability,
-- download/storage behavior,
-- UI ergonomics,
-- phone → GitHub result flow.
+## Mutable workbench release
 
-Only after that path works should larger candidate models be introduced.
+The phone can update ordinary UI/benchmark/application behavior without another APK.
 
+Current release manifest lives at:
 
-## Validated candidate
+`workspace/releases/current.json`
 
-The first phone candidate passed the full no-device CI gate on 2026-09-24.
+The release workflow:
 
-- branch: `aistuff`
-- source commit: `1144f77619c2494dfe413a89628e7217899b2bf8`
-- workflow run: `36035508348`
-- artifact: `LocalAIWorkbench-Android` (artifact id `10824421913`)
+1. validates JS and benchmark JSON,
+2. builds `workbench.zip`,
+3. generates a GitHub OIDC/Sigstore artifact attestation,
+4. publishes the bundle + manifest to `aistuff`.
 
-CI verified:
+The kernel currently enforces the expected repo/ref, kernel compatibility, approved raw-GitHub URL and SHA-256 before activation. Full Sigstore verification is not yet performed on-device.
 
-- workbench/catalog JSON validity,
-- Godot script parsing,
-- ARM64 llama.cpp/plugin compilation,
-- deterministic Gradle-template installation,
-- APK export,
-- APK signature validity,
-- package id `com.xonoxo.localaiworkbench`,
-- launchable activity presence,
-- packaged `liblocal_ai.so`,
-- bundled workspace manifest and `chatbot-v0`,
-- packaged Run/Chat/Bench/Data workbench scripts.
+## Next phone session
 
-The catalogue's two initial GGUF filenames and SHA-256 values were also rechecked against their current Hugging Face file metadata before this checkpoint.
+Do **not** run the full 13-turn benchmark first.
 
-At this point the remaining unknowns are physical-device properties: Android launch/runtime behavior, model download/load, ARM64 inference, RAM/thermal behavior, UI ergonomics, and phone-to-GitHub push.
+1. Install the native-kernel APK beside the old app.
+2. Open it and confirm Run / Chat / Bench / Data appear.
+3. Check/apply the GitHub workbench update if offered.
+4. Download the same SmolLM2 360M Q4_K_M validation model in the new app.
+5. Load it with context 2048 and 4 threads.
+6. Send one short chat prompt.
+7. Record:
+   - prompt tokens
+   - cached prompt tokens
+   - evaluated prompt tokens
+   - prompt tok/s
+   - TTFT
+   - decode tok/s
+   - total time
+8. Send a second message in the same chat.
+9. Verify the second turn reports substantial cached-prefix reuse.
+10. Only then run the first two benchmark turns.
+
+## Pass/fail
+
+The new architecture must show a large improvement over the recorded Godot baseline.
+
+The critical second-turn invariant is:
+
+```text
+cached_prompt_tokens >> 0
+evaluated_prompt_tokens << prompt_tokens
+```
+
+If that does not hold, fix KV-prefix reuse before doing broader benchmarking.
+
+If prefix reuse works but a 360M Q4 model still has extremely poor prefill/decode throughput, investigate the native CPU backend/hardware dispatch rather than accepting the result as normal phone performance.
+
+## After this test
+
+Once the kernel is validated, ordinary workbench changes should ship through GitHub bundle updates rather than APK rebuilds. Native APK rebuilds are reserved for real kernel/backend changes.
