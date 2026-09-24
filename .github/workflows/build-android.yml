@@ -109,6 +109,12 @@ jobs:
           unzip -q "Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -d templates-temp
           cp -r templates-temp/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}/"
 
+      - name: Validate Godot scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path app --import --quit
+
       - name: Create debug keystore
         shell: bash
         run: |
