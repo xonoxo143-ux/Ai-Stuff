@@ -9,7 +9,7 @@ android {
     ndkVersion = "28.1.13356709"
 
     defaultConfig {
-        applicationId = "com.xonoxo.localaiworkbench"
+        applicationId = "com.xonoxo.aiworkbench"
         minSdk = 28
         targetSdk = 35
         versionCode = 3
