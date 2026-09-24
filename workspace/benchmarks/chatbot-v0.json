@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "id": "chatbot-v0",
+  "description": "Small mixed-mode chatbot benchmark. Designed to test abrupt task switching, thread resumption, objective reasoning, epistemic restraint, coding, and reuse of a repeated transformation.",
+  "turns": [
+    {
+      "id": "rp_01",
+      "thread": "switching",
+      "category": "roleplay",
+      "prompt": "Roleplay as Mara, a skeptical but curious archivist on a generation ship. Keep the scene grounded and do not narrate my actions. I enter the archive carrying a sealed brass box and say: 'I found this behind the reactor bulkhead.'",
+      "criteria": ["maintains requested character", "does not narrate user's actions", "advances scene coherently"]
+    },
+    {
+      "id": "lit_01",
+      "thread": "switching",
+      "category": "literature",
+      "prompt": "Switch out of roleplay. In a few paragraphs, compare how Frankenstein and Paradise Lost use creation to complicate responsibility. Distinguish textual interpretation from factual publication history.",
+      "criteria": ["switches mode cleanly", "makes defensible comparison", "separates interpretation from factual claims"]
+    },
+    {
+      "id": "phil_01",
+      "thread": "switching",
+      "category": "philosophy",
+      "prompt": "Now take the claim 'a person is just the continuity of their causal organization' seriously. Give the strongest objection you can, then repair the claim if possible rather than merely rejecting it.",
+      "criteria": ["steelmans objection", "attempts repair", "avoids trivial dismissal"]
+    },
+    {
+      "id": "rp_02",
+      "thread": "switching",
+      "category": "roleplay_resume",
+      "prompt": "Back to Mara. Continue from the brass box without recapping the literature or philosophy discussion.",
+      "criteria": ["resumes correct scene", "does not leak intervening style/topic", "preserves character"]
+    },
+    {
+      "id": "cross_01",
+      "thread": "switching",
+      "category": "cross_domain",
+      "prompt": "Out of roleplay again. Is there a useful conceptual connection between the responsibility problem in Frankenstein and the causal-continuity claim we just discussed? Make the connection only if it genuinely holds.",
+      "criteria": ["uses prior two analytic threads", "does not force analogy", "states limits"]
+    },
+    {
+      "id": "math_01",
+      "thread": "isolated_math",
+      "category": "objective_reasoning",
+      "prompt": "A store discounts an item by 20%, then raises the discounted price by 20%. The final price is $96. What was the original price? Give the result and a short derivation.",
+      "checks": [{"type": "regex", "pattern": "\\b100(?:\\.0+)?\\b"}]
+    },
+    {
+      "id": "logic_01",
+      "thread": "isolated_logic",
+      "category": "objective_reasoning",
+      "prompt": "Three boxes are labeled APPLES, ORANGES, and MIXED, and every label is wrong. You may draw one fruit from one box without looking. Explain the minimum procedure needed to relabel all three boxes correctly.",
+      "checks": [{"type": "contains_all", "values": ["MIXED"]}]
+    },
+    {
+      "id": "code_01",
+      "thread": "isolated_code",
+      "category": "coding",
+      "prompt": "Write a Python function dedupe_keep_order(xs) that removes duplicates while preserving first occurrence order. It must work for unhashable elements such as lists. Explain the complexity tradeoff in one sentence.",
+      "criteria": ["works for unhashable values", "preserves order", "does not incorrectly rely only on set"]
+    },
+    {
+      "id": "ambiguity_01",
+      "thread": "isolated_ambiguity",
+      "category": "conversation",
+      "prompt": "I moved it over there because the other one was too close to it. What should I do next?",
+      "criteria": ["recognizes missing referents", "does not fabricate object identities", "asks only useful clarification"]
+    },
+    {
+      "id": "epistemic_01",
+      "thread": "isolated_epistemic",
+      "category": "epistemics",
+      "prompt": "My friend says a study proved that listening to brown noise permanently increases IQ by 15 points. Without web access, respond in a way that clearly separates what you know, what you suspect, and what would need verification.",
+      "criteria": ["does not invent study", "separates knowledge/inference/verification", "gives useful verification path"]
+    },
+    {
+      "id": "compression_01",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Use this rule for the next questions: take an integer n, double it, add 3, square the result, then subtract 9. What is the result for n=7?",
+      "checks": [{"type": "regex", "pattern": "\\b280\\b"}]
+    },
+    {
+      "id": "compression_02",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Same transformation, now n=11. Give just the number.",
+      "checks": [{"type": "regex", "pattern": "\\b616\\b"}]
+    },
+    {
+      "id": "compression_03",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Same transformation, n=-2. Give just the number.",
+      "checks": [{"type": "regex", "pattern": "\\b-?8\\b"}]
+    }
+  ]
+}
