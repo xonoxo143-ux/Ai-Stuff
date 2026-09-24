@@ -1,0 +1,82 @@
+name: Release Workbench Bundle
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - "workbench-web/**"
+      - "workspace/benchmarks/**"
+      - ".github/workflows/release-workbench.yml"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: aistuff-workbench-release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build bundle
+        run: |
+          set -euo pipefail
+          rm -rf bundle-stage
+          mkdir -p bundle-stage/benchmarks workspace/releases
+          cp -a workbench-web/. bundle-stage/
+          cp workspace/benchmarks/chatbot-v0.json bundle-stage/benchmarks/
+          (cd bundle-stage && zip -qr ../workbench.zip .)
+          sha256sum workbench.zip
+
+      - name: Attest bundle with GitHub OIDC
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: workbench.zip
+
+      - name: Publish manifest and bundle
+        env:
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum workbench.zip | awk '{print $1}')"
+          version="${GITHUB_RUN_NUMBER}"
+          cp workbench.zip workspace/releases/workbench.zip
+          python3 - <<PY
+          import json, os
+          manifest = {
+              "schema": 1,
+              "version": int(os.environ["GITHUB_RUN_NUMBER"]),
+              "kernel_min": 1,
+              "kernel_max": 1,
+              "source_repo": "xonoxo143-ux/Ai-Stuff",
+              "source_ref": "refs/heads/aistuff",
+              "source_sha": os.environ["GITHUB_SHA"],
+              "sha256": "$sha",
+              "bundle_url": "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/aistuff/workspace/releases/workbench.zip",
+              "attestation_url": os.environ.get("ATTESTATION_URL", "")
+          }
+          with open("workspace/releases/current.json", "w", encoding="utf-8") as f:
+              json.dump(manifest, f, indent=2)
+              f.write("\n")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add workspace/releases/current.json workspace/releases/workbench.zip
+          git commit -m "Publish workbench bundle v${version}" || exit 0
+          git push origin HEAD:aistuff
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIWorkbench-WebBundle
+          path: |
+            workbench.zip
+            workspace/releases/current.json
+          retention-days: 30

@@ -1,0 +1,106 @@
+name: Build Native AI Workbench
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - "android-shell/**"
+      - ".github/workflows/build-native-workbench.yml"
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: aistuff-native-kernel
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      ANDROID_NDK_VERSION: "28.1.13356709"
+      ANDROID_CMAKE_VERSION: "3.22.1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bundle fallback workbench
+        run: |
+          set -euo pipefail
+          rm -rf android-shell/app/src/main/assets/workbench
+          mkdir -p android-shell/app/src/main/assets/workbench/benchmarks
+          cp -a workbench-web/. android-shell/app/src/main/assets/workbench/
+          cp workspace/benchmarks/chatbot-v0.json android-shell/app/src/main/assets/workbench/benchmarks/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Use Android SDK
+        run: |
+          test -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
+          sdkmanager             "platform-tools"             "platforms;android-35"             "build-tools;35.0.1"             "ndk;${ANDROID_NDK_VERSION}"             "cmake;${ANDROID_CMAKE_VERSION}"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Cache native build
+        uses: actions/cache@v4
+        with:
+          path: android-shell/app/.cxx
+          key: native-kernel-${{ runner.os }}-${{ hashFiles('android-shell/app/src/main/cpp/**', 'android-shell/app/build.gradle.kts') }}
+
+      - name: Create debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -keyalg RSA -genkeypair -alias androiddebugkey               -keypass android -keystore "$HOME/.android/debug.keystore"               -storepass android -dname "CN=Android Debug,O=Android,C=US"               -validity 10000
+          fi
+
+      - name: Build native APK
+        run: |
+          set -euo pipefail
+          gradle -p android-shell --no-daemon --console=plain :app:assembleDebug
+          mkdir -p dist
+          cp android-shell/app/build/outputs/apk/debug/app-debug.apk dist/AIWorkbench-kernel1-debug.apk
+          sha256sum dist/AIWorkbench-kernel1-debug.apk | tee dist/AIWorkbench-kernel1-debug.apk.sha256
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          tools="${ANDROID_SDK_ROOT}/build-tools/35.0.1"
+          "$tools/apksigner" verify --verbose dist/AIWorkbench-kernel1-debug.apk
+          "$tools/aapt" dump badging dist/AIWorkbench-kernel1-debug.apk | tee dist/apk-badging.txt
+          grep -q "package: name='com.xonoxo.localaiworkbench'" dist/apk-badging.txt
+          grep -q "launchable-activity:" dist/apk-badging.txt
+          unzip -l dist/AIWorkbench-kernel1-debug.apk | tee dist/apk-contents.txt
+          grep -q "lib/arm64-v8a/libai_workbench_native.so" dist/apk-contents.txt
+          grep -q "assets/workbench/index.html" dist/apk-contents.txt
+
+      - name: Attest APK with GitHub OIDC
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/AIWorkbench-kernel1-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIWorkbench-Native-Kernel1
+          path: dist/*
+          retention-days: 30
