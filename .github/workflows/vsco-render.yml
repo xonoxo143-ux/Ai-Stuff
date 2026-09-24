@@ -1,0 +1,70 @@
+name: VSCO Pass 05 Render
+
+on:
+  push:
+    branches:
+      - orchestral-vsco-render
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out experiment
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install renderer dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy scipy pretty_midi soundfile
+
+      - name: Fetch VSCO 2 CE sample subset
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse --branch SFZ https://github.com/sgossner/VSCO-2-CE.git vsco
+          cd vsco
+          git sparse-checkout set \
+            "Keys/Upright Piano" \
+            "Strings/Violin Section" \
+            "Strings/Viola Section" \
+            "Strings/Cello Section" \
+            "Strings/Solo Contrabass" \
+            "Strings/Solo Violin" \
+            "Brass/F Horn" \
+            "Brass/Trumpet" \
+            "Brass/Tenor Trombone" \
+            "Percussion/Timpani"
+          cd ..
+          # Cone-mode sparse checkout includes root SFZ definitions.
+          test -f vsco/UprightPiano.sfz
+          test -f vsco/ViolinEnsSusVib.sfz
+          test -f vsco/FHornSus.sfz
+          test -f vsco/TrumpetSus.sfz
+          test -f vsco/Timpani.sfz
+
+      - name: Decode Pass 05 MIDI
+        run: |
+          base64 -d music/vsco_pass05/pass05.mid.b64 > music/vsco_pass05/pass05.mid
+
+      - name: Render with VSCO multisamples
+        env:
+          MIDI_PATH: music/vsco_pass05/pass05.mid
+          VSCO_ROOT: vsco
+          OUT_DIR: rendered
+        run: |
+          python music/vsco_pass05/render_vsco.py
+          ffmpeg -y -loglevel error -i rendered/pass05_vsco.wav -codec:a libmp3lame -b:a 320k rendered/pass05_vsco.mp3
+
+      - name: Upload rendered audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsco-pass05
+          path: |
+            rendered/pass05_vsco.wav
+            rendered/pass05_vsco.mp3
+            rendered/render_report.txt
+          retention-days: 7
