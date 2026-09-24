@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - local-ai-workbench
+      - aistuff
     paths:
       - "app/**"
       - "android-plugin/**"
       - "scripts/**"
+      - "workspace/**"
       - ".github/workflows/build-android.yml"
   pull_request:
     branches:
@@ -23,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: local-ai-workbench-android-${{ github.event_name }}
+  group: aistuff-android-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -41,8 +42,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate model catalogue
-        run: python3 scripts/validate_catalog.py
+      - name: Validate workbench data
+        run: |
+          python3 scripts/validate_catalog.py
+          python3 scripts/validate_workspace.py
+
+      - name: Seed bundled workspace snapshot
+        run: |
+          rm -rf app/workspace
+          cp -a workspace app/workspace
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
