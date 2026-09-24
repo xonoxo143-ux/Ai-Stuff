@@ -114,7 +114,7 @@ jobs:
           OUT_DIR: rendered
         run: |
           python music/vsco_pass05/render_vsco.py
-          ffmpeg -y -loglevel error -i rendered/pass05_vsco.wav -codec:a libmp3lame -b:a 320k rendered/pass05_vsco.mp3
+
 
       - name: Upload rendered audio
         uses: actions/upload-artifact@v4
@@ -122,6 +122,6 @@ jobs:
           name: vsco-pass05
           path: |
             rendered/pass05_vsco.wav
-            rendered/pass05_vsco.mp3
+
             rendered/render_report.txt
           retention-days: 7
