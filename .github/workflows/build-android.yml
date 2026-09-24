@@ -2,24 +2,9 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - aistuff
-    paths:
-      - "app/**"
-      - "android-plugin/**"
-      - "scripts/**"
-      - "workspace/**"
-      - ".github/workflows/build-android.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "app/**"
-      - "android-plugin/**"
-      - "scripts/**"
-      - ".github/workflows/build-android.yml"
 
+# Legacy Godot build retained only for manual archival/reference use.
+# The active app is android-shell + workbench-web.
 permissions:
   contents: read
 
