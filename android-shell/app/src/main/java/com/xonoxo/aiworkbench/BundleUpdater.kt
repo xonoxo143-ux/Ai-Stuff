@@ -20,7 +20,7 @@ class BundleUpdater(private val context: Context) {
     }
 
     private val root = File(context.filesDir, "workbench").apply { mkdirs() }
-    private val current = File(root, "current")
+    private val current = File(root, "current").apply { mkdirs() }
     private val prefs = context.getSharedPreferences("ai_workbench_updates", Context.MODE_PRIVATE)
 
     fun currentDir(): File = current
