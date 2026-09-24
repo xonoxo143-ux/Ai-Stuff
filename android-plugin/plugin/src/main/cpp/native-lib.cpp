@@ -308,14 +308,14 @@ Java_com_xonoxo_localai_LocalAIPlugin_nativeGenerate(
     const double rate = generation_seconds > 0.0 ? generated / generation_seconds : 0.0;
 
     std::ostringstream fields;
-    fields << "\\"prompt_tokens\\":" << prompt_tokens.size()
-           << ",\\"tokens\\":" << generated
-           << ",\\"prompt_seconds\\":" << prompt_seconds
-           << ",\\"ttft_seconds\\":" << ttft_seconds
-           << ",\\"generation_seconds\\":" << generation_seconds
-           << ",\\"total_seconds\\":" << total_seconds
-           << ",\\"tokens_per_second\\":" << rate
-           << ",\\"stopped\\":" << (g_stop.load() ? "true" : "false");
+    fields << "\"prompt_tokens\":" << prompt_tokens.size()
+           << ",\"tokens\":" << generated
+           << ",\"prompt_seconds\":" << prompt_seconds
+           << ",\"ttft_seconds\":" << ttft_seconds
+           << ",\"generation_seconds\":" << generation_seconds
+           << ",\"total_seconds\":" << total_seconds
+           << ",\"tokens_per_second\":" << rate
+           << ",\"stopped\":" << (g_stop.load() ? "true" : "false");
     const std::string result = ok_json(fields.str());
     return env->NewStringUTF(result.c_str());
 }
