@@ -9,7 +9,7 @@ on:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Check out experiment
         uses: actions/checkout@v4
@@ -23,32 +23,81 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check numpy scipy pretty_midi soundfile
 
-      - name: Fetch VSCO 2 CE sample subset
+      - name: Fetch only the VSCO instruments used by Pass 05
         run: |
-          git clone --depth 1 --filter=blob:none --sparse --branch SFZ https://github.com/sgossner/VSCO-2-CE.git vsco
-          cd vsco
-          git sparse-checkout set \
-            "Keys/Upright Piano" \
-            "Strings/Violin Section" \
-            "Strings/Viola Section" \
-            "Strings/Cello Section" \
-            "Strings/Solo Contrabass" \
-            "Strings/Solo Violin" \
-            "Brass/F Horn" \
-            "Brass/Trumpet" \
-            "Brass/Tenor Trombone" \
-            "Percussion/Timpani"
-          cd ..
-          # Cone-mode sparse checkout includes root SFZ definitions.
-          test -f vsco/UprightPiano.sfz
-          test -f vsco/ViolinEnsSusVib.sfz
-          test -f vsco/FHornSus.sfz
-          test -f vsco/TrumpetSus.sfz
-          test -f vsco/Timpani.sfz
+          mkdir -p vsco
+          python - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote
+          from urllib.request import urlopen
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+          import re, time
+
+          ROOT = Path("vsco")
+          BASE = "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/SFZ/"
+          SFZS = [
+              "UprightPiano.sfz",
+              "ViolinEnsSusVib.sfz",
+              "ViolinEnsTrem.sfz",
+              "SViolinVib.sfz",
+              "ViolaEnsSusVib.sfz",
+              "CelloEnsSusVib.sfz",
+              "CelloEnsTrem.sfz",
+              "ContrabassSusVB.sfz",
+              "FHornSus.sfz",
+              "TrumpetSus.sfz",
+              "TrumpetSusVib.sfz",
+              "Timpani.sfz",
+          ]
+
+          def download(rel):
+              rel = rel.replace("\\", "/").strip("/")
+              dest = ROOT / rel
+              if dest.exists() and dest.stat().st_size:
+                  return rel
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              url = BASE + quote(rel, safe="/")
+              err = None
+              for i in range(4):
+                  try:
+                      with urlopen(url, timeout=90) as r:
+                          dest.write_bytes(r.read())
+                      return rel
+                  except Exception as e:
+                      err = e
+                      time.sleep(1 + i * 2)
+              raise RuntimeError(f"{rel}: {err}")
+
+          for name in SFZS:
+              download(name)
+
+          sample_paths = set()
+          for name in SFZS:
+              txt = (ROOT / name).read_text(errors="ignore").replace("\r", "\n")
+              m = re.search(r"default_path\s*=\s*([^\r\n]+)", txt, re.I)
+              default = m.group(1).strip().replace("\\", "/") if m else ""
+              for sm in re.findall(r"sample\s*=\s*([^\r\n]+)", txt, re.I):
+                  sample_paths.add((default.rstrip("/") + "/" + sm.strip()).strip("/"))
+
+          print(f"Downloading {len(sample_paths)} referenced sample files...")
+          with ThreadPoolExecutor(max_workers=16) as ex:
+              futures = [ex.submit(download, p) for p in sorted(sample_paths)]
+              done = 0
+              for f in as_completed(futures):
+                  f.result()
+                  done += 1
+                  if done % 25 == 0 or done == len(futures):
+                      print(f"{done}/{len(futures)} samples")
+          PY
 
       - name: Decode Pass 05 MIDI
         run: |
           base64 -d music/vsco_pass05/pass05.mid.b64 > music/vsco_pass05/pass05.mid
+          python - <<'PY'
+          import pretty_midi
+          p = pretty_midi.PrettyMIDI("music/vsco_pass05/pass05.mid")
+          print("MIDI OK", len(p.instruments), "tracks", round(p.get_end_time(), 2), "sec")
+          PY
 
       - name: Render with VSCO multisamples
         env:
