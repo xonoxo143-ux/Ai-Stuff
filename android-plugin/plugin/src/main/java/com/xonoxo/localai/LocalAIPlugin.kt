@@ -1,5 +1,9 @@
 package com.xonoxo.localai
 
+import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import android.util.Log
 import org.godotengine.godot.Godot
 import org.godotengine.godot.plugin.GodotPlugin
@@ -12,13 +16,21 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.KeyStore
 import java.security.MessageDigest
+import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
     companion object {
         private const val TAG = "LocalAI"
+        private const val PREFS = "local_ai_workbench"
+        private const val KEY_ALIAS = "local_ai_workbench_aes_v1"
         private val DOWNLOAD_PROGRESS = SignalInfo("download_progress", String::class.java)
         private val DOWNLOAD_FINISHED = SignalInfo("download_finished", String::class.java)
         private val DOWNLOAD_FAILED = SignalInfo("download_failed", String::class.java)
@@ -37,6 +49,7 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
     private val inferenceExecutor = Executors.newSingleThreadExecutor()
     private val ioExecutor = Executors.newSingleThreadExecutor()
     private val downloadCancelled = AtomicBoolean(false)
+    private val prefs by lazy { getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
     private val modelsDir: File by lazy {
         val appContext = getContext()
         File(appContext.getExternalFilesDir(null) ?: appContext.filesDir, "models").apply { mkdirs() }
@@ -56,6 +69,46 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
         AI_ERROR
     )
 
+    @UsedByGodot
+    fun deviceId(): String {
+        val existing = prefs.getString("device_id", null)
+        if (!existing.isNullOrBlank()) return existing
+        val created = UUID.randomUUID().toString()
+        prefs.edit().putString("device_id", created).apply()
+        return created
+    }
+
+    @UsedByGodot
+    fun saveSecret(name: String, value: String): Boolean {
+        return try {
+            if (value.isBlank()) {
+                prefs.edit().remove("secret_$name").apply()
+            } else {
+                prefs.edit().putString("secret_$name", encrypt(value)).apply()
+            }
+            true
+        } catch (error: Throwable) {
+            Log.e(TAG, "Secret storage failed", error)
+            false
+        }
+    }
+
+    @UsedByGodot
+    fun getSecret(name: String): String {
+        return try {
+            val stored = prefs.getString("secret_$name", null) ?: return ""
+            decrypt(stored)
+        } catch (error: Throwable) {
+            Log.e(TAG, "Secret read failed", error)
+            ""
+        }
+    }
+
+    @UsedByGodot
+    fun deleteSecret(name: String): Boolean {
+        prefs.edit().remove("secret_$name").apply()
+        return true
+    }
     @UsedByGodot
     fun downloadModel(modelId: String, url: String, filename: String, sha256: String) {
         downloadCancelled.set(false)
@@ -278,6 +331,41 @@ class LocalAIPlugin(godot: Godot) : GodotPlugin(godot) {
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
+    private fun getOrCreateSecretKey(): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val existing = keyStore.getKey(KEY_ALIAS, null)
+        if (existing is SecretKey) return existing
+
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build()
+        )
+        return generator.generateKey()
+    }
+
+    private fun encrypt(value: String): String {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
+        val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
+        val payload = Base64.encodeToString(cipher.doFinal(value.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+        return "$iv:$payload"
+    }
+
+    private fun decrypt(stored: String): String {
+        val split = stored.indexOf(':')
+        require(split > 0) { "Invalid encrypted secret" }
+        val iv = Base64.decode(stored.substring(0, split), Base64.NO_WRAP)
+        val payload = Base64.decode(stored.substring(split + 1), Base64.NO_WRAP)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, getOrCreateSecretKey(), GCMParameterSpec(128, iv))
+        return String(cipher.doFinal(payload), Charsets.UTF_8)
+    }
     override fun onMainDestroy() {
         nativeStop()
         inferenceExecutor.shutdownNow()
