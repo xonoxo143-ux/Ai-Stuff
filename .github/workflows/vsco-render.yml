@@ -90,13 +90,21 @@ jobs:
                       print(f"{done}/{len(futures)} samples")
           PY
 
-      - name: Decode Pass 05 MIDI
+      - name: Reconstruct and verify Pass 05 MIDI
         run: |
-          base64 -d music/vsco_pass05/pass05.mid.b64 > music/vsco_pass05/pass05.mid
           python - <<'PY'
-          import pretty_midi
-          p = pretty_midi.PrettyMIDI("music/vsco_pass05/pass05.mid")
-          print("MIDI OK", len(p.instruments), "tracks", round(p.get_end_time(), 2), "sec")
+          from pathlib import Path
+          import base64, zlib, hashlib, pretty_midi
+          src = Path("music/vsco_pass05/pass05.mid.zlib.b64").read_text().strip()
+          data = zlib.decompress(base64.b64decode(src))
+          digest = hashlib.sha256(data).hexdigest()
+          expected = "ccbf27d89730caa5f90d4bd7809fe047b5aa29b268974c22df718ae4f110f180"
+          if digest != expected:
+              raise SystemExit(f"MIDI SHA mismatch: {digest}")
+          out = Path("music/vsco_pass05/pass05.mid")
+          out.write_bytes(data)
+          p = pretty_midi.PrettyMIDI(str(out))
+          print("MIDI OK", len(p.instruments), "tracks", round(p.get_end_time(), 2), "sec", digest)
           PY
 
       - name: Render with VSCO multisamples
