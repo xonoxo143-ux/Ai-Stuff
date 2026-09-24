@@ -131,7 +131,7 @@ jobs:
             -storepass android -dname "CN=Android Debug,O=Android,C=US" \
             -validity 10000
 
-      - name: Configure, install template, and export APK
+      - name: Configure Android template and export APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
@@ -166,15 +166,22 @@ jobs:
           settings.write_text(text, encoding="utf-8")
           PY
 
-          set +e
-          godot --headless --verbose --path app --install-android-build-template --quit
-          template_status=$?
-          set -e
-          if [ ! -f app/android/build/build.gradle ]; then
-            echo "Android Gradle template was not installed (Godot exit $template_status)."
-            exit "$template_status"
-          fi
-          echo "Android Gradle template present; Godot installer exit was $template_status."
+          template_dir="$HOME/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
+          source_zip="$template_dir/android_source.zip"
+          test -f "$source_zip"
+
+          # Godot's interactive installer is unreliable in headless CI. Install the
+          # exact matching Gradle source template explicitly instead.
+          rm -rf app/android
+          mkdir -p app/android/build app/android/plugins
+          unzip -q "$source_zip" -d app/android/build
+          printf '%s\n' "$GODOT_TEMPLATE_VERSION" > app/android/.build_version
+          touch app/android/build/.gdignore
+          chmod +x app/android/build/gradlew
+
+          test -f app/android/build/build.gradle
+          test -f app/android/build/gradlew
+          echo "Android Gradle template installed explicitly from $source_zip."
           echo "=== Installed Android template ==="
           find app/android -maxdepth 3 -type f | sort | head -120
           echo "=== LocalAI plugin payload ==="
