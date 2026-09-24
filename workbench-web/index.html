@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>AI Workbench</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div><h1>AI Workbench</h1><div id="kernel-line" class="muted">Connecting to kernel…</div></div>
+    <button id="update-button" class="secondary">Check update</button>
+  </header>
+
+  <nav id="tabs">
+    <button data-tab="run" class="active">Run</button>
+    <button data-tab="chat">Chat</button>
+    <button data-tab="bench">Bench</button>
+    <button data-tab="data">Data</button>
+  </nav>
+
+  <main>
+    <section id="run" class="tab active">
+      <h2>Local model</h2>
+      <select id="model-select"></select>
+      <div class="grid2">
+        <button id="download-button">Download</button><button id="load-button">Load</button>
+        <button id="unload-button" class="secondary">Unload</button><button id="delete-button" class="danger">Delete</button>
+      </div>
+      <progress id="download-progress" max="100" value="0"></progress>
+      <div id="model-status" class="card">No model loaded.</div>
+
+      <h2>Runtime</h2>
+      <div class="settings">
+        <label>Context <input id="context" type="number" min="512" max="32768" step="512" value="2048"></label>
+        <label>Threads <input id="threads" type="number" min="1" max="16" value="4"></label>
+        <label>Max tokens <input id="max-tokens" type="number" min="8" max="4096" value="256"></label>
+        <label>Temperature <input id="temperature" type="number" min="0.01" max="2" step="0.05" value="0.7"></label>
+      </div>
+      <pre id="runtime-info" class="card mono">Waiting for kernel…</pre>
+      <div id="metrics" class="card">No inference measurements yet.</div>
+    </section>
+
+    <section id="chat" class="tab">
+      <label>System prompt
+        <textarea id="system-prompt" rows="3">You are a useful local assistant. Be accurate, direct, and concise.</textarea>
+      </label>
+      <div id="chat-view" class="chat-view"></div>
+      <textarea id="chat-input" rows="4" placeholder="Type a message…"></textarea>
+      <div class="grid2"><button id="send-button">Send</button><button id="stop-button" class="danger">Stop</button></div>
+    </section>
+
+    <section id="bench" class="tab">
+      <h2>Benchmark</h2>
+      <div class="grid2"><button id="bench-run">Run chatbot-v0</button><button id="bench-stop" class="danger">Stop</button></div>
+      <progress id="bench-progress" max="13" value="0"></progress>
+      <div id="bench-status" class="card">Ready.</div>
+      <div id="bench-preview" class="card prewrap">No benchmark output yet.</div>
+      <button id="push-benchmark" class="secondary">Push last result to GitHub</button>
+    </section>
+
+    <section id="data" class="tab">
+      <h2>Workbench update</h2>
+      <div id="update-status" class="card">Bundled workbench is active.</div>
+      <div class="grid2"><button id="check-update">Check</button><button id="apply-update">Apply & reload</button></div>
+
+      <h2>GitHub result upload</h2>
+      <label>Fine-grained token <input id="github-token" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+      <div class="grid2"><button id="save-token">Save securely</button><button id="clear-token" class="secondary">Clear token</button></div>
+      <p class="muted">The token is encrypted with Android Keystore and is never stored in the workbench bundle.</p>
+    </section>
+  </main>
+  <div id="toast" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
