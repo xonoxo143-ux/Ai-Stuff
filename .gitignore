@@ -30,3 +30,6 @@ datasets/
 local-data/
 *.gguf
 *.safetensors
+
+# Generated bundled workspace snapshot
+app/workspace/
