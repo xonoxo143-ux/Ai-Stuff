@@ -168,8 +168,31 @@ jobs:
 
           godot --headless --verbose --path app --install-android-build-template --quit
           test -f app/android/build/build.gradle
+          echo "=== Installed Android template ==="
+          find app/android -maxdepth 3 -type f | sort | head -120
+          echo "=== LocalAI plugin payload ==="
+          find app/addons/LocalAI -maxdepth 4 -type f -print | sort
+          echo "=== Export preset ==="
+          cat app/export_presets.cfg
+          echo "=== Godot Android editor settings ==="
+          grep -E 'export/android/(android_sdk_path|java_sdk_path|debug_keystore)' "$HOME/.config/godot/editor_settings-4.5.tres" || true
+
+          set +e
           godot --headless --verbose --path app \
+            --log-file "$PWD/godot-export.log" \
             --export-debug "Android" "build/LocalAIWorkbench-debug.apk"
+          export_status=$?
+          set -e
+          echo "=== Godot export exit status: $export_status ==="
+          if [ -f godot-export.log ]; then
+            echo "=== Godot export log ==="
+            cat godot-export.log
+          fi
+          echo "=== Build output ==="
+          find app/build -maxdepth 3 -type f -print | sort || true
+          if [ "$export_status" -ne 0 ]; then
+            exit "$export_status"
+          fi
           test -f app/build/LocalAIWorkbench-debug.apk
           unzip -t app/build/LocalAIWorkbench-debug.apk
 
