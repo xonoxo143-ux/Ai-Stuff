@@ -25,6 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate workbench
+        run: |
+          set -euo pipefail
+          node --check workbench-web/app.js
+          python3 -m json.tool workspace/benchmarks/chatbot-v0.json >/dev/null
+
       - name: Build bundle
         run: |
           set -euo pipefail
