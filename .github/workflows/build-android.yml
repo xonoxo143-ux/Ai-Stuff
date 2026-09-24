@@ -166,8 +166,15 @@ jobs:
           settings.write_text(text, encoding="utf-8")
           PY
 
+          set +e
           godot --headless --verbose --path app --install-android-build-template --quit
-          test -f app/android/build/build.gradle
+          template_status=$?
+          set -e
+          if [ ! -f app/android/build/build.gradle ]; then
+            echo "Android Gradle template was not installed (Godot exit $template_status)."
+            exit "$template_status"
+          fi
+          echo "Android Gradle template present; Godot installer exit was $template_status."
           echo "=== Installed Android template ==="
           find app/android -maxdepth 3 -type f | sort | head -120
           echo "=== LocalAI plugin payload ==="
