@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "workspace": "aistuff",
+  "description": "Mutable control plane for the local AI workbench.",
+  "paths": {
+    "benchmarks": "workspace/benchmarks",
+    "presets": "workspace/presets",
+    "recipes": "workspace/recipes",
+    "model_manifests": "workspace/model-manifests",
+    "devices": "devices"
+  },
+  "sync": {
+    "pull": [
+      "workspace/"
+    ],
+    "push": [
+      "devices/<device-id>/profile.json",
+      "devices/<device-id>/results/",
+      "devices/<device-id>/logs/",
+      "devices/<device-id>/outbox/"
+    ]
+  },
+  "large_files": "local-only"
+}
