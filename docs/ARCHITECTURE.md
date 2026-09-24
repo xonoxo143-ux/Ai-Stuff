@@ -1,75 +1,162 @@
-# Architecture
+# Architecture — AI Workbench
 
-## Boundary 1: Godot
+## Principle
 
-Godot owns everything visible to the user:
+> Stable APK kernel + mutable experiment workspace.
 
-- model catalogue
-- chat history
+The Android application is not an IDE and GitHub is not model storage. The APK provides durable device/native capabilities; the `aistuff` workspace tells it what experiment to run.
+
+## Layer 1 — Godot
+
+Godot owns user-facing and experiment-level behavior:
+
+- Run / Chat / Bench / Data surfaces
+- conversation state
 - prompt formatting
-- settings
-- download/load controls
-- streamed text display
-- APK project
+- model catalogue
+- benchmark execution
+- objective benchmark checks
+- result serialization
+- local workspace/outbox management
+- GitHub pull/push protocol
 
-Godot never performs tensor math and never touches JNI directly.
+Godot does not perform tensor math.
 
-## Boundary 2: Android plugin
+## Layer 2 — Kotlin Android plugin
 
-`LocalAIPlugin.kt` exposes a small Godot singleton named `LocalAI`.
+`LocalAIPlugin.kt` owns Android-specific/native integration:
 
-Public calls:
+- model download/resume
+- SHA-256 verification
+- app-specific model storage
+- stable anonymous device ID
+- Android-Keystore-backed secret storage
+- JNI calls into llama.cpp
+- lifecycle cleanup
+- native event forwarding
 
-```text
-downloadModel(id, url, filename, sha256)
-cancelDownload()
-listLocalModels()
-getModelPath(filename)
-deleteModel(filename)
-loadModel(path, contextSize, threads, gpuLayers)
-unloadModel()
-generate(prompt, maxTokens, temperature, topP, topK, repeatPenalty)
-stopGeneration()
-systemInfo()
-```
+The GitHub token is encrypted locally and never enters repository files or benchmark artifacts.
 
-All long work is moved off Godot's render thread. Results return through one-string JSON signals so the interface stays stable even when native details change.
-
-## Boundary 3: llama.cpp
+## Layer 3 — llama.cpp
 
 The native library owns:
 
 - GGUF loading
 - tokenization
 - context allocation
-- sampler construction
-- decode loop
-- cancellation flag
-- performance timing
+- prompt decode
+- sampling/decode loop
+- cancellation
+- timing
 - cleanup
 
-The initial build is CPU-only and ARM64-only. `n_gpu_layers` is already part of the API so a later Vulkan/OpenCL build does not require an interface rewrite.
+Current backend: ARM64 CPU.
 
-## Model storage
-
-Models are downloaded to:
+Backend-facing metrics intentionally separate:
 
 ```text
-Android/data/<package>/files/models/
+prompt processing
+TTFT
+token decode
+total latency
 ```
 
-They are not included in the APK and survive normal app updates. Uninstalling the app may remove this app-specific directory.
+so optimization does not accidentally improve one stage while hiding regressions in another.
 
-## Catalogue
+## Mutable workspace
 
-`app/data/models.json` is the source of truth. Each entry includes:
+CI copies repository `workspace/` into the APK as the first-run seed.
 
-- stable id
-- display name
-- source
-- exact download URL
-- expected filename
-- byte size
+At runtime it is copied into:
+
+```text
+user://workspace/
+```
+
+A Pull replaces/adds workspace files from the `aistuff` branch without changing the APK.
+
+Current workspace classes:
+
+```text
+workspace/
+  manifest.json
+  benchmarks/
+  presets/
+  recipes/
+  model-manifests/
+```
+
+## Result flow
+
+Benchmarks and selected manual chat traces are saved locally first.
+
+```text
+generation
+   ↓
+user://results/
+   +
+user://outbox/
+   ↓ explicit Push
+devices/<device-id>/results/
+```
+
+Uploads are append-only in v0. Successful uploads move the local outbox file to `user://sent/`.
+
+No automatic destructive synchronization is allowed in v0.
+
+## Credential boundary
+
+Pulling the public workspace does not require a token.
+
+Pushing requires a fine-grained GitHub token with Contents write permission. On Android it is encrypted with an AES-GCM key held by Android Keystore.
+
+The repository never contains the credential.
+
+## Benchmark boundary
+
+A benchmark suite defines prompts, thread IDs, qualitative criteria, and optional deterministic checks.
+
+The runner preserves history independently per thread. This allows suites to test:
+
+- abrupt mode switching
+- returning to earlier threads
+- cross-domain reasoning
+- objective tasks
+- epistemic restraint
+- coding
+- repeated reusable computation
+
+Qualitative criteria are stored with the response for later judging. They are **not** falsely treated as deterministic scores.
+
+## Large-file boundary
+
+Weights/datasets stay outside Git.
+
+Repository manifests may describe:
+
+- model/source
+- filename
+- size
 - SHA-256
+- quantization
 - prompt template
-- recommended settings
+- recommended runtime settings
+
+This lets storage scale independently of Git history.
+
+## First physical-device boundary
+
+The phone is not needed to validate application structure.
+
+It becomes necessary for:
+
+- actual ARM throughput
+- TTFT
+- memory pressure/OOM behavior
+- thermal throttling
+- battery use
+- Android process/lifecycle behavior
+- USB vs internal-storage model loading
+- Fold UI ergonomics
+
+Everything before those hardware truths should be tested in CI or headless/emulated environments first.
