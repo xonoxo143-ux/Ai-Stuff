@@ -210,11 +210,25 @@ jobs:
           test -f app/build/LocalAIWorkbench-debug.apk
           unzip -t app/build/LocalAIWorkbench-debug.apk
 
-      - name: Verify packaged native backend
+      - name: Verify APK package
         shell: bash
         run: |
-          unzip -l app/build/LocalAIWorkbench-debug.apk | tee apk-contents.txt
+          set -euo pipefail
+          apk="app/build/LocalAIWorkbench-debug.apk"
+
+          apksigner verify --verbose "$apk"
+
+          aapt dump badging "$apk" | tee apk-badging.txt
+          grep -q "package: name='com.xonoxo.localaiworkbench'" apk-badging.txt
+          grep -q "launchable-activity:" apk-badging.txt
+
+          unzip -l "$apk" | tee apk-contents.txt
           grep -q "lib/arm64-v8a/liblocal_ai.so" apk-contents.txt
+          grep -q "assets/workspace/manifest.json" apk-contents.txt
+          grep -q "assets/workspace/benchmarks/chatbot-v0.json" apk-contents.txt
+          grep -q "assets/scripts/main.gdc" apk-contents.txt
+          grep -q "assets/scripts/github_sync.gdc" apk-contents.txt
+          grep -q "assets/scripts/workspace_store.gdc" apk-contents.txt
 
       - name: Collect artifacts
         shell: bash
