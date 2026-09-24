@@ -1,42 +1,90 @@
-# Local AI Workbench
+# AI Workbench
 
-A local-first Android chat app built as three deliberately separate layers:
+Local-first Android workbench for developing and benchmarking the modular chatbot project.
 
-- **Godot**: interface, conversation state, model catalogue, and APK shell.
-- **Kotlin Godot Android plugin**: downloads, Android storage, lifecycle, and JNI bridge.
-- **llama.cpp**: native GGUF inference.
+The `aistuff` branch is the active workspace.
 
-The model weights are not stored in Git. The app downloads approved GGUF files from Hugging Face into its Android app-specific model directory, verifies SHA-256, and then runs them offline.
+## Goal
 
-## Repository layout
+Build a local chatbot that improves both useful answer quality and wall-clock efficiency relative to a comparable conventional model.
+
+Storage is a soft constraint. Active compute, latency, memory movement, and quality are the hard measurements.
+
+## Android workbench
+
+The app is deliberately small:
+
+- **Run** — download/load/unload a local GGUF and inspect runtime metrics.
+- **Chat** — manual conversation testing with optional useful/poor trace capture.
+- **Bench** — run versioned mixed-mode benchmark suites and save per-turn timing/results.
+- **Data** — show local workspace/outbox state and configure secure GitHub push credentials.
+- **Pull / Push** — sync experiment definitions down and append-only result artifacts up.
+
+The APK contains the stable Android/native layer. Ordinary experiments live under `workspace/` and can change without rebuilding the app.
+
+## Repository role
+
+Git stores:
+
+- source code
+- benchmark suites
+- configs and manifests
+- small logs/results
+- architecture notes
+
+Git does **not** store:
+
+- GGUF weights
+- safetensors/checkpoints
+- large datasets
+- training caches
+
+## Runtime stack
 
 ```text
-app/                 Godot project
-android-plugin/      Kotlin/JNI plugin and llama.cpp build
-docs/                Architecture and build notes
-.github/workflows/   CI that builds the plugin and APK
+Godot UI / experiment runner
+        ↓
+Kotlin Android bridge
+        ↓
+llama.cpp (ARM64)
+        ↓
+local GGUF
 ```
 
-## Current scope
+GitHub sync is separate from inference:
 
-- Download and resume catalogue models.
-- SHA-256 verification.
-- Load and unload GGUF models.
-- Stream generated tokens into Godot.
-- Stop generation.
-- Persist the current conversation locally.
-- Expose context, thread, token, and sampling controls.
-- Show backend and generation performance information.
-- Build a debug APK in GitHub Actions.
+```text
+aistuff/workspace
+        ↓ Pull
+phone local workspace
+        ↓ experiment
+phone outbox
+        ↓ Push
+aistuff/devices/<device-id>/results
+```
 
-The first backend is optimized ARM CPU inference. GPU/NPU backends stay isolated behind the native layer and can be added without rewriting the Godot interface.
+## Performance metrics
 
-## Build output
+The backend records prompt processing separately from decoding:
 
-The `Build Android APK` workflow produces:
+- prompt token count
+- prompt processing time
+- time to first token (TTFT)
+- generated token count
+- generation time
+- generation tokens/s
+- total turn time
 
-- `LocalAI-debug.aar`
-- `LocalAI-release.aar`
-- `LocalAIWorkbench-debug.apk`
+This separation is required for fair performance comparisons.
 
-See `docs/BUILD.md` for details.
+## Current checkpoint
+
+Before first physical-device testing, CI should be able to:
+
+1. validate workspace/model manifests,
+2. compile the Kotlin/JNI plugin and llama.cpp,
+3. parse/export the Godot Android app,
+4. verify the native backend is packaged,
+5. publish a debug APK artifact.
+
+See `docs/WORKBENCH_V0.md` and `docs/ARCHITECTURE.md`.
