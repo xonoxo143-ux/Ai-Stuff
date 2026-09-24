@@ -47,3 +47,31 @@ The first phone session establishes:
 - phone → GitHub result flow.
 
 Only after that path works should larger candidate models be introduced.
+
+
+## Validated candidate
+
+The first phone candidate passed the full no-device CI gate on 2026-09-24.
+
+- branch: `aistuff`
+- source commit: `1144f77619c2494dfe413a89628e7217899b2bf8`
+- workflow run: `36035508348`
+- artifact: `LocalAIWorkbench-Android` (artifact id `10824421913`)
+
+CI verified:
+
+- workbench/catalog JSON validity,
+- Godot script parsing,
+- ARM64 llama.cpp/plugin compilation,
+- deterministic Gradle-template installation,
+- APK export,
+- APK signature validity,
+- package id `com.xonoxo.localaiworkbench`,
+- launchable activity presence,
+- packaged `liblocal_ai.so`,
+- bundled workspace manifest and `chatbot-v0`,
+- packaged Run/Chat/Bench/Data workbench scripts.
+
+The catalogue's two initial GGUF filenames and SHA-256 values were also rechecked against their current Hugging Face file metadata before this checkpoint.
+
+At this point the remaining unknowns are physical-device properties: Android launch/runtime behavior, model download/load, ARM64 inference, RAM/thermal behavior, UI ergonomics, and phone-to-GitHub push.
