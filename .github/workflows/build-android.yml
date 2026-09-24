@@ -216,9 +216,10 @@ jobs:
           set -euo pipefail
           apk="app/build/LocalAIWorkbench-debug.apk"
 
-          apksigner verify --verbose "$apk"
+          build_tools="${ANDROID_SDK_ROOT}/build-tools/35.0.1"
+          "$build_tools/apksigner" verify --verbose "$apk"
 
-          aapt dump badging "$apk" | tee apk-badging.txt
+          "$build_tools/aapt" dump badging "$apk" | tee apk-badging.txt
           grep -q "package: name='com.xonoxo.localaiworkbench'" apk-badging.txt
           grep -q "launchable-activity:" apk-badging.txt
 
