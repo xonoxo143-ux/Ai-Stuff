@@ -45,6 +45,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
         runtime = NativeRuntime(this).also { it.listener = this }
         updater = BundleUpdater(this)
         secureStore = SecureStore(this)
+        secureStore.put("github_client_id", GitHubClient.CLIENT_ID)
 
         webView = WebView(this)
         webView.setBackgroundColor(Color.rgb(17, 20, 28))
