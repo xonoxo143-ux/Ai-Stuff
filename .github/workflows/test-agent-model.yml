@@ -1,0 +1,63 @@
+name: Test Agent Model
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - "agent-model/**"
+      - ".github/workflows/test-agent-model.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aistuff-agent-model
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8" "onnx>=1.16" "onnxruntime>=1.18"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run model tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests
+
+      - name: Smoke-train a sparse ecology
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.train             --steps 40             --batch-size 16             --eval-batch-size 32             --min-sequence 2             --max-sequence 4             --num-cells 8             --active-cells 2             --state-dim 48             --workspace-slots 4             --signature-dim 24             --message-dim 24             --thought-steps 2             --log-every 10             --output-dir artifacts
+
+      - name: Export one thought step to ONNX and verify parity
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.export_onnx             artifacts/agent-ecology-v0.pt             --output artifacts/agent-ecology-thought-step.onnx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Ecology-Smoke
+          path: |
+            agent-model/artifacts/agent-ecology-v0.pt
+            agent-model/artifacts/agent-ecology-thought-step.onnx
+            agent-model/artifacts/metrics.json
+          retention-days: 30
