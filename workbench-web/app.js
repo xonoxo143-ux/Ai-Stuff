@@ -339,6 +339,7 @@ function githubButtons(state) {
 
   show("#github-create", !discovered);
   show("#github-discover", !discovered);
+  show("#github-client-id-card", !discovered);
   show("#github-settings", discovered && !repoAccess);
   show("#github-install", discovered && !repoAccess);
   show("#github-signin", discovered && !signedIn);
@@ -369,9 +370,10 @@ function renderGitHub(state) {
   }
 
   if (githubState.app_discovered) {
+    if (githubState.client_id) $("#github-client-id").value = githubState.client_id;
     $("#github-status").textContent = "GitHub connection created, but not signed in.";
     $("#github-help").textContent =
-      "One-time setup: open App settings and enable Device Flow, grant access to Ai-Stuff, then tap Sign in with GitHub.";
+      "Open App settings and enable Device Flow, grant access to Ai-Stuff, then tap Sign in with GitHub.";
     return;
   }
 
@@ -403,8 +405,30 @@ async function discoverGitHubConnection() {
     renderGitHub({ ...info, signed_in: false, repo_access: false });
     toast("Connection found. Enable Device Flow in App settings next.");
   } catch (error) {
-    $("#github-status").textContent = error.message;
+    $("#github-status").textContent =
+      "Auto-detect failed. Paste the public Client ID from the GitHub page above.";
+    show("#github-client-id-card", true);
   }
+}
+
+async function saveGitHubClientId() {
+  const clientId = $("#github-client-id").value.trim();
+  if (!clientId) return toast("Paste the GitHub App Client ID first.");
+
+  await nativeRequest("secret.set", {
+    name: "github_client_id",
+    value: clientId
+  });
+
+  const info = await nativeRequest("github.setupInfo");
+  renderGitHub({
+    ...info,
+    client_id: clientId,
+    app_discovered: true,
+    signed_in: false,
+    repo_access: false
+  });
+  toast("Client ID saved. Continue with App settings.");
 }
 
 async function openGitHubField(field) {
@@ -560,6 +584,7 @@ async function boot() {
 
   $("#github-create").addEventListener("click", createGitHubConnection);
   $("#github-discover").addEventListener("click", discoverGitHubConnection);
+  $("#github-save-client-id").addEventListener("click", saveGitHubClientId);
   $("#github-settings").addEventListener("click", () => openGitHubField("settings_url"));
   $("#github-install").addEventListener("click", () => openGitHubField("install_url"));
   $("#github-signin").addEventListener("click", startGitHubSignIn);
