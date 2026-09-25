@@ -340,18 +340,20 @@ async function refreshAgent() {
       $("#agent-status").textContent =
         "This kernel supports Agent v0, but this APK does not contain a learned Agent model.";
       $("#agent-selftest").disabled = true;
+      $("#agent-benchmark").disabled = true;
       $("#agent-reset").disabled = true;
       return status;
     }
 
     $("#agent-selftest").disabled = false;
+    $("#agent-benchmark").disabled = false;
     $("#agent-reset").disabled = false;
     if (status.loaded && status.model) {
       const m = status.model;
       $("#agent-status").textContent =
         "Loaded " + m.id + " · " + m.num_cells + " cells · " +
         m.active_cells + " active/thought · state " + m.state_dim +
-        " · " + m.thought_steps + " thought steps/event";
+        " · " + m.thought_steps + " trained thought steps/event";
     } else {
       $("#agent-status").textContent =
         "Learned Agent model is bundled and ready to load.";
@@ -360,6 +362,7 @@ async function refreshAgent() {
   } catch (error) {
     $("#agent-status").textContent = "Agent runtime error: " + error.message;
     $("#agent-selftest").disabled = true;
+    $("#agent-benchmark").disabled = true;
     $("#agent-reset").disabled = true;
     return null;
   }
@@ -390,6 +393,7 @@ async function runAgentSelfTest() {
   $("#agent-status").textContent = "Running learned Agent on this phone…";
   $("#agent-summary").textContent = "Executing recurrent sparse ecology…";
   $("#agent-trace").textContent = "Running…";
+  $("#agent-bench-progress").value = 0;
 
   try {
     const result = await nativeRequest("agent.model.selfTest");
@@ -419,6 +423,247 @@ async function runAgentSelfTest() {
   }
 }
 
+const AGENT_OPS = {
+  SET: 0,
+  ADD: 1,
+  SUB: 2,
+  MUL: 3,
+  NEG: 4,
+  ABS: 5,
+  HALF: 6,
+  SQUARE: 7
+};
+
+function clampAgentValue(value) {
+  return Math.max(-8, Math.min(8, value));
+}
+
+function agentExpected(register, event) {
+  const arg = Number(event.arg || 0);
+  let next = register;
+  switch (event.op) {
+    case "SET": next = arg; break;
+    case "ADD": next = register + arg; break;
+    case "SUB": next = register - arg; break;
+    case "MUL": next = register * arg; break;
+    case "NEG": next = -register; break;
+    case "ABS": next = Math.abs(register); break;
+    case "HALF": next = register * 0.5; break;
+    case "SQUARE": next = register * register; break;
+    default: throw new Error("Unknown Agent operation: " + event.op);
+  }
+  return clampAgentValue(next);
+}
+
+function encodeAgentEvent(event) {
+  const vector = Array(11).fill(0);
+  const opId = AGENT_OPS[event.op];
+  if (opId === undefined) throw new Error("Unknown Agent operation: " + event.op);
+  vector[opId] = 1;
+  if (Object.prototype.hasOwnProperty.call(event, "arg")) {
+    vector[8] = Number(event.arg);
+    vector[9] = 1;
+  }
+  vector[10] = 1;
+  return vector;
+}
+
+function jaccardCells(a, b) {
+  const left = new Set(a || []);
+  const right = new Set(b || []);
+  const union = new Set([...left, ...right]);
+  if (!union.size) return 1;
+  let intersection = 0;
+  for (const value of left) if (right.has(value)) intersection++;
+  return intersection / union.size;
+}
+
+function average(values) {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function pairwiseAverageJaccard(sets) {
+  const values = [];
+  for (let i = 0; i < sets.length; i++) {
+    for (let j = i + 1; j < sets.length; j++) {
+      values.push(jaccardCells(sets[i], sets[j]));
+    }
+  }
+  return average(values);
+}
+
+function summarizeAgentDepth(depth, runs, numCells) {
+  let errorSum = 0;
+  let eventCount = 0;
+  let latency = 0;
+  let thoughtCount = 0;
+  const usedCells = new Set();
+  const withinEventOverlaps = [];
+  const firstThoughtByOp = new Map();
+
+  for (const run of runs) {
+    for (const event of run.events) {
+      errorSum += Number(event.absolute_error);
+      eventCount++;
+      latency += Number(event.total_latency_ms);
+
+      const thoughts = event.thoughts || [];
+      thoughtCount += thoughts.length;
+      for (const thought of thoughts) {
+        for (const cell of thought.selected_cells || []) usedCells.add(cell);
+      }
+
+      if (thoughts.length > 1) {
+        withinEventOverlaps.push(
+          jaccardCells(
+            thoughts[0].selected_cells,
+            thoughts[thoughts.length - 1].selected_cells
+          )
+        );
+      }
+
+      if (thoughts.length) {
+        if (!firstThoughtByOp.has(event.op)) firstThoughtByOp.set(event.op, []);
+        firstThoughtByOp.get(event.op).push(thoughts[0].selected_cells || []);
+      }
+    }
+  }
+
+  const contextOverlaps = [];
+  for (const sets of firstThoughtByOp.values()) {
+    const value = pairwiseAverageJaccard(sets);
+    if (value !== null) contextOverlaps.push(value);
+  }
+
+  return {
+    depth,
+    mae: errorSum / Math.max(1, eventCount),
+    total_model_latency_ms: latency,
+    mean_thought_latency_ms: latency / Math.max(1, thoughtCount),
+    event_count: eventCount,
+    thought_count: thoughtCount,
+    used_cells: usedCells.size,
+    total_cells: numCells,
+    mean_within_event_first_last_jaccard: average(withinEventOverlaps),
+    mean_same_op_cross_context_jaccard: average(contextOverlaps)
+  };
+}
+
+function renderAgentBenchmarkSummary(result) {
+  const lines = result.depth_metrics.map(metric =>
+    "depth " + metric.depth +
+    " · MAE " + Number(metric.mae).toFixed(4) +
+    " · " + Number(metric.mean_thought_latency_ms).toFixed(3) + " ms/thought" +
+    " · cells " + metric.used_cells + "/" + metric.total_cells +
+    (metric.mean_within_event_first_last_jaccard == null
+      ? ""
+      : " · recurrent overlap " +
+        Number(metric.mean_within_event_first_last_jaccard).toFixed(3)) +
+    (metric.mean_same_op_cross_context_jaccard == null
+      ? ""
+      : " · same-op/context overlap " +
+        Number(metric.mean_same_op_cross_context_jaccard).toFixed(3))
+  );
+  return lines.join("\n");
+}
+
+async function runAgentBenchmark() {
+  const suite = await fetch("benchmarks/agent-ecology-v0.json").then(response => {
+    if (!response.ok) throw new Error("Agent benchmark file is unavailable.");
+    return response.json();
+  });
+  const status = await refreshAgent();
+  if (!status?.available) return;
+
+  const numCells = status.model?.num_cells || 16;
+  const totalRuns = suite.depths.length * suite.programs.length;
+  $("#agent-bench-progress").max = totalRuns;
+  $("#agent-bench-progress").value = 0;
+  $("#agent-status").textContent =
+    "Running depth/context benchmark on this phone…";
+  $("#agent-summary").textContent =
+    "Testing recurrence depth without changing the model weights.";
+  $("#agent-trace").textContent = "Running…";
+
+  const depthResults = [];
+  let completedRuns = 0;
+
+  try {
+    for (const depth of suite.depths) {
+      const programRuns = [];
+
+      for (const program of suite.programs) {
+        await nativeRequest("agent.model.reset");
+        let register = 0;
+        const events = [];
+
+        for (const event of program.events) {
+          register = agentExpected(register, event);
+          const result = await nativeRequest("agent.model.thought", {
+            event: encodeAgentEvent(event),
+            steps: depth
+          });
+          const predicted = Number(result.output[0]);
+          events.push({
+            op: event.op,
+            arg: Object.prototype.hasOwnProperty.call(event, "arg")
+              ? Number(event.arg)
+              : null,
+            expected: register,
+            predicted,
+            absolute_error: Math.abs(predicted - register),
+            total_latency_ms: Number(result.total_latency_ms),
+            thoughts: result.thoughts
+          });
+        }
+
+        programRuns.push({
+          id: program.id,
+          events
+        });
+
+        completedRuns++;
+        $("#agent-bench-progress").value = completedRuns;
+        $("#agent-summary").textContent =
+          "Completed " + completedRuns + "/" + totalRuns +
+          " program/depth runs.";
+      }
+
+      depthResults.push({
+        depth,
+        programs: programRuns
+      });
+    }
+
+    const metrics = depthResults.map(item =>
+      summarizeAgentDepth(item.depth, item.programs, numCells)
+    );
+
+    lastAgentTest = {
+      schema: 1,
+      type: "agent_depth_context_benchmark",
+      generated_at: new Date().toISOString(),
+      suite: suite.name,
+      model: (await nativeRequest("agent.model.status")).model,
+      depth_metrics: metrics,
+      depth_results: depthResults
+    };
+
+    $("#agent-status").textContent =
+      "Depth/context benchmark complete.";
+    $("#agent-summary").textContent =
+      "Measured recurrence cost, accuracy, cell usage, and routing stability.";
+    $("#agent-trace").textContent = renderAgentBenchmarkSummary(lastAgentTest);
+  } catch (error) {
+    $("#agent-status").textContent =
+      "Agent benchmark failed: " + error.message;
+    $("#agent-summary").textContent =
+      "Stopped after " + completedRuns + "/" + totalRuns + " runs.";
+    $("#agent-trace").textContent = String(error.stack || error);
+  }
+}
+
 async function resetAgent() {
   try {
     await nativeRequest("agent.model.reset");
@@ -431,7 +676,7 @@ async function resetAgent() {
 }
 
 async function pushAgentTest() {
-  if (!lastAgentTest) return toast("Run the Agent hardware test first.");
+  if (!lastAgentTest) return toast("Run an Agent test first.");
 
   await refreshGitHub();
   if (!githubState?.signed_in || !githubState?.repo_access) {
@@ -440,11 +685,14 @@ async function pushAgentTest() {
   }
 
   try {
+    const prefix = lastAgentTest.type === "agent_depth_context_benchmark"
+      ? "agent-depth-context-"
+      : "agent-hardware-";
     await nativeRequest("github.pushResult", {
-      filename: "agent-hardware-" + Date.now() + ".json",
+      filename: prefix + Date.now() + ".json",
       content: JSON.stringify(lastAgentTest, null, 2)
     });
-    toast("Agent hardware result pushed to GitHub.");
+    toast("Agent result pushed to GitHub.");
   } catch (error) {
     toast("Push failed: " + error.message);
     await refreshGitHub();
@@ -687,6 +935,7 @@ async function boot() {
   });
 
   $("#agent-selftest").addEventListener("click", runAgentSelfTest);
+  $("#agent-benchmark").addEventListener("click", runAgentBenchmark);
   $("#agent-reset").addEventListener("click", resetAgent);
   $("#push-agent-test").addEventListener("click", pushAgentTest);
 
