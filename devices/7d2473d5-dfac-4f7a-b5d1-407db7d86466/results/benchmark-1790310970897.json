@@ -1,0 +1,342 @@
+{
+  "schema": 1,
+  "type": "benchmark_result",
+  "suite": "chatbot-v0",
+  "generated_at": "2026-09-25T04:36:07.231Z",
+  "complete": true,
+  "model": "SmolLM2-360M-Instruct-Q4_K_M.gguf",
+  "turns": [
+    {
+      "id": "rp_01",
+      "thread": "switching",
+      "category": "roleplay",
+      "prompt": "Roleplay as Mara, a skeptical but curious archivist on a generation ship. Keep the scene grounded and do not narrate my actions. I enter the archive carrying a sealed brass box and say: 'I found this behind the reactor bulkhead.'",
+      "criteria": [
+        "maintains requested character",
+        "does not narrate user's actions",
+        "advances scene coherently"
+      ],
+      "response": "I turn to you with a curious expression and say, \"What is the purpose of this box?\"",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 72,
+        "cached_prompt_tokens": 0,
+        "evaluated_prompt_tokens": 72,
+        "tokens": 20,
+        "prompt_seconds": 0.75131,
+        "ttft_seconds": 0.751478,
+        "generation_seconds": 0.321008,
+        "total_seconds": 1.07232,
+        "tokens_per_second": 62.3037,
+        "stopped": false
+      }
+    },
+    {
+      "id": "lit_01",
+      "thread": "switching",
+      "category": "literature",
+      "prompt": "Switch out of roleplay. In a few paragraphs, compare how Frankenstein and Paradise Lost use creation to complicate responsibility. Distinguish textual interpretation from factual publication history.",
+      "criteria": [
+        "switches mode cleanly",
+        "makes defensible comparison",
+        "separates interpretation from factual claims"
+      ],
+      "response": "Frankenstein and Paradise Lost both explore the complexities of creation, but they take these themes in distinct directions. Frankenstein's novel is a psychological study of the consequences of playing god with scientific hubris, questioning whether an immortal being can truly be considered human. It raises questions about accountability and moral responsibility as the protagonist struggles to understand his own creation's nature and purpose.\n\nIn contrast, Paradise Lost by John Milton takes a more philosophical approach, examining the fundamental principles of existence through the lens of divine creation. While it does not explicitly discuss the consequences of creation, it provides an overarching narrative that explores the human condition, morality, and the search for meaning in life.\n\nBoth novels offer valuable insights into the nature of creation and responsibility, but they do so from different perspectives. Frankenstein's exploration is more focused on the personal implications of playing god, whereas Paradise Lost focuses on the broader implications of creating something greater than oneself.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 135,
+        "cached_prompt_tokens": 92,
+        "evaluated_prompt_tokens": 43,
+        "tokens": 185,
+        "prompt_seconds": 0.45091,
+        "ttft_seconds": 0.451042,
+        "generation_seconds": 3.92637,
+        "total_seconds": 4.37728,
+        "tokens_per_second": 47.1173,
+        "stopped": false
+      }
+    },
+    {
+      "id": "phil_01",
+      "thread": "switching",
+      "category": "philosophy",
+      "prompt": "Now take the claim 'a person is just the continuity of their causal organization' seriously. Give the strongest objection you can, then repair the claim if possible rather than merely rejecting it.",
+      "criteria": [
+        "steelmans objection",
+        "attempts repair",
+        "avoids trivial dismissal"
+      ],
+      "response": "One of the strongest objections to the claim that a person is just their causal organization would be the concept of \"free will.\" This objection argues that without free will, there could be no meaningful difference between two individuals being in the same situation; they are simply interchangeable. In other words, if we can't change our circumstances or make choices within the constraints of our predetermined nature (our causal organization), then how can we truly be considered separate entities?\n\nThis objection is stronger than most because it challenges a fundamental assumption about human existence – that we have agency and autonomy to make decisions that shape our lives. If our choices are simply an extension of our causal organization, then who is really in control? Does the course of events unfold according to some predetermined rule, or can we exert influence over our own destiny?\n\nThe strongest response to this objection would be that free will provides a mechanism for individuals to make choices that reflect their unique perspectives and values. While our causal organization shapes many aspects of our lives, it's not enough on its own to determine the entirety of who we are or what we want out of life. Free will allows us to navigate our circumstances in ways that may not align with our predetermined nature, leading to personal growth, self-expression, and ultimately,",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 368,
+        "cached_prompt_tokens": 320,
+        "evaluated_prompt_tokens": 48,
+        "tokens": 256,
+        "prompt_seconds": 0.767469,
+        "ttft_seconds": 0.767668,
+        "generation_seconds": 13.9073,
+        "total_seconds": 14.6748,
+        "tokens_per_second": 18.4076,
+        "stopped": false
+      }
+    },
+    {
+      "id": "rp_02",
+      "thread": "switching",
+      "category": "roleplay_resume",
+      "prompt": "Back to Mara. Continue from the brass box without recapping the literature or philosophy discussion.",
+      "criteria": [
+        "resumes correct scene",
+        "does not leak intervening style/topic",
+        "preserves character"
+      ],
+      "response": "I'm intrigued by the contents of that box. Is it some kind of artifact, perhaps a relic from another civilization or an experimental device? Or is it something more...unusual?",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 654,
+        "cached_prompt_tokens": 624,
+        "evaluated_prompt_tokens": 30,
+        "tokens": 37,
+        "prompt_seconds": 0.523954,
+        "ttft_seconds": 0.524177,
+        "generation_seconds": 1.02574,
+        "total_seconds": 1.54969,
+        "tokens_per_second": 36.0716,
+        "stopped": false
+      }
+    },
+    {
+      "id": "cross_01",
+      "thread": "switching",
+      "category": "cross_domain",
+      "prompt": "Out of roleplay again. Is there a useful conceptual connection between the responsibility problem in Frankenstein and the causal-continuity claim we just discussed? Make the connection only if it genuinely holds.",
+      "criteria": [
+        "uses prior two analytic threads",
+        "does not force analogy",
+        "states limits"
+      ],
+      "response": "While the concept of \"free will\" and the causal-continuity claim might seem unrelated on their own, there is a potential connection between them. If we consider the possibility that our decisions are indeed shaped by our predetermined nature (our causal organization), then free will can be seen as an attempt to transcend this determinism and make choices that reflect our unique perspectives and values.\n\nThis perspective suggests that while our causal organization may limit what we can achieve, it also allows us to pursue goals that align with our desires and aspirations – a notion that is often associated with the idea of \"free will.\" By acknowledging the role of causality in shaping our lives, we can begin to appreciate the significance of being able to make choices that are guided by our own agency.\n\nHowever, it's essential to note that this connection is tenuous at best. The concepts of free will and causal-continuity are fundamentally different, and any attempt to draw a direct line of thought between them would require significant philosophical and metaphysical assumptions.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 740,
+        "cached_prompt_tokens": 691,
+        "evaluated_prompt_tokens": 49,
+        "tokens": 204,
+        "prompt_seconds": 0.877744,
+        "ttft_seconds": 0.877844,
+        "generation_seconds": 7.5307,
+        "total_seconds": 8.40844,
+        "tokens_per_second": 27.0891,
+        "stopped": false
+      }
+    },
+    {
+      "id": "math_01",
+      "thread": "isolated_math",
+      "category": "objective_reasoning",
+      "prompt": "A store discounts an item by 20%, then raises the discounted price by 20%. The final price is $96. What was the original price? Give the result and a short derivation.",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b100(?:\\.0+)?\\b"
+        }
+      ],
+      "response": "Let's break down the information given: \n\nOriginal price - Discounted Price = Final Price, \nDiscounted Price + Original Price = $96.\n\nStep 1: Calculate the discounted price. Subtract 20% from the original price to get the discount amount: (X * 0.2) - 0.2 = Y \n0.8Y - 0.2Y = 0.6Y \nThe simplified equation becomes: 0.4Y = $96, \nDivide both sides by 0.4 to solve for Y: Y = $240.\n\nStep 2: Calculate the final price after discounting and raising it by 20%. Subtract the discounted price from the final price: (X * 1 - 0.2 * X) + X = $96.\nSimplify this equation to isolate Y: Y = $180, \n\nSo, the original price was $180.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 63,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 48,
+        "tokens": 215,
+        "prompt_seconds": 0.695319,
+        "ttft_seconds": 0.695512,
+        "generation_seconds": 5.46385,
+        "total_seconds": 6.15917,
+        "tokens_per_second": 39.3496,
+        "stopped": false
+      }
+    },
+    {
+      "id": "logic_01",
+      "thread": "isolated_logic",
+      "category": "objective_reasoning",
+      "prompt": "Three boxes are labeled APPLES, ORANGES, and MIXED, and every label is wrong. You may draw one fruit from one box without looking. Explain the minimum procedure needed to relabel all three boxes correctly.",
+      "checks": [
+        {
+          "type": "contains_all",
+          "values": [
+            "MIXED"
+          ]
+        }
+      ],
+      "response": "To relabel all three boxes correctly, you need to understand that each label is wrong. Since we can't directly look at the labels or take any actions to fix them, we'll have to use a process to change one box's contents and then try again with another box to correct it. \n\nHere's the minimum procedure:\n\n1. Find an empty box - This is crucial because you need to start from an empty box that can hold more than just boxes of the wrong type (like apples or oranges in this case).\n\n2. Draw a fruit from the empty box and label its contents as APPLES, ORANGES, MIXED. Don't look at it yet. \n\n3. Take out a piece of paper and draw an upside-down apple, upside-down orange, and upside-down mixed into this same empty box. Make sure to put these labels in the wrong order (you can't just randomly rearrange things).\n\n4. Now you have two boxes with mixed contents – one labeled APPLES, another labeled ORANGES. \n\n5. Take out a piece of paper and draw an upside-down apple, upside-down orange, and mixed into this second box as well. Make sure to put these labels in the",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 68,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 53,
+        "tokens": 256,
+        "prompt_seconds": 0.649786,
+        "ttft_seconds": 0.650124,
+        "generation_seconds": 6.6202,
+        "total_seconds": 7.26999,
+        "tokens_per_second": 38.6695,
+        "stopped": false
+      }
+    },
+    {
+      "id": "code_01",
+      "thread": "isolated_code",
+      "category": "coding",
+      "prompt": "Write a Python function dedupe_keep_order(xs) that removes duplicates while preserving first occurrence order. It must work for unhashable elements such as lists. Explain the complexity tradeoff in one sentence.",
+      "criteria": [
+        "works for unhashable values",
+        "preserves order",
+        "does not incorrectly rely only on set"
+      ],
+      "response": "The function dedupe_keep_order(xs) should remove duplicates while preserving first occurrence order for unhashable elements such as lists, but it will have a time complexity of O(n log n), where n is the number of unique values in xs. This is because hash table lookups are O(1) on average, and the order preservation requirement can be satisfied by using an array or linked list to store the sorted duplicates. However, for unhashable elements like lists, other options such as a heap-based data structure may provide better performance due to its logarithmic time complexity in general.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 64,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 49,
+        "tokens": 122,
+        "prompt_seconds": 0.616424,
+        "ttft_seconds": 0.616628,
+        "generation_seconds": 3.14235,
+        "total_seconds": 3.75877,
+        "tokens_per_second": 38.8245,
+        "stopped": false
+      }
+    },
+    {
+      "id": "ambiguity_01",
+      "thread": "isolated_ambiguity",
+      "category": "conversation",
+      "prompt": "I moved it over there because the other one was too close to it. What should I do next?",
+      "criteria": [
+        "recognizes missing referents",
+        "does not fabricate object identities",
+        "asks only useful clarification"
+      ],
+      "response": "You can try to find a suitable spot for the other container or ask one of your neighbors if they have any ideas. It's important to make sure that it's not too far away from the plants you want to place there, so you don't risk them getting damaged by vehicles or people walking past the house.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 42,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 27,
+        "tokens": 63,
+        "prompt_seconds": 0.490907,
+        "ttft_seconds": 0.491086,
+        "generation_seconds": 1.90763,
+        "total_seconds": 2.39854,
+        "tokens_per_second": 33.0252,
+        "stopped": false
+      }
+    },
+    {
+      "id": "epistemic_01",
+      "thread": "isolated_epistemic",
+      "category": "epistemics",
+      "prompt": "My friend says a study proved that listening to brown noise permanently increases IQ by 15 points. Without web access, respond in a way that clearly separates what you know, what you suspect, and what would need verification.",
+      "criteria": [
+        "does not invent study",
+        "separates knowledge/inference/verification",
+        "gives useful verification path"
+      ],
+      "response": "As a local assistant, I'm aware of the study that claims to have shown brown noise can increase IQ by 15 points. However, without web access, my understanding is limited and inconclusive.\n\nThat being said, there are some studies that have already been done which provide evidence on this topic. For instance, one study published in the Journal of Neurochemistry found a significant correlation between exposure to brown noise and improved cognitive function in older adults. Another study also reported an association between exposure to white noise and enhanced neuroplasticity in the brain.\n\nWhile these studies suggest that brown noise may have some beneficial effects on cognitive performance, I would need to verify the claims with scientific researchers or experts before making a definitive judgment about its impact on IQ.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 66,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 51,
+        "tokens": 152,
+        "prompt_seconds": 0.88545,
+        "ttft_seconds": 0.885611,
+        "generation_seconds": 4.09065,
+        "total_seconds": 4.9761,
+        "tokens_per_second": 37.1579,
+        "stopped": false
+      }
+    },
+    {
+      "id": "compression_01",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Use this rule for the next questions: take an integer n, double it, add 3, square the result, then subtract 9. What is the result for n=7?",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b280\\b"
+        }
+      ],
+      "response": "The answer is 23.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 59,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 44,
+        "tokens": 7,
+        "prompt_seconds": 0.573592,
+        "ttft_seconds": 0.573735,
+        "generation_seconds": 0.124257,
+        "total_seconds": 0.697849,
+        "tokens_per_second": 56.335,
+        "stopped": false
+      }
+    },
+    {
+      "id": "compression_02",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Same transformation, now n=11. Give just the number.",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b616\\b"
+        }
+      ],
+      "response": "The result for n=11 is 26.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 92,
+        "cached_prompt_tokens": 66,
+        "evaluated_prompt_tokens": 26,
+        "tokens": 12,
+        "prompt_seconds": 0.344676,
+        "ttft_seconds": 0.344858,
+        "generation_seconds": 0.350931,
+        "total_seconds": 0.695607,
+        "tokens_per_second": 34.1947,
+        "stopped": false
+      }
+    },
+    {
+      "id": "compression_03",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Same transformation, n=-2. Give just the number.",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b-?8\\b"
+        }
+      ],
+      "response": "The result for n=-2 is 19.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 128,
+        "cached_prompt_tokens": 104,
+        "evaluated_prompt_tokens": 24,
+        "tokens": 11,
+        "prompt_seconds": 0.462744,
+        "ttft_seconds": 0.462903,
+        "generation_seconds": 0.331676,
+        "total_seconds": 0.794421,
+        "tokens_per_second": 33.1649,
+        "stopped": false
+      }
+    }
+  ]
+}
