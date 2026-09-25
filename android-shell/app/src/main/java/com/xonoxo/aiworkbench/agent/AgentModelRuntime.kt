@@ -9,6 +9,11 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 
+enum class AgentExecutionBackend {
+    SPARSE,
+    DENSE_REFERENCE,
+}
+
 data class AgentModelInfo(
     val modelId: String,
     val eventDim: Int,
@@ -18,6 +23,7 @@ data class AgentModelInfo(
     val stateDim: Int,
     val workspaceSlots: Int,
     val thoughtSteps: Int,
+    val denseReferenceAvailable: Boolean,
 )
 
 data class AgentThoughtResult(
@@ -29,35 +35,50 @@ data class AgentThoughtResult(
     val latencyNanos: Long,
 )
 
+private data class RuntimeState(
+    var workspace: FloatArray,
+    var cellStates: FloatArray,
+)
+
 /**
- * Thin Android host for the learned ecology's ONNX thought-step model.
+ * Android host for the learned ecology's one-step ONNX graphs.
  *
- * The ONNX graph performs one internal cognitive transition. The Agent Kernel,
- * not this class, decides how many transitions to run and how they participate
- * in the wider capability/motif ecology.
+ * The sparse graph is the deployed path. An optional dense-reference graph uses
+ * the exact same weights and top-k commit semantics while evaluating every cell
+ * candidate. Keeping both lets the phone measure whether sparse execution
+ * actually saves real hardware time rather than only theoretical FLOPs.
  */
 class AgentModelRuntime : Closeable {
     private val environment = OrtEnvironment.getEnvironment()
 
-    private var session: OrtSession? = null
+    private var sparseSession: OrtSession? = null
+    private var denseSession: OrtSession? = null
     private var info: AgentModelInfo? = null
     private var initialWorkspace = FloatArray(0)
-    private var workspace = FloatArray(0)
-    private var cellStates = FloatArray(0)
+
+    private var sparseState = RuntimeState(FloatArray(0), FloatArray(0))
+    private var denseState = RuntimeState(FloatArray(0), FloatArray(0))
 
     @Synchronized
     fun load(
-        modelPath: String,
+        sparseModelPath: String,
         manifestText: String,
+        denseModelPath: String? = null,
         threads: Int = 4,
     ): AgentModelInfo {
-        closeSession()
+        closeSessions()
 
         val manifest = JSONObject(manifestText)
-        require(manifest.getInt("schema") == 1) {
-            "Unsupported Agent model manifest schema"
+        val schema = manifest.getInt("schema")
+        require(schema == 1 || schema == 2) {
+            "Unsupported Agent model manifest schema: $schema"
         }
         val config = manifest.getJSONObject("config")
+        val denseDeclared = schema >= 2 && manifest.has("dense_reference")
+
+        require(!denseDeclared || !denseModelPath.isNullOrBlank()) {
+            "Manifest declares a dense reference model but no path was supplied"
+        }
 
         val loadedInfo = AgentModelInfo(
             modelId = manifest.getString("model_id"),
@@ -68,6 +89,7 @@ class AgentModelRuntime : Closeable {
             stateDim = config.getInt("state_dim"),
             workspaceSlots = config.getInt("workspace_slots"),
             thoughtSteps = config.getInt("max_thought_steps"),
+            denseReferenceAvailable = denseDeclared,
         )
 
         val initial = manifest.getJSONArray("initial_workspace")
@@ -89,34 +111,12 @@ class AgentModelRuntime : Closeable {
             }
         }
 
-        val options = OrtSession.SessionOptions()
-        try {
-            options.setOptimizationLevel(
-                OrtSession.SessionOptions.OptLevel.ALL_OPT
-            )
-            options.setIntraOpNumThreads(threads.coerceAtLeast(1))
-            options.setInterOpNumThreads(1)
-            session = environment.createSession(modelPath, options)
-        } finally {
-            options.close()
-        }
+        sparseSession = createSession(sparseModelPath, threads)
+        validateSession(requireNotNull(sparseSession), "sparse")
 
-        val loadedSession = requireNotNull(session)
-        val requiredInputs = setOf("event", "workspace", "cell_states")
-        require(loadedSession.inputNames.containsAll(requiredInputs)) {
-            "Agent model is missing required inputs"
-        }
-        val requiredOutputs = setOf(
-            "output",
-            "new_workspace",
-            "new_cell_states",
-            "selected_cells",
-            "route_weights",
-            "router_scores",
-            "halt_probability",
-        )
-        require(loadedSession.outputNames.containsAll(requiredOutputs)) {
-            "Agent model is missing required outputs"
+        if (denseDeclared) {
+            denseSession = createSession(requireNotNull(denseModelPath), threads)
+            validateSession(requireNotNull(denseSession), "dense reference")
         }
 
         info = loadedInfo
@@ -126,30 +126,59 @@ class AgentModelRuntime : Closeable {
     }
 
     @Synchronized
-    fun reset() {
+    fun reset(backend: AgentExecutionBackend? = null) {
         val loadedInfo = info ?: return
-        workspace = initialWorkspace.copyOf()
-        cellStates = FloatArray(
-            loadedInfo.numCells * loadedInfo.stateDim
+
+        fun freshState(): RuntimeState = RuntimeState(
+            workspace = initialWorkspace.copyOf(),
+            cellStates = FloatArray(
+                loadedInfo.numCells * loadedInfo.stateDim
+            ),
         )
+
+        when (backend) {
+            AgentExecutionBackend.SPARSE -> sparseState = freshState()
+            AgentExecutionBackend.DENSE_REFERENCE -> denseState = freshState()
+            null -> {
+                sparseState = freshState()
+                denseState = freshState()
+            }
+        }
     }
 
     @Synchronized
-    fun isLoaded(): Boolean = session != null
+    fun isLoaded(): Boolean = sparseSession != null
+
+    @Synchronized
+    fun denseReferenceAvailable(): Boolean = denseSession != null
 
     @Synchronized
     fun modelInfo(): AgentModelInfo? = info
 
     @Synchronized
-    fun thoughtStep(event: FloatArray): AgentThoughtResult {
-        val loadedSession = checkNotNull(session) {
-            "Agent model is not loaded"
-        }
+    fun thoughtStep(
+        event: FloatArray,
+        backend: AgentExecutionBackend = AgentExecutionBackend.SPARSE,
+    ): AgentThoughtResult {
         val loadedInfo = checkNotNull(info) {
             "Agent model metadata is not loaded"
         }
         require(event.size == loadedInfo.eventDim) {
             "Expected event dimension ${loadedInfo.eventDim}, got ${event.size}"
+        }
+
+        val loadedSession = when (backend) {
+            AgentExecutionBackend.SPARSE -> checkNotNull(sparseSession) {
+                "Sparse Agent model is not loaded"
+            }
+            AgentExecutionBackend.DENSE_REFERENCE -> checkNotNull(denseSession) {
+                "Dense reference Agent model is not loaded"
+            }
+        }
+
+        val state = when (backend) {
+            AgentExecutionBackend.SPARSE -> sparseState
+            AgentExecutionBackend.DENSE_REFERENCE -> denseState
         }
 
         val started = System.nanoTime()
@@ -161,7 +190,7 @@ class AgentModelRuntime : Closeable {
         ).use { eventTensor ->
             OnnxTensor.createTensor(
                 environment,
-                directFloatBuffer(workspace),
+                directFloatBuffer(state.workspace),
                 longArrayOf(
                     1,
                     loadedInfo.workspaceSlots.toLong(),
@@ -170,7 +199,7 @@ class AgentModelRuntime : Closeable {
             ).use { workspaceTensor ->
                 OnnxTensor.createTensor(
                     environment,
-                    directFloatBuffer(cellStates),
+                    directFloatBuffer(state.cellStates),
                     longArrayOf(
                         1,
                         loadedInfo.numCells.toLong(),
@@ -185,8 +214,8 @@ class AgentModelRuntime : Closeable {
 
                     loadedSession.run(inputs).use { result ->
                         val output = floatOutput(result, "output")
-                        workspace = floatOutput(result, "new_workspace")
-                        cellStates = floatOutput(result, "new_cell_states")
+                        state.workspace = floatOutput(result, "new_workspace")
+                        state.cellStates = floatOutput(result, "new_cell_states")
                         val selectedLongs = longOutput(
                             result, "selected_cells"
                         )
@@ -214,6 +243,45 @@ class AgentModelRuntime : Closeable {
                     }
                 }
             }
+        }
+    }
+
+    private fun createSession(
+        modelPath: String,
+        threads: Int,
+    ): OrtSession {
+        val options = OrtSession.SessionOptions()
+        return try {
+            options.setOptimizationLevel(
+                OrtSession.SessionOptions.OptLevel.ALL_OPT
+            )
+            options.setIntraOpNumThreads(threads.coerceAtLeast(1))
+            options.setInterOpNumThreads(1)
+            environment.createSession(modelPath, options)
+        } finally {
+            options.close()
+        }
+    }
+
+    private fun validateSession(
+        session: OrtSession,
+        label: String,
+    ) {
+        val requiredInputs = setOf("event", "workspace", "cell_states")
+        require(session.inputNames.containsAll(requiredInputs)) {
+            "$label Agent model is missing required inputs"
+        }
+        val requiredOutputs = setOf(
+            "output",
+            "new_workspace",
+            "new_cell_states",
+            "selected_cells",
+            "route_weights",
+            "router_scores",
+            "halt_probability",
+        )
+        require(session.outputNames.containsAll(requiredOutputs)) {
+            "$label Agent model is missing required outputs"
         }
     }
 
@@ -260,15 +328,17 @@ class AgentModelRuntime : Closeable {
 
     @Synchronized
     override fun close() {
-        closeSession()
+        closeSessions()
         info = null
         initialWorkspace = FloatArray(0)
-        workspace = FloatArray(0)
-        cellStates = FloatArray(0)
+        sparseState = RuntimeState(FloatArray(0), FloatArray(0))
+        denseState = RuntimeState(FloatArray(0), FloatArray(0))
     }
 
-    private fun closeSession() {
-        session?.close()
-        session = null
+    private fun closeSessions() {
+        sparseSession?.close()
+        denseSession?.close()
+        sparseSession = null
+        denseSession = null
     }
 }
