@@ -64,8 +64,8 @@ jobs:
           manifest = {
               "schema": 1,
               "version": int(os.environ["GITHUB_RUN_NUMBER"]),
-              "kernel_min": 1,
-              "kernel_max": 1,
+              "kernel_min": 2,
+              "kernel_max": 2,
               "source_repo": "xonoxo143-ux/Ai-Stuff",
               "source_ref": "refs/heads/aistuff",
               "source_sha": os.environ["GITHUB_SHA"],
