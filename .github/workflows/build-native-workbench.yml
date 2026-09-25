@@ -10,7 +10,8 @@ on:
       - ".github/workflows/build-native-workbench.yml"
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
   id-token: write
   attestations: write
 
@@ -26,9 +27,26 @@ jobs:
     env:
       ANDROID_NDK_VERSION: "28.1.13356709"
       ANDROID_CMAKE_VERSION: "3.22.1"
+      BASE_MODEL_RUN_ID: "36106396883"
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download current Agent v0 model package
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Phone-Package
+          path: previous-agent
+          github-token: ${{ github.token }}
+          run-id: ${{ env.BASE_MODEL_RUN_ID }}
+
+      - name: Bundle current Agent model
+        run: |
+          set -euo pipefail
+          rm -rf android-shell/app/src/main/assets/agent-model
+          mkdir -p android-shell/app/src/main/assets/agent-model
+          cp previous-agent/agent-model/artifacts/agent-ecology-thought-step.onnx             android-shell/app/src/main/assets/agent-model/
+          cp previous-agent/agent-model/artifacts/agent-ecology-thought-step.json             android-shell/app/src/main/assets/agent-model/
 
       - name: Bundle fallback workbench
         run: |
@@ -102,11 +120,54 @@ jobs:
           unzip -l dist/AIWorkbench-kernel2-debug.apk | tee dist/apk-contents.txt
           grep -q "lib/arm64-v8a/libai_workbench_native.so" dist/apk-contents.txt
           grep -q "assets/workbench/index.html" dist/apk-contents.txt
+          grep -q "assets/agent-model/agent-ecology-thought-step.onnx" dist/apk-contents.txt
+          grep -q "assets/agent-model/agent-ecology-thought-step.json" dist/apk-contents.txt
 
       - name: Attest APK with GitHub OIDC
         uses: actions/attest@v4
         with:
           subject-path: dist/AIWorkbench-kernel2-debug.apk
+
+      - name: Publish verified native update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          cp dist/AIWorkbench-kernel2-debug.apk dist/AIWorkbench.apk
+          apk_sha="$(sha256sum dist/AIWorkbench.apk | awk '{print $1}')"
+          tag="native-${AI_WORKBENCH_VERSION_CODE}"
+
+          gh release create "$tag" dist/AIWorkbench.apk             --repo "${GITHUB_REPOSITORY}"             --target "${GITHUB_SHA}"             --title "AI Workbench ${AI_WORKBENCH_VERSION_NAME}"             --notes "Stable-signed native AI Workbench update."
+
+          mkdir -p /tmp/native-release
+          python3 - <<PY
+          import json, os
+          manifest = {
+              "schema": 1,
+              "package": "com.xonoxo.aiworkbench.k2",
+              "version_code": int(os.environ["AI_WORKBENCH_VERSION_CODE"]),
+              "version_name": os.environ["AI_WORKBENCH_VERSION_NAME"],
+              "sha256": "$apk_sha",
+              "signing_sha256": "E2:E3:D6:D0:FE:17:D9:7F:E7:68:55:F5:75:8D:92:3D:BA:2A:5F:7D:95:EA:59:DA:25:7B:38:B0:42:C9:07:EF",
+              "apk_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/$tag/AIWorkbench.apk",
+              "source_sha": os.environ["GITHUB_SHA"],
+          }
+          with open("/tmp/native-release/current.json", "w", encoding="utf-8") as f:
+              json.dump(manifest, f, indent=2)
+              f.write("\n")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin aistuff
+          git checkout -B publish origin/aistuff
+          mkdir -p workspace/releases/native
+          cp /tmp/native-release/current.json workspace/releases/native/current.json
+          git add workspace/releases/native/current.json
+          git commit -m "Publish native update ${AI_WORKBENCH_VERSION_NAME}" || exit 0
+          git push origin HEAD:aistuff
+
 
       - uses: actions/upload-artifact@v4
         with:
