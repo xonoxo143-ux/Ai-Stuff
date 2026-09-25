@@ -435,19 +435,22 @@ async function refreshAgent() {
         "This kernel supports Agent v0, but this APK does not contain a learned Agent model.";
       $("#agent-selftest").disabled = true;
       $("#agent-benchmark").disabled = true;
+      $("#agent-backend-benchmark").disabled = true;
       $("#agent-reset").disabled = true;
       return status;
     }
 
     $("#agent-selftest").disabled = false;
     $("#agent-benchmark").disabled = false;
+    $("#agent-backend-benchmark").disabled = false;
     $("#agent-reset").disabled = false;
     if (status.loaded && status.model) {
       const m = status.model;
       $("#agent-status").textContent =
         "Loaded " + m.id + " · " + m.num_cells + " cells · " +
         m.active_cells + " active/thought · state " + m.state_dim +
-        " · " + m.thought_steps + " trained thought steps/event";
+        " · " + m.thought_steps + " trained thought steps/event" +
+        (m.dense_reference_available ? " · dense reference ready" : "");
     } else {
       $("#agent-status").textContent =
         "Learned Agent model is bundled and ready to load.";
@@ -457,6 +460,7 @@ async function refreshAgent() {
     $("#agent-status").textContent = "Agent runtime error: " + error.message;
     $("#agent-selftest").disabled = true;
     $("#agent-benchmark").disabled = true;
+    $("#agent-backend-benchmark").disabled = true;
     $("#agent-reset").disabled = true;
     return null;
   }
@@ -576,6 +580,23 @@ function average(values) {
   if (!values.length) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
+
+function medianNumber(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function percentileNumber(values, fraction) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.floor((sorted.length - 1) * fraction);
+  return sorted[index];
+}
+
 
 function pairwiseAverageJaccard(sets) {
   const values = [];
@@ -763,6 +784,225 @@ async function runAgentBenchmark() {
   }
 }
 
+const AGENT_BACKEND_PROGRAM = [
+  { op: "SET", arg: 1.25 },
+  { op: "ADD", arg: 0.75 },
+  { op: "SQUARE" },
+  { op: "HALF" },
+  { op: "NEG" },
+  { op: "ABS" }
+];
+
+async function runAgentBackendProgram(backend, thoughtSteps) {
+  await nativeRequest("agent.model.reset", { backend });
+  const outputs = [];
+  const selected = [];
+  const routeWeights = [];
+  const latencies = [];
+
+  for (const event of AGENT_BACKEND_PROGRAM) {
+    const result = await nativeRequest("agent.model.thought", {
+      backend,
+      event: encodeAgentEvent(event),
+      steps: thoughtSteps
+    });
+    outputs.push(Number(result.output[0]));
+    for (const thought of result.thoughts || []) {
+      latencies.push(Number(thought.latency_ms));
+      selected.push([...(thought.selected_cells || [])]);
+      routeWeights.push([...(thought.route_weights || [])].map(Number));
+    }
+  }
+
+  return { backend, outputs, selected, route_weights: routeWeights, latencies };
+}
+
+function backendTimingSummary(latencies) {
+  return {
+    thought_count: latencies.length,
+    total_ms: latencies.reduce((sum, value) => sum + value, 0),
+    mean_ms: average(latencies),
+    median_ms: medianNumber(latencies),
+    p90_ms: percentileNumber(latencies, 0.90),
+    p95_ms: percentileNumber(latencies, 0.95)
+  };
+}
+
+function compareBackendRuns(sparse, dense) {
+  let maxOutputDelta = 0;
+  let selectedMismatchCount = 0;
+  let maxRouteWeightDelta = 0;
+
+  for (let i = 0; i < Math.min(sparse.outputs.length, dense.outputs.length); i++) {
+    maxOutputDelta = Math.max(
+      maxOutputDelta,
+      Math.abs(sparse.outputs[i] - dense.outputs[i])
+    );
+  }
+
+  const thoughts = Math.min(sparse.selected.length, dense.selected.length);
+  for (let i = 0; i < thoughts; i++) {
+    if (
+      sparse.selected[i].length !== dense.selected[i].length ||
+      sparse.selected[i].some((value, index) => value !== dense.selected[i][index])
+    ) {
+      selectedMismatchCount++;
+    }
+
+    const sparseWeights = sparse.route_weights[i] || [];
+    const denseWeights = dense.route_weights[i] || [];
+    for (let j = 0; j < Math.min(sparseWeights.length, denseWeights.length); j++) {
+      maxRouteWeightDelta = Math.max(
+        maxRouteWeightDelta,
+        Math.abs(sparseWeights[j] - denseWeights[j])
+      );
+    }
+  }
+
+  return {
+    max_output_abs_delta: maxOutputDelta,
+    selected_cell_mismatch_count: selectedMismatchCount,
+    max_route_weight_abs_delta: maxRouteWeightDelta
+  };
+}
+
+async function runAgentBackendBenchmark() {
+  $("#agent-status").textContent =
+    "Preparing sparse vs dense matched-capacity benchmark…";
+  $("#agent-summary").textContent =
+    "Same weights and routing; only private candidate computation changes.";
+  $("#agent-trace").textContent = "Loading both execution backends…";
+
+  try {
+    // Force model materialization before asking whether the dense reference is
+    // present in this native build.
+    await nativeRequest("agent.model.reset");
+    const status = await nativeRequest("agent.model.status");
+    if (!status.model?.dense_reference_available) {
+      throw new Error(
+        "This native build does not contain the dense reference model yet. Check for a native app update."
+      );
+    }
+
+    const thoughtSteps = Number(status.model.thought_steps || 3);
+    const warmupRunsPerBackend = 2;
+    const trials = 12;
+    const totalRuns = warmupRunsPerBackend * 2 + trials * 2;
+    let completed = 0;
+
+    $("#agent-bench-progress").max = totalRuns;
+    $("#agent-bench-progress").value = 0;
+
+    // Warm both ONNX sessions before timing. Warmups are deliberately excluded.
+    for (let i = 0; i < warmupRunsPerBackend; i++) {
+      await runAgentBackendProgram("sparse", thoughtSteps);
+      $("#agent-bench-progress").value = ++completed;
+      await runAgentBackendProgram("dense", thoughtSteps);
+      $("#agent-bench-progress").value = ++completed;
+    }
+
+    const sparseLatencies = [];
+    const denseLatencies = [];
+    const trialResults = [];
+    let maxOutputDelta = 0;
+    let selectedMismatchCount = 0;
+    let maxRouteDelta = 0;
+
+    for (let trial = 0; trial < trials; trial++) {
+      // Alternate execution order to reduce thermal/order bias.
+      const order = trial % 2 === 0
+        ? ["sparse", "dense"]
+        : ["dense", "sparse"];
+      const pair = {};
+
+      for (const backend of order) {
+        pair[backend] = await runAgentBackendProgram(
+          backend,
+          thoughtSteps
+        );
+        $("#agent-bench-progress").value = ++completed;
+        $("#agent-summary").textContent =
+          "Measured " + completed + "/" + totalRuns + " backend runs.";
+      }
+
+      sparseLatencies.push(...pair.sparse.latencies);
+      denseLatencies.push(...pair.dense.latencies);
+
+      const parity = compareBackendRuns(pair.sparse, pair.dense);
+      maxOutputDelta = Math.max(
+        maxOutputDelta,
+        parity.max_output_abs_delta
+      );
+      selectedMismatchCount += parity.selected_cell_mismatch_count;
+      maxRouteDelta = Math.max(
+        maxRouteDelta,
+        parity.max_route_weight_abs_delta
+      );
+
+      trialResults.push({
+        trial,
+        order,
+        parity,
+        sparse_total_ms: pair.sparse.latencies.reduce((a, b) => a + b, 0),
+        dense_total_ms: pair.dense.latencies.reduce((a, b) => a + b, 0)
+      });
+    }
+
+    const sparse = backendTimingSummary(sparseLatencies);
+    const dense = backendTimingSummary(denseLatencies);
+    const medianRatio = dense.median_ms / sparse.median_ms;
+    const meanRatio = dense.mean_ms / sparse.mean_ms;
+
+    lastAgentTest = {
+      schema: 1,
+      type: "agent_sparse_dense_benchmark",
+      generated_at: new Date().toISOString(),
+      model: status.model,
+      design: {
+        semantics: "same weights, same router, same top-k committed cells/messages",
+        sparse_candidate_cells: status.model.active_cells,
+        dense_candidate_cells: status.model.num_cells,
+        thought_steps_per_event: thoughtSteps,
+        events_per_program: AGENT_BACKEND_PROGRAM.length,
+        warmup_runs_per_backend: warmupRunsPerBackend,
+        measured_trials: trials,
+        alternating_backend_order: true
+      },
+      sparse,
+      dense,
+      dense_over_sparse_median_ratio: medianRatio,
+      dense_over_sparse_mean_ratio: meanRatio,
+      semantic_parity: {
+        max_output_abs_delta: maxOutputDelta,
+        selected_cell_mismatch_count: selectedMismatchCount,
+        max_route_weight_abs_delta: maxRouteDelta
+      },
+      trials: trialResults
+    };
+
+    $("#agent-status").textContent =
+      "Sparse vs dense hardware benchmark complete.";
+    $("#agent-summary").textContent =
+      "Sparse median " + Number(sparse.median_ms).toFixed(3) +
+      " ms · dense median " + Number(dense.median_ms).toFixed(3) +
+      " ms · dense/sparse " + Number(medianRatio).toFixed(2) + "×";
+
+    $("#agent-trace").textContent =
+      "Sparse: mean " + Number(sparse.mean_ms).toFixed(3) +
+      " ms, p90 " + Number(sparse.p90_ms).toFixed(3) + " ms\n" +
+      "Dense:  mean " + Number(dense.mean_ms).toFixed(3) +
+      " ms, p90 " + Number(dense.p90_ms).toFixed(3) + " ms\n" +
+      "Output parity max |Δ|: " + maxOutputDelta.toExponential(3) + "\n" +
+      "Selected-cell mismatches: " + selectedMismatchCount + "\n" +
+      "Route-weight max |Δ|: " + maxRouteDelta.toExponential(3);
+  } catch (error) {
+    $("#agent-status").textContent =
+      "Sparse vs dense benchmark failed: " + error.message;
+    $("#agent-summary").textContent = "No comparison result.";
+    $("#agent-trace").textContent = String(error.stack || error);
+  }
+}
+
 async function resetAgent() {
   try {
     await nativeRequest("agent.model.reset");
@@ -784,9 +1024,12 @@ async function pushAgentTest() {
   }
 
   try {
-    const prefix = lastAgentTest.type === "agent_depth_context_benchmark"
-      ? "agent-depth-context-"
-      : "agent-hardware-";
+    const prefix =
+      lastAgentTest.type === "agent_depth_context_benchmark"
+        ? "agent-depth-context-"
+        : lastAgentTest.type === "agent_sparse_dense_benchmark"
+          ? "agent-sparse-dense-"
+          : "agent-hardware-";
     await nativeRequest("github.pushResult", {
       filename: prefix + Date.now() + ".json",
       content: JSON.stringify(lastAgentTest, null, 2)
@@ -1035,6 +1278,10 @@ async function boot() {
 
   $("#agent-selftest").addEventListener("click", runAgentSelfTest);
   $("#agent-benchmark").addEventListener("click", runAgentBenchmark);
+  $("#agent-backend-benchmark").addEventListener(
+    "click",
+    runAgentBackendBenchmark
+  );
   $("#agent-reset").addEventListener("click", resetAgent);
   $("#push-agent-test").addEventListener("click", pushAgentTest);
 
