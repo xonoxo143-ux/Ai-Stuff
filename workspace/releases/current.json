@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "version": 23,
+  "version": 24,
   "kernel_min": 2,
   "kernel_max": 2,
   "source_repo": "xonoxo143-ux/Ai-Stuff",
   "source_ref": "refs/heads/aistuff",
-  "source_sha": "4fc89ae1084c4fbabbc030bb607c62315a766a1d",
-  "sha256": "1076dd5989f5b69006b995a899874d9332cbf2d4108815732ecbcb81c3582e57",
+  "source_sha": "6c9c73ffeb02572f37f6417face96e88a687bcca",
+  "sha256": "c67c2eca7cea5e54870e57cf677b8fff81788e661d61303f0d4af8b688d52bdd",
   "bundle_url": "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/aistuff/workspace/releases/workbench.zip",
-  "attestation_url": "https://github.com/xonoxo143-ux/Ai-Stuff/attestations/50206583"
+  "attestation_url": "https://github.com/xonoxo143-ux/Ai-Stuff/attestations/50310353"
 }
