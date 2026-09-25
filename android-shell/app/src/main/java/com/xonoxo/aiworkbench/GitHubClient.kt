@@ -12,6 +12,7 @@ class GitHubClient {
         const val OWNER = "xonoxo143-ux"
         const val REPO = "Ai-Stuff"
         const val BRANCH = "aistuff"
+        const val CLIENT_ID = "Iv23lio4I0nxZZWQZsAv"
         const val API = "https://api.github.com"
         const val API_VERSION = "2026-03-10"
     }
