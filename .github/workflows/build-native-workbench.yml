@@ -39,13 +39,32 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ env.BASE_MODEL_RUN_ID }}
 
-      - name: Bundle current Agent model
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build current Agent runtime package
         run: |
           set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "onnx>=1.16" "onnxruntime>=1.18"
+          python -m pip install -e agent-model --no-deps
+
           rm -rf android-shell/app/src/main/assets/agent-model
           mkdir -p android-shell/app/src/main/assets/agent-model
-          cp previous-agent/agent-model/artifacts/agent-ecology-thought-step.onnx             android-shell/app/src/main/assets/agent-model/
-          cp previous-agent/agent-model/artifacts/agent-ecology-thought-step.json             android-shell/app/src/main/assets/agent-model/
+
+          python -m agent_ecology.export_onnx             previous-agent/agent-model/artifacts/agent-ecology-v0.pt             --output android-shell/app/src/main/assets/agent-model/agent-ecology-thought-step.onnx             --dense-output android-shell/app/src/main/assets/agent-model/agent-ecology-thought-step-dense.onnx             --manifest android-shell/app/src/main/assets/agent-model/agent-ecology-thought-step.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("android-shell/app/src/main/assets/agent-model/agent-ecology-thought-step.json")
+          m = json.loads(p.read_text())
+          assert m["schema"] == 2
+          assert m["dense_reference"]["onnx_file"] == "agent-ecology-thought-step-dense.onnx"
+          print("Agent runtime package contains sparse + dense reference backends.")
+          PY
 
       - name: Bundle fallback workbench
         run: |
@@ -120,6 +139,7 @@ jobs:
           grep -q "lib/arm64-v8a/libai_workbench_native.so" dist/apk-contents.txt
           grep -q "assets/workbench/index.html" dist/apk-contents.txt
           grep -q "assets/agent-model/agent-ecology-thought-step.onnx" dist/apk-contents.txt
+          grep -q "assets/agent-model/agent-ecology-thought-step-dense.onnx" dist/apk-contents.txt
           grep -q "assets/agent-model/agent-ecology-thought-step.json" dist/apk-contents.txt
 
       - name: Attest APK with GitHub OIDC
