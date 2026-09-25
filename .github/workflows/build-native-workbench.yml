@@ -72,12 +72,14 @@ jobs:
           set -euo pipefail
           gradle -p android-shell --no-daemon --console=plain :app:testDebugUnitTest
 
-      - name: Create debug keystore
+      - name: Prepare stable Android signing
+        env:
+          AI_WORKBENCH_SIGNING_BUNDLE: ${{ secrets.AI_WORKBENCH_SIGNING_BUNDLE }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -keyalg RSA -genkeypair -alias androiddebugkey               -keypass android -keystore "$HOME/.android/debug.keystore"               -storepass android -dname "CN=Android Debug,O=Android,C=US"               -validity 10000
-          fi
+          set -euo pipefail
+          python3 scripts/prepare_android_signing.py
+          echo "AI_WORKBENCH_VERSION_CODE=$(date +%s)" >> "$GITHUB_ENV"
+          echo "AI_WORKBENCH_VERSION_NAME=0.4.${GITHUB_RUN_NUMBER}-stable" >> "$GITHUB_ENV"
 
       - name: Build native APK
         run: |
@@ -92,6 +94,7 @@ jobs:
           set -euo pipefail
           tools="${ANDROID_SDK_ROOT}/build-tools/35.0.1"
           "$tools/apksigner" verify --verbose dist/AIWorkbench-kernel2-debug.apk
+          python3 scripts/verify_android_signing.py "$tools/apksigner" dist/AIWorkbench-kernel2-debug.apk
           "$tools/aapt" dump badging dist/AIWorkbench-kernel2-debug.apk | tee dist/apk-badging.txt
           grep -q "package: name='com.xonoxo.aiworkbench.k2'" dist/apk-badging.txt
           grep -q "launchable-activity:" dist/apk-badging.txt
