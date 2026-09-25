@@ -31,6 +31,7 @@ let lastMetrics = null;
 let remoteManifest = null;
 let benchCancelled = false;
 let lastBenchmark = null;
+let lastAgentTest = null;
 let githubState = null;
 let githubPollTimer = null;
 
@@ -332,6 +333,124 @@ async function runBenchmark() {
     : "Stopped after " + turns.length + " turn(s).";
 }
 
+async function refreshAgent() {
+  try {
+    const status = await nativeRequest("agent.model.status");
+    if (!status.available) {
+      $("#agent-status").textContent =
+        "This kernel supports Agent v0, but this APK does not contain a learned Agent model.";
+      $("#agent-selftest").disabled = true;
+      $("#agent-reset").disabled = true;
+      return status;
+    }
+
+    $("#agent-selftest").disabled = false;
+    $("#agent-reset").disabled = false;
+    if (status.loaded && status.model) {
+      const m = status.model;
+      $("#agent-status").textContent =
+        "Loaded " + m.id + " · " + m.num_cells + " cells · " +
+        m.active_cells + " active/thought · state " + m.state_dim +
+        " · " + m.thought_steps + " thought steps/event";
+    } else {
+      $("#agent-status").textContent =
+        "Learned Agent model is bundled and ready to load.";
+    }
+    return status;
+  } catch (error) {
+    $("#agent-status").textContent = "Agent runtime error: " + error.message;
+    $("#agent-selftest").disabled = true;
+    $("#agent-reset").disabled = true;
+    return null;
+  }
+}
+
+function formatAgentTrace(result) {
+  const lines = [];
+  for (const item of result.program || []) {
+    lines.push(
+      item.event +
+      "  expected=" + Number(item.expected).toFixed(4) +
+      "  predicted=" + Number(item.predicted).toFixed(4) +
+      "  |error|=" + Number(item.absolute_error).toFixed(4)
+    );
+    (item.thoughts || []).forEach((thought, index) => {
+      lines.push(
+        "  thought " + (index + 1) +
+        "  cells=[" + thought.selected_cells.join(", ") + "]" +
+        "  route=[" + thought.route_weights.map(x => Number(x).toFixed(3)).join(", ") + "]" +
+        "  " + Number(thought.latency_ms).toFixed(3) + " ms"
+      );
+    });
+  }
+  return lines.join("\n");
+}
+
+async function runAgentSelfTest() {
+  $("#agent-status").textContent = "Running learned Agent on this phone…";
+  $("#agent-summary").textContent = "Executing recurrent sparse ecology…";
+  $("#agent-trace").textContent = "Running…";
+
+  try {
+    const result = await nativeRequest("agent.model.selfTest");
+    lastAgentTest = {
+      schema: 1,
+      type: "agent_hardware_test",
+      generated_at: new Date().toISOString(),
+      ...result
+    };
+
+    const m = result.model;
+    $("#agent-status").textContent =
+      "Loaded " + m.id + " · " + m.num_cells + " cells · " +
+      m.active_cells + " active/thought";
+
+    $("#agent-summary").textContent =
+      "MAE " + Number(result.mae).toFixed(4) +
+      " · " + result.total_thoughts + " thoughts" +
+      " · mean " + Number(result.mean_thought_latency_ms).toFixed(3) + " ms/thought" +
+      " · total " + Number(result.total_latency_ms).toFixed(2) + " ms";
+
+    $("#agent-trace").textContent = formatAgentTrace(result);
+  } catch (error) {
+    $("#agent-status").textContent = "Agent test failed: " + error.message;
+    $("#agent-summary").textContent = "No result.";
+    $("#agent-trace").textContent = String(error.stack || error);
+  }
+}
+
+async function resetAgent() {
+  try {
+    await nativeRequest("agent.model.reset");
+    $("#agent-summary").textContent = "Agent recurrent state reset.";
+    toast("Agent state reset.");
+    await refreshAgent();
+  } catch (error) {
+    toast("Reset failed: " + error.message);
+  }
+}
+
+async function pushAgentTest() {
+  if (!lastAgentTest) return toast("Run the Agent hardware test first.");
+
+  await refreshGitHub();
+  if (!githubState?.signed_in || !githubState?.repo_access) {
+    switchTab("data");
+    return toast("Connect GitHub and grant Ai-Stuff access first.");
+  }
+
+  try {
+    await nativeRequest("github.pushResult", {
+      filename: "agent-hardware-" + Date.now() + ".json",
+      content: JSON.stringify(lastAgentTest, null, 2)
+    });
+    toast("Agent hardware result pushed to GitHub.");
+  } catch (error) {
+    toast("Push failed: " + error.message);
+    await refreshGitHub();
+  }
+}
+
 function githubButtons(state) {
   const discovered = !!state.app_discovered;
   const signedIn = !!state.signed_in;
@@ -567,6 +686,10 @@ async function boot() {
     await refreshModels();
   });
 
+  $("#agent-selftest").addEventListener("click", runAgentSelfTest);
+  $("#agent-reset").addEventListener("click", resetAgent);
+  $("#push-agent-test").addEventListener("click", pushAgentTest);
+
   $("#send-button").addEventListener("click", sendChat);
   $("#stop-button").addEventListener("click", () => nativeRequest("generation.stop"));
   $("#bench-run").addEventListener("click", runBenchmark);
@@ -594,6 +717,7 @@ async function boot() {
 
   await loadModelSelection();
   await refreshKernel();
+  await refreshAgent();
   loadSavedBenchmark();
   await refreshGitHub();
   checkUpdate(false);
