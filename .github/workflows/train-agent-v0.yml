@@ -1,0 +1,79 @@
+name: Train Agent Model v0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - ".github/workflows/train-agent-v0.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aistuff-agent-v0-training
+  cancel-in-progress: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "onnx>=1.16" "onnxruntime>=1.18"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Train first hardware candidate
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.train             --steps 1800             --batch-size 32             --eval-batch-size 512             --min-sequence 2             --max-sequence 6             --num-cells 16             --active-cells 4             --state-dim 96             --workspace-slots 4             --signature-dim 32             --message-dim 32             --thought-steps 3             --learning-rate 0.0003             --balance-weight 0.01             --log-every 100             --seed 17             --output-dir artifacts
+
+      - name: Export Android inference package
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.export_onnx             artifacts/agent-ecology-v0.pt             --output artifacts/agent-ecology-thought-step.onnx
+
+      - name: Summarize candidate
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path("artifacts/metrics.json").read_text())
+          usage = m["cell_usage"]
+          summary = {
+              "parameter_count": m["parameter_count"],
+              "seen_mae": m["seen_mae"],
+              "recombined_mae": m["recombined_mae"],
+              "max_cell_usage": max(usage),
+              "used_cells": sum(x > 0.001 for x in usage),
+          }
+          print(json.dumps(summary, indent=2))
+          Path("artifacts/summary.json").write_text(json.dumps(summary, indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Ecology-v0-Candidate
+          path: |
+            agent-model/artifacts/agent-ecology-v0.pt
+            agent-model/artifacts/agent-ecology-thought-step.onnx
+            agent-model/artifacts/agent-ecology-thought-step.json
+            agent-model/artifacts/metrics.json
+            agent-model/artifacts/summary.json
+          retention-days: 30
