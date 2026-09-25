@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Dict
 
@@ -133,6 +135,41 @@ def export_model(
     return metrics
 
 
+def write_manifest(
+    model: SparseRecurrentEcology,
+    onnx_path: Path,
+    manifest_path: Path,
+    metrics: Dict[str, float],
+) -> None:
+    digest = hashlib.sha256(onnx_path.read_bytes()).hexdigest()
+    payload = {
+        "schema": 1,
+        "model_id": "agent-ecology-v0",
+        "runtime": "onnxruntime",
+        "format": "onnx",
+        "onnx_file": onnx_path.name,
+        "sha256": digest,
+        "config": asdict(model.config),
+        "initial_workspace": (
+            model.initial_workspace.detach().cpu().float().tolist()
+        ),
+        "initial_cell_state": "zeros",
+        "inputs": ["event", "workspace", "cell_states"],
+        "outputs": [
+            "output",
+            "new_workspace",
+            "new_cell_states",
+            "selected_cells",
+            "route_weights",
+            "router_scores",
+            "halt_probability",
+        ],
+        "export_metrics": metrics,
+    }
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(payload, indent=2))
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("checkpoint")
@@ -140,16 +177,32 @@ def main() -> None:
         "--output",
         default="artifacts/agent-ecology-thought-step.onnx",
     )
+    p.add_argument("--manifest", default=None)
     p.add_argument("--skip-verify", action="store_true")
     args = p.parse_args()
 
     model = load_checkpoint(Path(args.checkpoint))
+    output_path = Path(args.output)
     metrics = export_model(
         model,
-        Path(args.output),
+        output_path,
         verify=not args.skip_verify,
     )
-    print(json.dumps(metrics, indent=2))
+    manifest_path = (
+        Path(args.manifest)
+        if args.manifest
+        else output_path.with_suffix(".json")
+    )
+    write_manifest(model, output_path, manifest_path, metrics)
+    print(
+        json.dumps(
+            {
+                **metrics,
+                "manifest": manifest_path.as_posix(),
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
