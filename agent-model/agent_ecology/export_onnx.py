@@ -109,8 +109,8 @@ def export_model(
             None,
             {
                 "event": event.numpy(),
-                "workspace": state.workspace.numpy(),
-                "cell_states": state.cell_states.numpy(),
+                "workspace": state.workspace.detach().numpy(),
+                "cell_states": state.cell_states.detach().numpy(),
             },
         )
 
