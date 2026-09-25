@@ -6,8 +6,7 @@ on:
     branches:
       - aistuff
     paths:
-      - "workbench-web/**"
-      - "workspace/benchmarks/**"
+      - "workspace/release-request.json"
       - ".github/workflows/release-workbench.yml"
 
 permissions:
