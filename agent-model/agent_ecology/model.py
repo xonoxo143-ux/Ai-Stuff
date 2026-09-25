@@ -567,8 +567,11 @@ class SparseRecurrentEcology(nn.Module):
         """
         probs = torch.softmax(router_scores, dim=-1)
         mean_usage = probs.reshape(-1, probs.shape[-1]).mean(dim=0)
-        uniform = torch.full_like(mean_usage, 1.0 / self.config.num_cells)
-        return torch.mean((mean_usage - uniform) ** 2)
+        # Zero at perfectly uniform usage; approaches N-1 as routing collapses
+        # onto one cell. This has a useful scale even for moderately large N.
+        return (
+            self.config.num_cells * torch.sum(mean_usage.square()) - 1.0
+        )
 
     def communication_cost(self, route_weights: Tensor) -> Tensor:
         """
