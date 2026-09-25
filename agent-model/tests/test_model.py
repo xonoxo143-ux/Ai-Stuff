@@ -125,3 +125,32 @@ def test_parameter_count_is_nontrivial_but_small():
     count = model.parameter_count()
     assert count > 10_000
     assert count < 5_000_000
+
+
+def test_sparse_and_dense_reference_are_semantically_equivalent():
+    model = tiny_model().eval()
+    event = torch.randn(4, 7)
+    state = model.initial_state(4)
+
+    sparse = model.thought_step(
+        event,
+        state.workspace,
+        state.cell_states,
+        add_training_noise=False,
+    )
+    dense = model.thought_step_dense_reference(
+        event,
+        state.workspace,
+        state.cell_states,
+    )
+
+    for sparse_value, dense_value in zip(sparse, dense):
+        if sparse_value.dtype in (torch.int32, torch.int64):
+            assert torch.equal(sparse_value, dense_value)
+        else:
+            assert torch.allclose(
+                sparse_value,
+                dense_value,
+                atol=2e-5,
+                rtol=2e-5,
+            )
