@@ -1,3 +1,19 @@
+val stableKeystoreFile = System.getenv("AI_WORKBENCH_KEYSTORE_FILE")
+val stableKeyAlias = System.getenv("AI_WORKBENCH_KEY_ALIAS")
+val stableStorePassword = System.getenv("AI_WORKBENCH_KEYSTORE_PASSWORD")
+val stableKeyPassword = System.getenv("AI_WORKBENCH_KEY_PASSWORD")
+val stableSigningAvailable = listOf(
+    stableKeystoreFile,
+    stableKeyAlias,
+    stableStorePassword,
+    stableKeyPassword,
+).all { !it.isNullOrBlank() }
+
+val buildVersionCode =
+    System.getenv("AI_WORKBENCH_VERSION_CODE")?.toIntOrNull() ?: 4
+val buildVersionName =
+    System.getenv("AI_WORKBENCH_VERSION_NAME") ?: "0.4.0-kernel2"
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,8 +28,8 @@ android {
         applicationId = "com.xonoxo.aiworkbench.k2"
         minSdk = 28
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0-kernel2"
+        versionCode = buildVersionCode
+        versionName = buildVersionName
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -44,6 +60,18 @@ android {
         }
     }
 
+    signingConfigs {
+        if (stableSigningAvailable) {
+            create("stable") {
+                storeFile = file(requireNotNull(stableKeystoreFile))
+                storePassword = requireNotNull(stableStorePassword)
+                keyAlias = requireNotNull(stableKeyAlias)
+                keyPassword = requireNotNull(stableKeyPassword)
+                storeType = "PKCS12"
+            }
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
@@ -58,9 +86,15 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            if (stableSigningAvailable) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
         }
         release {
             isMinifyEnabled = true
+            if (stableSigningAvailable) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
