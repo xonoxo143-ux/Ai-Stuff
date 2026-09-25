@@ -10,7 +10,15 @@ Build a local chatbot that improves both useful answer quality and wall-clock ef
 
 Storage is a soft constraint. Active compute, latency, memory movement, and quality are the hard measurements.
 
-## Active architecture
+## Agent architecture
+
+The Workbench is the laboratory, not the cognitive architecture itself.
+
+The first faithful runtime specification for the agent is now frozen in `docs/AGENT_V0_SPEC.md`.
+
+Agent v0 is defined as a persistent computational ecology with first-class capabilities and interaction motifs, context-sensitive temporary organization, bounded communication, explicit provenance, and a reversible developmental learning path.
+
+## Active Workbench architecture
 
 ```text
 native Android kernel
@@ -64,4 +72,4 @@ Git stores source, workbench bundles/manifests, benchmark suites, small results,
 
 Git does **not** store model weights, large checkpoints, bulky datasets, or training caches.
 
-See `docs/ARCHITECTURE.md` and `docs/WORKBENCH_V0.md`.
+See `docs/AGENT_V0_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/WORKBENCH_V0.md`.
