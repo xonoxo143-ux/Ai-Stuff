@@ -569,10 +569,25 @@ function renderAgentBenchmarkSummary(result) {
 }
 
 async function runAgentBenchmark() {
-  const suite = await fetch("benchmarks/agent-ecology-v0.json").then(response => {
-    if (!response.ok) throw new Error("Agent benchmark file is unavailable.");
-    return response.json();
-  });
+  $("#agent-status").textContent = "Starting depth/context benchmark…";
+  $("#agent-summary").textContent = "Loading benchmark definition…";
+  $("#agent-trace").textContent = "Preparing…";
+
+  let suite;
+  try {
+    suite = await fetch("benchmarks/agent-ecology-v0.json", { cache: "no-store" }).then(response => {
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return response.json();
+    });
+  } catch (error) {
+    $("#agent-status").textContent = "Could not start benchmark.";
+    $("#agent-summary").textContent =
+      "Benchmark definition failed to load: " + error.message;
+    $("#agent-trace").textContent =
+      "Update the Workbench again. The current release now contains the benchmark and this error will be visible instead of looking like a dead button.";
+    return;
+  }
+
   const status = await refreshAgent();
   if (!status?.available) return;
 
