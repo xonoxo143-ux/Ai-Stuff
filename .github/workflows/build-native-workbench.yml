@@ -79,28 +79,28 @@ jobs:
           set -euo pipefail
           gradle -p android-shell --no-daemon --console=plain :app:assembleDebug
           mkdir -p dist
-          cp android-shell/app/build/outputs/apk/debug/app-debug.apk dist/AIWorkbench-kernel1-debug.apk
-          sha256sum dist/AIWorkbench-kernel1-debug.apk | tee dist/AIWorkbench-kernel1-debug.apk.sha256
+          cp android-shell/app/build/outputs/apk/debug/app-debug.apk dist/AIWorkbench-kernel2-debug.apk
+          sha256sum dist/AIWorkbench-kernel2-debug.apk | tee dist/AIWorkbench-kernel2-debug.apk.sha256
 
       - name: Verify APK
         run: |
           set -euo pipefail
           tools="${ANDROID_SDK_ROOT}/build-tools/35.0.1"
-          "$tools/apksigner" verify --verbose dist/AIWorkbench-kernel1-debug.apk
-          "$tools/aapt" dump badging dist/AIWorkbench-kernel1-debug.apk | tee dist/apk-badging.txt
-          grep -q "package: name='com.xonoxo.aiworkbench'" dist/apk-badging.txt
+          "$tools/apksigner" verify --verbose dist/AIWorkbench-kernel2-debug.apk
+          "$tools/aapt" dump badging dist/AIWorkbench-kernel2-debug.apk | tee dist/apk-badging.txt
+          grep -q "package: name='com.xonoxo.aiworkbench.k2'" dist/apk-badging.txt
           grep -q "launchable-activity:" dist/apk-badging.txt
-          unzip -l dist/AIWorkbench-kernel1-debug.apk | tee dist/apk-contents.txt
+          unzip -l dist/AIWorkbench-kernel2-debug.apk | tee dist/apk-contents.txt
           grep -q "lib/arm64-v8a/libai_workbench_native.so" dist/apk-contents.txt
           grep -q "assets/workbench/index.html" dist/apk-contents.txt
 
       - name: Attest APK with GitHub OIDC
         uses: actions/attest@v4
         with:
-          subject-path: dist/AIWorkbench-kernel1-debug.apk
+          subject-path: dist/AIWorkbench-kernel2-debug.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AIWorkbench-Native-Kernel1
+          name: AIWorkbench-Native-Kernel2
           path: dist/*
           retention-days: 30
