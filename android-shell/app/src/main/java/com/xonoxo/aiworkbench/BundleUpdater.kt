@@ -13,10 +13,10 @@ import java.util.zip.ZipInputStream
 class BundleUpdater(private val context: Context) {
     companion object {
         const val KERNEL_VERSION = 2
-        // APKs built after the first Agent phone run contain at least this
-        // Workbench generation. Older mutable bundles are invalidated on
-        // install so a stale v19/v20 bundle cannot shadow the fixed UI.
-        const val BUNDLED_WORKBENCH_FLOOR = 22L
+        // This native build contains Workbench v25 or newer. Invalidate older
+        // mutable bundles on install so the bundled sparse/dense benchmark UI
+        // cannot be shadowed by a stale private copy.
+        const val BUNDLED_WORKBENCH_FLOOR = 25L
         const val REPO = "xonoxo143-ux/Ai-Stuff"
         const val REF = "refs/heads/aistuff"
         const val MANIFEST_URL =
