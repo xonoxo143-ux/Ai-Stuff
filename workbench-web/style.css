@@ -2,7 +2,7 @@
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
 body{padding:max(18px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom))}
 header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}h1{margin:0;font-size:1.55rem}h2{margin:24px 0 10px;font-size:1.15rem}
-.muted{color:var(--muted);font-size:.88rem}nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;position:sticky;top:0;z-index:4;background:var(--bg);padding:8px 0 12px}
+.muted{color:var(--muted);font-size:.88rem}nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;position:sticky;top:0;z-index:4;background:var(--bg);padding:8px 0 12px}
 button,select,input,textarea{width:100%;min-height:52px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);color:var(--text);font:inherit;padding:10px 12px}
 button{font-weight:650;background:#375fba}button.secondary{background:var(--panel2)}button.danger{background:#713844}button:disabled{opacity:.45}
 nav button{min-height:46px;padding:8px 4px;background:var(--panel)}nav button.active{background:#375fba}textarea{resize:vertical;line-height:1.35}
@@ -16,3 +16,5 @@ progress{width:100%;height:22px;margin:10px 0}.chat-view{min-height:48vh;max-hei
 
 .hidden{display:none!important}
 .device-code{font:700 1.55rem ui-monospace,monospace;letter-spacing:.12em;text-align:center;margin:8px 0}
+
+.agent-trace{max-height:48vh;min-height:180px}
