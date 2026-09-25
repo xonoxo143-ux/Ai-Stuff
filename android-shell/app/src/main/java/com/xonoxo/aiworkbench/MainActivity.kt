@@ -20,7 +20,12 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.xonoxo.aiworkbench.agent.AgentModelInfo
+import com.xonoxo.aiworkbench.agent.AgentModelRuntime
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -31,6 +36,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
 
     private lateinit var webView: WebView
     private lateinit var runtime: NativeRuntime
+    private lateinit var agentModel: AgentModelRuntime
     private lateinit var updater: BundleUpdater
     private lateinit var secureStore: SecureStore
     private val github = GitHubClient()
@@ -43,6 +49,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
         window.navigationBarColor = Color.rgb(17, 20, 28)
 
         runtime = NativeRuntime(this).also { it.listener = this }
+        agentModel = AgentModelRuntime()
         updater = BundleUpdater(this)
         secureStore = SecureStore(this)
         secureStore.put("github_client_id", GitHubClient.CLIENT_ID)
@@ -241,6 +248,104 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             "generation.stop" -> {
                 runtime.stopGeneration()
                 ok()
+            }
+
+            "agent.model.status" -> ioExecutor.execute {
+                try {
+                    val available = bundledAgentManifestName() != null
+                    val info = agentModel.modelInfo()
+                    runOnUiThread {
+                        ok(
+                            JSONObject()
+                                .put("available", available)
+                                .put("loaded", agentModel.isLoaded())
+                                .put(
+                                    "model",
+                                    if (info == null) JSONObject.NULL
+                                    else agentModelInfoJson(info)
+                                )
+                        )
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "agent.model.reset" -> ioExecutor.execute {
+                try {
+                    ensureBundledAgentModelLoaded()
+                    agentModel.reset()
+                    runOnUiThread { ok() }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "agent.model.thought" -> ioExecutor.execute {
+                try {
+                    val info = ensureBundledAgentModelLoaded()
+                    if (payload.optBoolean("reset", false)) {
+                        agentModel.reset()
+                    }
+                    val raw = payload.getJSONArray("event")
+                    require(raw.length() == info.eventDim) {
+                        "Agent event has the wrong dimension"
+                    }
+                    val event = FloatArray(raw.length()) {
+                        raw.getDouble(it).toFloat()
+                    }
+                    val requestedSteps = payload.optInt("steps", 1)
+                    val steps = requestedSteps.coerceIn(1, 64)
+                    val traces = JSONArray()
+                    var output = FloatArray(info.outputDim)
+                    var totalNanos = 0L
+                    repeat(steps) {
+                        val thought = agentModel.thoughtStep(event)
+                        output = thought.output
+                        totalNanos += thought.latencyNanos
+                        traces.put(
+                            JSONObject()
+                                .put(
+                                    "selected_cells",
+                                    JSONArray(thought.selectedCells.toList())
+                                )
+                                .put(
+                                    "route_weights",
+                                    JSONArray(thought.routeWeights.toList())
+                                )
+                                .put(
+                                    "halt_probability",
+                                    thought.haltProbability.toDouble()
+                                )
+                                .put(
+                                    "latency_ms",
+                                    thought.latencyNanos / 1_000_000.0
+                                )
+                        )
+                    }
+                    runOnUiThread {
+                        ok(
+                            JSONObject()
+                                .put("output", JSONArray(output.toList()))
+                                .put("thoughts", traces)
+                                .put(
+                                    "total_latency_ms",
+                                    totalNanos / 1_000_000.0
+                                )
+                        )
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "agent.model.selfTest" -> ioExecutor.execute {
+                try {
+                    val result = runAgentSelfTest()
+                    runOnUiThread { ok(result) }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
             }
 
             "update.check" -> ioExecutor.execute {
@@ -516,6 +621,170 @@ class MainActivity : Activity(), NativeRuntime.Listener {
         }
     }
 
+    private fun bundledAgentManifestName(): String? {
+        return assets.list("agent-model")
+            ?.firstOrNull { it.endsWith(".json") }
+    }
+
+    private fun ensureBundledAgentModelLoaded(): AgentModelInfo {
+        agentModel.modelInfo()?.let { return it }
+
+        val manifestName = bundledAgentManifestName()
+            ?: throw IllegalStateException(
+                "This APK does not contain an Agent model yet"
+            )
+        val manifestText = assets.open("agent-model/$manifestName")
+            .bufferedReader()
+            .use { it.readText() }
+        val manifest = JSONObject(manifestText)
+        val onnxName = manifest.getString("onnx_file")
+        val expectedSha = manifest.getString("sha256").lowercase()
+
+        val modelDir = File(filesDir, "agent-model").apply { mkdirs() }
+        val modelFile = File(modelDir, onnxName)
+
+        if (
+            !modelFile.exists() ||
+            sha256(modelFile) != expectedSha
+        ) {
+            assets.open("agent-model/$onnxName").use { input ->
+                modelFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+
+        require(sha256(modelFile) == expectedSha) {
+            "Bundled Agent model failed SHA-256 verification"
+        }
+
+        return agentModel.load(
+            modelFile.absolutePath,
+            manifestText,
+            threads = 4,
+        )
+    }
+
+    private fun agentModelInfoJson(info: AgentModelInfo): JSONObject {
+        return JSONObject()
+            .put("id", info.modelId)
+            .put("event_dim", info.eventDim)
+            .put("output_dim", info.outputDim)
+            .put("num_cells", info.numCells)
+            .put("active_cells", info.activeCells)
+            .put("state_dim", info.stateDim)
+            .put("workspace_slots", info.workspaceSlots)
+            .put("thought_steps", info.thoughtSteps)
+    }
+
+    private fun runAgentSelfTest(): JSONObject {
+        val info = ensureBundledAgentModelLoaded()
+        require(info.eventDim == 11 && info.outputDim == 1) {
+            "Bundled model is not compatible with the v0 register curriculum"
+        }
+
+        data class TestEvent(
+            val name: String,
+            val op: Int,
+            val argument: Float?,
+            val expected: Float,
+        )
+
+        val program = listOf(
+            TestEvent("SET 1.25", 0, 1.25f, 1.25f),
+            TestEvent("ADD 0.75", 1, 0.75f, 2.0f),
+            TestEvent("SQUARE", 7, null, 4.0f),
+            TestEvent("HALF", 6, null, 2.0f),
+            TestEvent("NEG", 4, null, -2.0f),
+            TestEvent("ABS", 5, null, 2.0f),
+        )
+
+        agentModel.reset()
+        val eventResults = JSONArray()
+        var absoluteError = 0.0
+        var totalNanos = 0L
+
+        for (test in program) {
+            val event = FloatArray(info.eventDim)
+            event[test.op] = 1.0f
+            if (test.argument != null) {
+                event[8] = test.argument
+                event[9] = 1.0f
+            }
+            event[10] = 1.0f
+
+            val thoughtTrace = JSONArray()
+            var predicted = 0.0f
+
+            repeat(info.thoughtSteps) {
+                val thought = agentModel.thoughtStep(event)
+                predicted = thought.output[0]
+                totalNanos += thought.latencyNanos
+                thoughtTrace.put(
+                    JSONObject()
+                        .put(
+                            "selected_cells",
+                            JSONArray(thought.selectedCells.toList())
+                        )
+                        .put(
+                            "route_weights",
+                            JSONArray(thought.routeWeights.toList())
+                        )
+                        .put(
+                            "halt_probability",
+                            thought.haltProbability.toDouble()
+                        )
+                        .put(
+                            "latency_ms",
+                            thought.latencyNanos / 1_000_000.0
+                        )
+                )
+            }
+
+            val error = kotlin.math.abs(
+                predicted.toDouble() - test.expected.toDouble()
+            )
+            absoluteError += error
+
+            eventResults.put(
+                JSONObject()
+                    .put("event", test.name)
+                    .put("expected", test.expected.toDouble())
+                    .put("predicted", predicted.toDouble())
+                    .put("absolute_error", error)
+                    .put("thoughts", thoughtTrace)
+            )
+        }
+
+        return JSONObject()
+            .put("model", agentModelInfoJson(info))
+            .put("program", eventResults)
+            .put("mae", absoluteError / program.size)
+            .put(
+                "total_thoughts",
+                program.size * info.thoughtSteps
+            )
+            .put("total_latency_ms", totalNanos / 1_000_000.0)
+            .put(
+                "mean_thought_latency_ms",
+                totalNanos / 1_000_000.0 /
+                    (program.size * info.thoughtSteps)
+            )
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count <= 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
     private fun githubAppSlug(): String = GitHubClient.APP_SLUG
 
     private fun githubSetupInfo(): JSONObject {
@@ -701,6 +970,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
 
     override fun onDestroy() {
         runtime.shutdown()
+        agentModel.close()
         ioExecutor.shutdownNow()
         webView.destroy()
         super.onDestroy()
