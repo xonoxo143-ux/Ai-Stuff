@@ -430,6 +430,51 @@ class SparseRecurrentEcology(nn.Module):
             halt_probability,
         )
 
+    def thought_step_dense_reference(
+        self,
+        event: Tensor,
+        workspace: Tensor,
+        cell_states: Tensor,
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        """
+        Execute one semantic-equivalent dense reference thought step.
+
+        Routing remains top-k and only the selected cells are committed/exposed,
+        but candidate private computation is evaluated for every stored cell.
+        This exists solely to measure whether sparse execution saves real
+        hardware time relative to equivalent dense computation.
+        """
+        event_embedding = self.event_encoder(event)
+
+        selected, route_weights, scores, _router_probs = self._route(
+            event_embedding,
+            workspace,
+            add_training_noise=False,
+        )
+
+        new_cell_states, messages = self._dense_training_cell_update(
+            event_embedding,
+            workspace,
+            cell_states,
+            selected,
+            route_weights,
+        )
+        new_workspace = self._workspace_write(workspace, messages)
+
+        pooled = new_workspace.mean(dim=1)
+        output = self.output_head(pooled)
+        halt_probability = torch.sigmoid(self.halt_head(pooled)).squeeze(-1)
+
+        return (
+            output,
+            new_workspace,
+            new_cell_states,
+            selected,
+            route_weights,
+            scores,
+            halt_probability,
+        )
+
     def forward_event(
         self,
         event: Tensor,
