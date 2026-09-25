@@ -30,6 +30,7 @@ jobs:
           set -euo pipefail
           node --check workbench-web/app.js
           python3 -m json.tool workspace/benchmarks/chatbot-v0.json >/dev/null
+          python3 -m json.tool workspace/benchmarks/agent-ecology-v0.json >/dev/null
 
       - name: Build bundle
         run: |
@@ -38,6 +39,7 @@ jobs:
           mkdir -p bundle-stage/benchmarks workspace/releases
           cp -a workbench-web/. bundle-stage/
           cp workspace/benchmarks/chatbot-v0.json bundle-stage/benchmarks/
+          cp workspace/benchmarks/agent-ecology-v0.json bundle-stage/benchmarks/
           (cd bundle-stage && zip -qr ../workbench.zip .)
           sha256sum workbench.zip
 
