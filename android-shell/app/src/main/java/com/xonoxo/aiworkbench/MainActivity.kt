@@ -1,6 +1,8 @@
 package com.xonoxo.aiworkbench
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -291,9 +293,207 @@ class MainActivity : Activity(), NativeRuntime.Listener {
                 ok()
             }
 
+            "github.setupInfo" -> {
+                ok(githubSetupInfo())
+            }
+
+            "github.openUrl" -> {
+                try {
+                    openGitHubUrl(payload.getString("url"))
+                    ok()
+                } catch (t: Throwable) {
+                    fail(t)
+                }
+            }
+
+            "github.discoverApp" -> ioExecutor.execute {
+                try {
+                    val slug = githubAppSlug()
+                    val app = github.discoverApp(slug)
+                    val clientId = app.getString("client_id")
+                    secureStore.put("github_client_id", clientId)
+                    runOnUiThread {
+                        ok(
+                            githubSetupInfo()
+                                .put("app_discovered", true)
+                                .put("client_id", clientId)
+                        )
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "github.deviceStart" -> ioExecutor.execute {
+                try {
+                    val slug = githubAppSlug()
+                    var clientId = secureStore.get("github_client_id")
+                    if (clientId.isBlank()) {
+                        val app = github.discoverApp(slug)
+                        clientId = app.getString("client_id")
+                        secureStore.put("github_client_id", clientId)
+                    }
+
+                    val device = github.requestDeviceCode(clientId)
+                    if (device.has("error")) {
+                        throw IllegalStateException(githubAuthError(device))
+                    }
+
+                    secureStore.put("github_device_code", device.getString("device_code"))
+                    secureStore.put(
+                        "github_device_interval",
+                        device.optInt("interval", 5).toString()
+                    )
+                    secureStore.put(
+                        "github_device_expires_at",
+                        (System.currentTimeMillis() +
+                            device.optLong("expires_in", 900L) * 1000L).toString()
+                    )
+
+                    runOnUiThread {
+                        ok(
+                            JSONObject()
+                                .put("status", "waiting")
+                                .put("user_code", device.getString("user_code"))
+                                .put(
+                                    "verification_uri",
+                                    device.optString(
+                                        "verification_uri",
+                                        "https://github.com/login/device"
+                                    )
+                                )
+                                .put("interval", device.optInt("interval", 5))
+                                .put("expires_in", device.optInt("expires_in", 900))
+                        )
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "github.devicePoll" -> ioExecutor.execute {
+                try {
+                    val clientId = secureStore.get("github_client_id")
+                    val deviceCode = secureStore.get("github_device_code")
+                    val expiresAt = secureStore.get("github_device_expires_at")
+                        .toLongOrNull() ?: 0L
+                    if (deviceCode.isBlank()) {
+                        throw IllegalStateException("No GitHub authorization is in progress")
+                    }
+                    if (expiresAt > 0L && System.currentTimeMillis() >= expiresAt) {
+                        clearGitHubDeviceSession()
+                        throw IllegalStateException("GitHub authorization code expired")
+                    }
+
+                    val result = github.pollDeviceCode(clientId, deviceCode)
+                    val error = result.optString("error")
+                    if (error.isNotBlank()) {
+                        when (error) {
+                            "authorization_pending" -> runOnUiThread {
+                                ok(
+                                    JSONObject()
+                                        .put("status", "pending")
+                                        .put(
+                                            "interval",
+                                            secureStore.get("github_device_interval")
+                                                .toIntOrNull() ?: 5
+                                        )
+                                )
+                            }
+
+                            "slow_down" -> {
+                                val next = (secureStore.get("github_device_interval")
+                                    .toIntOrNull() ?: 5) + 5
+                                secureStore.put("github_device_interval", next.toString())
+                                runOnUiThread {
+                                    ok(
+                                        JSONObject()
+                                            .put("status", "pending")
+                                            .put("interval", next)
+                                    )
+                                }
+                            }
+
+                            else -> {
+                                clearGitHubDeviceSession()
+                                throw IllegalStateException(githubAuthError(result))
+                            }
+                        }
+                    } else {
+                        saveGitHubTokens(result)
+                        clearGitHubDeviceSession()
+                        val token = ensureGitHubToken()
+                        val status = github.connectionStatus(token, githubAppSlug())
+                        runOnUiThread {
+                            ok(
+                                status
+                                    .put("status", "authorized")
+                                    .put("app_slug", githubAppSlug())
+                            )
+                        }
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "github.status" -> ioExecutor.execute {
+                try {
+                    val setup = githubSetupInfo()
+                    val token = ensureGitHubToken()
+                    if (token.isBlank()) {
+                        runOnUiThread {
+                            ok(
+                                setup
+                                    .put("signed_in", false)
+                                    .put("repo_access", false)
+                            )
+                        }
+                    } else {
+                        val status = github.connectionStatus(token, githubAppSlug())
+                        val keys = status.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            setup.put(key, status.get(key))
+                        }
+                        runOnUiThread { ok(setup) }
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread {
+                        ok(
+                            githubSetupInfo()
+                                .put("signed_in", false)
+                                .put("repo_access", false)
+                                .put("error", t.message ?: "GitHub status failed")
+                        )
+                    }
+                }
+            }
+
+            "github.signOut" -> {
+                clearGitHubTokens()
+                ok(githubSetupInfo().put("signed_in", false))
+            }
+
+            "clipboard.copy" -> {
+                try {
+                    val manager =
+                        getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    manager.setPrimaryClip(
+                        ClipData.newPlainText(
+                            payload.optString("label", "AI Workbench"),
+                            payload.getString("text")
+                        )
+                    )
+                    ok()
+                } catch (t: Throwable) {
+                    fail(t)
+                }
+            }
+
             "github.pushResult" -> ioExecutor.execute {
                 try {
-                    val token = secureStore.get("github_token")
+                    val token = ensureGitHubToken()
                     val data = github.pushResult(
                         token,
                         deviceId(),
@@ -311,6 +511,141 @@ class MainActivity : Activity(), NativeRuntime.Listener {
 
             else -> fail(
                 IllegalArgumentException("Unknown kernel request: $type")
+            )
+        }
+    }
+
+    private fun githubAppSlug(): String {
+        val suffix = deviceId().replace("-", "").take(10).lowercase()
+        return "ai-workbench-$suffix"
+    }
+
+    private fun githubSetupInfo(): JSONObject {
+        val slug = githubAppSlug()
+        val registration = Uri.parse("https://github.com/settings/apps/new")
+            .buildUpon()
+            .appendQueryParameter("name", slug)
+            .appendQueryParameter(
+                "description",
+                "Private AI Workbench connection for uploading benchmark results."
+            )
+            .appendQueryParameter(
+                "url",
+                "https://github.com/${GitHubClient.OWNER}/${GitHubClient.REPO}"
+            )
+            .appendQueryParameter("public", "false")
+            .appendQueryParameter("webhook_active", "false")
+            .appendQueryParameter("contents", "write")
+            .build()
+            .toString()
+
+        val clientId = try {
+            secureStore.get("github_client_id")
+        } catch (_: Throwable) {
+            ""
+        }
+
+        return JSONObject()
+            .put("app_slug", slug)
+            .put("client_id", clientId)
+            .put("app_discovered", clientId.isNotBlank())
+            .put("registration_url", registration)
+            .put("settings_url", "https://github.com/settings/apps/$slug")
+            .put("install_url", "https://github.com/apps/$slug/installations/new")
+            .put("verification_url", "https://github.com/login/device")
+            .put("target_repo", "${GitHubClient.OWNER}/${GitHubClient.REPO}")
+    }
+
+    private fun openGitHubUrl(url: String) {
+        val uri = Uri.parse(url)
+        require(uri.scheme == "https" && uri.host == "github.com") {
+            "Only github.com authorization links may be opened"
+        }
+        startActivity(Intent(Intent.ACTION_VIEW, uri))
+    }
+
+    private fun saveGitHubTokens(payload: JSONObject) {
+        val accessToken = payload.optString("access_token")
+        require(accessToken.isNotBlank()) { "GitHub did not return an access token" }
+        secureStore.put("github_token", accessToken)
+
+        val refreshToken = payload.optString("refresh_token")
+        if (refreshToken.isNotBlank()) {
+            secureStore.put("github_refresh_token", refreshToken)
+        }
+
+        val expiresIn = payload.optLong("expires_in", 0L)
+        if (expiresIn > 0L) {
+            secureStore.put(
+                "github_token_expires_at",
+                (System.currentTimeMillis() + expiresIn * 1000L).toString()
+            )
+        } else {
+            secureStore.delete("github_token_expires_at")
+        }
+
+        val refreshExpiresIn = payload.optLong("refresh_token_expires_in", 0L)
+        if (refreshExpiresIn > 0L) {
+            secureStore.put(
+                "github_refresh_expires_at",
+                (System.currentTimeMillis() + refreshExpiresIn * 1000L).toString()
+            )
+        }
+    }
+
+    private fun ensureGitHubToken(): String {
+        var token = secureStore.get("github_token")
+        if (token.isBlank()) return ""
+
+        val expiresAt = secureStore.get("github_token_expires_at")
+            .toLongOrNull() ?: 0L
+
+        if (expiresAt > 0L && System.currentTimeMillis() + 120_000L >= expiresAt) {
+            val clientId = secureStore.get("github_client_id")
+            val refreshToken = secureStore.get("github_refresh_token")
+            if (clientId.isBlank() || refreshToken.isBlank()) {
+                clearGitHubTokens()
+                return ""
+            }
+            val refreshed = github.refreshUserToken(clientId, refreshToken)
+            if (refreshed.has("error")) {
+                clearGitHubTokens()
+                throw IllegalStateException(githubAuthError(refreshed))
+            }
+            saveGitHubTokens(refreshed)
+            token = secureStore.get("github_token")
+        }
+
+        return token
+    }
+
+    private fun clearGitHubDeviceSession() {
+        secureStore.delete("github_device_code")
+        secureStore.delete("github_device_interval")
+        secureStore.delete("github_device_expires_at")
+    }
+
+    private fun clearGitHubTokens() {
+        secureStore.delete("github_token")
+        secureStore.delete("github_refresh_token")
+        secureStore.delete("github_token_expires_at")
+        secureStore.delete("github_refresh_expires_at")
+        clearGitHubDeviceSession()
+    }
+
+    private fun githubAuthError(payload: JSONObject): String {
+        return when (payload.optString("error")) {
+            "device_flow_disabled" ->
+                "Enable Device Flow in the GitHub App settings, then try Sign in again."
+            "expired_token" ->
+                "The GitHub authorization code expired. Start sign-in again."
+            "access_denied" ->
+                "GitHub authorization was cancelled."
+            "incorrect_client_credentials" ->
+                "The GitHub connection's client ID is invalid."
+            else -> payload.optString(
+                "error_description",
+                payload.optString("error", "GitHub authorization failed")
             )
         }
     }
