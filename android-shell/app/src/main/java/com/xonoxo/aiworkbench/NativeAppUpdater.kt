@@ -50,7 +50,7 @@ class NativeAppUpdater(private val context: Context) {
     fun openInstallPermissionSettings() {
         val intent = Intent(
             Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-            Uri.parse("package:\${context.packageName}")
+            Uri.parse("package:${context.packageName}")
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }
@@ -66,7 +66,7 @@ class NativeAppUpdater(private val context: Context) {
             "Native update is not newer than the installed app"
         }
 
-        val target = File(updateDir, "AIWorkbench-\$remoteVersion.apk")
+        val target = File(updateDir, "AIWorkbench-$remoteVersion.apk")
         download(cacheBust(manifest.getString("apk_url"), remoteVersion.toString()), target)
 
         val expectedSha = manifest.getString("sha256").lowercase()
@@ -86,7 +86,7 @@ class NativeAppUpdater(private val context: Context) {
 
         require(info.packageName == PACKAGE_NAME) {
             target.delete()
-            "Unexpected APK package: \${info.packageName}"
+            "Unexpected APK package: ${info.packageName}"
         }
         require(info.longVersionCode == remoteVersion) {
             target.delete()
@@ -128,7 +128,7 @@ class NativeAppUpdater(private val context: Context) {
 
         val uri = FileProvider.getUriForFile(
             context,
-            "\${context.packageName}.files",
+            "${context.packageName}.files",
             apk
         )
 
@@ -156,7 +156,7 @@ class NativeAppUpdater(private val context: Context) {
         require(manifest.optLong("version_code", 0L) > 0L) {
             "Native update manifest has invalid version code"
         }
-        require(manifest.optString("sha256").matches(Regex("^[0-9a-fA-F]{64}\$"))) {
+        require(manifest.optString("sha256").matches(Regex("^[0-9a-fA-F]{64}$"))) {
             "Native update manifest has invalid SHA-256"
         }
         require(manifest.optString("apk_url").startsWith("https://github.com/")) {
@@ -169,7 +169,7 @@ class NativeAppUpdater(private val context: Context) {
 
     private fun cacheBust(url: String, tag: String): String {
         val separator = if (url.contains("?")) "&" else "?"
-        return "\$url\${separator}v=\$tag&ts=\${System.currentTimeMillis()}"
+        return "$url${separator}v=$tag&ts=${System.currentTimeMillis()}"
     }
 
     private fun fetchJson(url: String): JSONObject {
@@ -189,7 +189,7 @@ class NativeAppUpdater(private val context: Context) {
         connection.disconnect()
 
         if (code !in 200..299) {
-            throw IllegalStateException("Native update HTTP \$code")
+            throw IllegalStateException("Native update HTTP $code")
         }
         return JSONObject(body)
     }
@@ -212,7 +212,7 @@ class NativeAppUpdater(private val context: Context) {
                 download(location, target)
                 return
             }
-            throw IllegalStateException("Native APK HTTP \$code")
+            throw IllegalStateException("Native APK HTTP $code")
         }
 
         connection.inputStream.use { input ->
