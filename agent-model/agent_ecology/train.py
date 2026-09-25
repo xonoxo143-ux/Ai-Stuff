@@ -8,7 +8,11 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-from .curriculum import held_out_bigrams, sample_program_batch
+from .curriculum import (
+    held_out_bigrams,
+    sample_forced_bigram_batch,
+    sample_program_batch,
+)
 from .model import EcologyConfig, SparseRecurrentEcology
 
 
@@ -107,13 +111,13 @@ def train(args: argparse.Namespace) -> None:
         )
         seen_mae = F.l1_loss(seen_outputs, seen_targets)
 
-        # No forbidden bigrams here: this deliberately samples combinations
-        # withheld from the training generator.
-        recombined_events, recombined_targets, _ = sample_program_batch(
+        # Every evaluation program contains a composition explicitly withheld
+        # from the training generator.
+        recombined_events, recombined_targets, _ = sample_forced_bigram_batch(
             args.eval_batch_size,
-            args.max_sequence,
+            max(3, args.max_sequence),
+            bigrams=forbidden,
             device=device,
-            forbidden_bigrams=(),
         )
         recombined_outputs, _, recombined_traces = model(
             recombined_events,
@@ -182,7 +186,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--thought-steps", type=int, default=4)
     p.add_argument("--learning-rate", type=float, default=3e-4)
     p.add_argument("--weight-decay", type=float, default=1e-4)
-    p.add_argument("--balance-weight", type=float, default=0.2)
+    p.add_argument("--balance-weight", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--device", default="cpu")
     p.add_argument("--log-every", type=int, default=50)
