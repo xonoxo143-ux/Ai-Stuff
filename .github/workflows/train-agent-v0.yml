@@ -6,7 +6,7 @@ on:
     branches:
       - aistuff
     paths:
-      - ".github/workflows/train-agent-v0.yml"
+      - "workspace/train-agent-request.json"
 
 permissions:
   contents: read
