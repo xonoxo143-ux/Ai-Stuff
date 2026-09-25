@@ -6,7 +6,7 @@ on:
     branches:
       - aistuff
     paths:
-      - ".github/workflows/package-agent-v0-fixed.yml"
+      - "workspace/package-agent-request.json"
 
 permissions:
   contents: read
