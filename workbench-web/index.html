@@ -47,12 +47,14 @@
       <h2>Agent v0</h2>
       <div id="agent-status" class="card">Checking for learned Agent model…</div>
       <div class="grid2">
-        <button id="agent-selftest">Run hardware self-test</button>
+        <button id="agent-selftest">Quick hardware test</button>
+        <button id="agent-benchmark">Depth/context benchmark</button>
         <button id="agent-reset" class="secondary">Reset state</button>
+        <button id="push-agent-test" class="secondary">Push latest result</button>
       </div>
+      <progress id="agent-bench-progress" max="50" value="0"></progress>
       <div id="agent-summary" class="card">No Agent run yet.</div>
       <pre id="agent-trace" class="card mono agent-trace">The first hardware test will show selected capability cells, routing weights, predictions, and per-thought latency.</pre>
-      <button id="push-agent-test" class="secondary">Push Agent result to GitHub</button>
     </section>
 
     <section id="chat" class="tab">
