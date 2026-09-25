@@ -13,6 +13,7 @@ local.properties
 *.aar
 *.jks
 *.keystore
+*.p12
 
 # Native
 .cxx/
