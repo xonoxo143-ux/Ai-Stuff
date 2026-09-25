@@ -16,9 +16,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  train:
+  train-and-package:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+
+    env:
+      ANDROID_NDK_VERSION: "28.1.13356709"
+      ANDROID_CMAKE_VERSION: "3.22.1"
 
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +38,12 @@ jobs:
           python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
           python -m pip install "numpy>=1.26,<3" "onnx>=1.16" "onnxruntime>=1.18"
           python -m pip install -e agent-model --no-deps
+
+      - name: Run model tests
+        run: |
+          set -euo pipefail
+          python -m pip install "pytest>=8"
+          pytest agent-model/tests
 
       - name: Train first hardware candidate
         working-directory: agent-model
@@ -67,10 +77,82 @@ jobs:
           Path("artifacts/summary.json").write_text(json.dumps(summary, indent=2))
           PY
 
+      - name: Bundle trained Agent and current Workbench
+        run: |
+          set -euo pipefail
+
+          rm -rf android-shell/app/src/main/assets/agent-model
+          mkdir -p android-shell/app/src/main/assets/agent-model
+          cp agent-model/artifacts/agent-ecology-thought-step.onnx             android-shell/app/src/main/assets/agent-model/
+          cp agent-model/artifacts/agent-ecology-thought-step.json             android-shell/app/src/main/assets/agent-model/
+
+          rm -rf android-shell/app/src/main/assets/workbench
+          mkdir -p android-shell/app/src/main/assets/workbench/benchmarks
+          cp -a workbench-web/. android-shell/app/src/main/assets/workbench/
+          cp workspace/benchmarks/chatbot-v0.json             android-shell/app/src/main/assets/workbench/benchmarks/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Use Android SDK
+        run: |
+          set -euo pipefail
+          test -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
+          sdkmanager             "platform-tools"             "platforms;android-35"             "build-tools;35.0.1"             "ndk;${ANDROID_NDK_VERSION}"             "cmake;${ANDROID_CMAKE_VERSION}"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Run Android Agent kernel tests
+        run: |
+          set -euo pipefail
+          gradle -p android-shell --no-daemon --console=plain :app:testDebugUnitTest
+
+      - name: Create debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -keyalg RSA -genkeypair -alias androiddebugkey               -keypass android               -keystore "$HOME/.android/debug.keystore"               -storepass android               -dname "CN=Android Debug,O=Android,C=US"               -validity 10000
+          fi
+
+      - name: Build Agent v0 APK
+        run: |
+          set -euo pipefail
+          gradle -p android-shell --no-daemon --console=plain :app:assembleDebug
+          mkdir -p dist
+          cp android-shell/app/build/outputs/apk/debug/app-debug.apk             dist/AIWorkbench-Agent-v0-debug.apk
+          sha256sum dist/AIWorkbench-Agent-v0-debug.apk             | tee dist/AIWorkbench-Agent-v0-debug.apk.sha256
+
+      - name: Verify APK contains Agent model
+        run: |
+          set -euo pipefail
+          tools="${ANDROID_SDK_ROOT}/build-tools/35.0.1"
+          "$tools/apksigner" verify --verbose dist/AIWorkbench-Agent-v0-debug.apk
+          "$tools/aapt" dump badging dist/AIWorkbench-Agent-v0-debug.apk             | tee dist/apk-badging.txt
+          grep -q "package: name='com.xonoxo.aiworkbench.k2'" dist/apk-badging.txt
+          unzip -l dist/AIWorkbench-Agent-v0-debug.apk             | tee dist/apk-contents.txt
+          grep -q "lib/arm64-v8a/libai_workbench_native.so" dist/apk-contents.txt
+          grep -q "assets/workbench/index.html" dist/apk-contents.txt
+          grep -q "assets/agent-model/agent-ecology-thought-step.onnx" dist/apk-contents.txt
+          grep -q "assets/agent-model/agent-ecology-thought-step.json" dist/apk-contents.txt
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Agent-Ecology-v0-Candidate
+          name: Agent-v0-Phone-Package
           path: |
+            dist/*
             agent-model/artifacts/agent-ecology-v0.pt
             agent-model/artifacts/agent-ecology-thought-step.onnx
             agent-model/artifacts/agent-ecology-thought-step.json
