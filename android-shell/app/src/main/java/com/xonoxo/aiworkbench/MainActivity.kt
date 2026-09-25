@@ -20,6 +20,7 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.xonoxo.aiworkbench.agent.AgentExecutionBackend
 import com.xonoxo.aiworkbench.agent.AgentModelInfo
 import com.xonoxo.aiworkbench.agent.AgentModelRuntime
 import org.json.JSONArray
@@ -276,7 +277,12 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             "agent.model.reset" -> ioExecutor.execute {
                 try {
                     ensureBundledAgentModelLoaded()
-                    agentModel.reset()
+                    val backend = when (payload.optString("backend")) {
+                        "sparse" -> AgentExecutionBackend.SPARSE
+                        "dense" -> AgentExecutionBackend.DENSE_REFERENCE
+                        else -> null
+                    }
+                    agentModel.reset(backend)
                     runOnUiThread { ok() }
                 } catch (t: Throwable) {
                     runOnUiThread { fail(t) }
@@ -286,8 +292,15 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             "agent.model.thought" -> ioExecutor.execute {
                 try {
                     val info = ensureBundledAgentModelLoaded()
+                    val backend = when (payload.optString("backend", "sparse")) {
+                        "sparse" -> AgentExecutionBackend.SPARSE
+                        "dense" -> AgentExecutionBackend.DENSE_REFERENCE
+                        else -> throw IllegalArgumentException(
+                            "Unknown Agent execution backend"
+                        )
+                    }
                     if (payload.optBoolean("reset", false)) {
-                        agentModel.reset()
+                        agentModel.reset(backend)
                     }
                     val raw = payload.getJSONArray("event")
                     require(raw.length() == info.eventDim) {
@@ -302,7 +315,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
                     var output = FloatArray(info.outputDim)
                     var totalNanos = 0L
                     repeat(steps) {
-                        val thought = agentModel.thoughtStep(event)
+                        val thought = agentModel.thoughtStep(event, backend)
                         output = thought.output
                         totalNanos += thought.latencyNanos
                         traces.put(
@@ -333,6 +346,11 @@ class MainActivity : Activity(), NativeRuntime.Listener {
                                 .put(
                                     "total_latency_ms",
                                     totalNanos / 1_000_000.0
+                                )
+                                .put(
+                                    "backend",
+                                    if (backend == AgentExecutionBackend.SPARSE)
+                                        "sparse" else "dense"
                                 )
                         )
                     }
@@ -699,26 +717,37 @@ class MainActivity : Activity(), NativeRuntime.Listener {
         val expectedSha = manifest.getString("sha256").lowercase()
 
         val modelDir = File(filesDir, "agent-model").apply { mkdirs() }
-        val modelFile = File(modelDir, onnxName)
 
-        if (
-            !modelFile.exists() ||
-            sha256(modelFile) != expectedSha
-        ) {
-            assets.open("agent-model/$onnxName").use { input ->
-                modelFile.outputStream().use { output ->
-                    input.copyTo(output)
+        fun materializeAsset(name: String, expected: String): File {
+            val target = File(modelDir, name)
+            if (!target.exists() || sha256(target) != expected) {
+                assets.open("agent-model/$name").use { input ->
+                    target.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
+            require(sha256(target) == expected) {
+                "Bundled Agent model failed SHA-256 verification: $name"
+            }
+            return target
         }
 
-        require(sha256(modelFile) == expectedSha) {
-            "Bundled Agent model failed SHA-256 verification"
+        val modelFile = materializeAsset(onnxName, expectedSha)
+
+        var denseFile: File? = null
+        if (manifest.optInt("schema", 1) >= 2 && manifest.has("dense_reference")) {
+            val dense = manifest.getJSONObject("dense_reference")
+            denseFile = materializeAsset(
+                dense.getString("onnx_file"),
+                dense.getString("sha256").lowercase(),
+            )
         }
 
         return agentModel.load(
-            modelFile.absolutePath,
-            manifestText,
+            sparseModelPath = modelFile.absolutePath,
+            manifestText = manifestText,
+            denseModelPath = denseFile?.absolutePath,
             threads = 4,
         )
     }
@@ -733,6 +762,10 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             .put("state_dim", info.stateDim)
             .put("workspace_slots", info.workspaceSlots)
             .put("thought_steps", info.thoughtSteps)
+            .put(
+                "dense_reference_available",
+                info.denseReferenceAvailable
+            )
     }
 
     private fun runAgentSelfTest(): JSONObject {
