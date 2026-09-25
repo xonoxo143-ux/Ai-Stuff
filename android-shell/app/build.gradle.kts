@@ -116,6 +116,7 @@ android {
 
 dependencies {
     implementation("androidx.webkit:webkit:1.17.1")
+    implementation("androidx.core:core:1.15.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")
     testImplementation("junit:junit:4.13.2")
 }
