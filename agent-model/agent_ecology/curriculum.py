@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Sequence, Tuple
 
 import torch
 from torch import Tensor
@@ -160,3 +160,67 @@ def held_out_bigrams() -> Tuple[Tuple[str, str], ...]:
         ("ABS", "SUB"),
         ("ADD", "SQUARE"),
     )
+
+
+def sample_forced_bigram_batch(
+    batch_size: int,
+    sequence_length: int,
+    *,
+    bigrams: Sequence[Tuple[str, str]],
+    device: torch.device | str = "cpu",
+    value_low: float = -2.0,
+    value_high: float = 2.0,
+) -> Tuple[Tensor, Tensor, Tensor]:
+    """
+    Generate programs guaranteed to contain one selected bigram.
+
+    Position zero remains SET. The held-out pair is inserted at positions 1-2,
+    so sequence_length must be at least 3.
+    """
+    if sequence_length < 3:
+        raise ValueError("forced-bigram sequences must have length >= 3")
+    if not bigrams:
+        raise ValueError("at least one bigram is required")
+
+    device = torch.device(device)
+    events, _, op_ids = sample_program_batch(
+        batch_size,
+        sequence_length,
+        device=device,
+        value_low=value_low,
+        value_high=value_high,
+    )
+
+    pair_choices = torch.randint(
+        0, len(bigrams), (batch_size,), device=device
+    )
+    for row in range(batch_size):
+        left, right = bigrams[int(pair_choices[row])]
+        op_ids[row, 1] = OP_TO_ID[left]
+        op_ids[row, 2] = OP_TO_ID[right]
+
+    arguments = torch.empty(
+        batch_size, sequence_length, device=device
+    ).uniform_(value_low, value_high)
+    needs_argument = _op_needs_argument(op_ids)
+    arguments = torch.where(
+        needs_argument,
+        arguments,
+        torch.zeros_like(arguments),
+    )
+
+    events.zero_()
+    events.scatter_(2, op_ids.unsqueeze(-1), 1.0)
+    events[:, :, len(OPS)] = arguments
+    events[:, :, len(OPS) + 1] = needs_argument.float()
+    events[:, :, len(OPS) + 2] = 1.0
+
+    register = torch.zeros(batch_size, device=device)
+    targets = torch.empty(
+        batch_size, sequence_length, 1, device=device
+    )
+    for t in range(sequence_length):
+        register = apply_op(register, op_ids[:, t], arguments[:, t])
+        targets[:, t, 0] = register
+
+    return events, targets, op_ids
