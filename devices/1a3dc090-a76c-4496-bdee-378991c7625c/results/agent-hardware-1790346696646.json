@@ -1,0 +1,357 @@
+{
+  "schema": 1,
+  "type": "agent_hardware_test",
+  "generated_at": "2026-09-25T14:31:24.059Z",
+  "model": {
+    "id": "agent-ecology-v0",
+    "event_dim": 11,
+    "output_dim": 1,
+    "num_cells": 16,
+    "active_cells": 4,
+    "state_dim": 96,
+    "workspace_slots": 4,
+    "thought_steps": 3
+  },
+  "program": [
+    {
+      "event": "SET 1.25",
+      "expected": 1.25,
+      "predicted": 1.3053396940231323,
+      "absolute_error": 0.055339694023132324,
+      "thoughts": [
+        {
+          "selected_cells": [
+            1,
+            9,
+            10,
+            14
+          ],
+          "route_weights": [
+            0.30611402,
+            0.25383365,
+            0.22305667,
+            0.21699563
+          ],
+          "halt_probability": 0.6921706199645996,
+          "latency_ms": 3.983438
+        },
+        {
+          "selected_cells": [
+            9,
+            1,
+            14,
+            8
+          ],
+          "route_weights": [
+            0.2695317,
+            0.2619538,
+            0.23685372,
+            0.23166075
+          ],
+          "halt_probability": 0.700873851776123,
+          "latency_ms": 0.666875
+        },
+        {
+          "selected_cells": [
+            9,
+            1,
+            14,
+            8
+          ],
+          "route_weights": [
+            0.27042332,
+            0.25758857,
+            0.23794337,
+            0.23404476
+          ],
+          "halt_probability": 0.7066399455070496,
+          "latency_ms": 0.509844
+        }
+      ]
+    },
+    {
+      "event": "ADD 0.75",
+      "expected": 2,
+      "predicted": 2.1324334144592285,
+      "absolute_error": 0.13243341445922852,
+      "thoughts": [
+        {
+          "selected_cells": [
+            9,
+            4,
+            15,
+            6
+          ],
+          "route_weights": [
+            0.2672662,
+            0.2538636,
+            0.24500804,
+            0.23386218
+          ],
+          "halt_probability": 0.6973615288734436,
+          "latency_ms": 0.513334
+        },
+        {
+          "selected_cells": [
+            9,
+            4,
+            15,
+            6
+          ],
+          "route_weights": [
+            0.2649074,
+            0.25595844,
+            0.24428783,
+            0.23484641
+          ],
+          "halt_probability": 0.6863109469413757,
+          "latency_ms": 0.614114
+        },
+        {
+          "selected_cells": [
+            9,
+            4,
+            15,
+            6
+          ],
+          "route_weights": [
+            0.2621367,
+            0.25847772,
+            0.24353929,
+            0.23584628
+          ],
+          "halt_probability": 0.6746543645858765,
+          "latency_ms": 0.490417
+        }
+      ]
+    },
+    {
+      "event": "SQUARE",
+      "expected": 4,
+      "predicted": 3.794365644454956,
+      "absolute_error": 0.20563435554504395,
+      "thoughts": [
+        {
+          "selected_cells": [
+            7,
+            12,
+            3,
+            4
+          ],
+          "route_weights": [
+            0.43270278,
+            0.28940058,
+            0.14659515,
+            0.13130155
+          ],
+          "halt_probability": 0.6729627251625061,
+          "latency_ms": 0.508229
+        },
+        {
+          "selected_cells": [
+            7,
+            12,
+            3,
+            4
+          ],
+          "route_weights": [
+            0.4239911,
+            0.29755017,
+            0.14860468,
+            0.12985408
+          ],
+          "halt_probability": 0.6678857803344727,
+          "latency_ms": 0.51599
+        },
+        {
+          "selected_cells": [
+            7,
+            12,
+            3,
+            4
+          ],
+          "route_weights": [
+            0.40253782,
+            0.3138151,
+            0.15511622,
+            0.12853085
+          ],
+          "halt_probability": 0.6512576341629028,
+          "latency_ms": 0.481562
+        }
+      ]
+    },
+    {
+      "event": "HALF",
+      "expected": 2,
+      "predicted": 1.7193264961242676,
+      "absolute_error": 0.2806735038757324,
+      "thoughts": [
+        {
+          "selected_cells": [
+            1,
+            3,
+            10,
+            14
+          ],
+          "route_weights": [
+            0.3146845,
+            0.2476147,
+            0.24148303,
+            0.19621773
+          ],
+          "halt_probability": 0.6768523454666138,
+          "latency_ms": 0.495364
+        },
+        {
+          "selected_cells": [
+            1,
+            3,
+            10,
+            14
+          ],
+          "route_weights": [
+            0.31299934,
+            0.24938433,
+            0.2359457,
+            0.20167054
+          ],
+          "halt_probability": 0.696991503238678,
+          "latency_ms": 0.471875
+        },
+        {
+          "selected_cells": [
+            1,
+            3,
+            10,
+            14
+          ],
+          "route_weights": [
+            0.3103577,
+            0.25080273,
+            0.23115906,
+            0.20768061
+          ],
+          "halt_probability": 0.7099225521087646,
+          "latency_ms": 0.552239
+        }
+      ]
+    },
+    {
+      "event": "NEG",
+      "expected": -2,
+      "predicted": -1.5026419162750244,
+      "absolute_error": 0.4973580837249756,
+      "thoughts": [
+        {
+          "selected_cells": [
+            3,
+            7,
+            5,
+            8
+          ],
+          "route_weights": [
+            0.39834955,
+            0.26104328,
+            0.1733298,
+            0.16727744
+          ],
+          "halt_probability": 0.7539139986038208,
+          "latency_ms": 0.505885
+        },
+        {
+          "selected_cells": [
+            3,
+            7,
+            5,
+            8
+          ],
+          "route_weights": [
+            0.35787138,
+            0.2934933,
+            0.17545435,
+            0.17318101
+          ],
+          "halt_probability": 0.7771665453910828,
+          "latency_ms": 0.485885
+        },
+        {
+          "selected_cells": [
+            3,
+            7,
+            8,
+            5
+          ],
+          "route_weights": [
+            0.32730788,
+            0.32075155,
+            0.17669043,
+            0.17525017
+          ],
+          "halt_probability": 0.7776837944984436,
+          "latency_ms": 0.486354
+        }
+      ]
+    },
+    {
+      "event": "ABS",
+      "expected": 2,
+      "predicted": 2.3398783206939697,
+      "absolute_error": 0.3398783206939697,
+      "thoughts": [
+        {
+          "selected_cells": [
+            7,
+            5,
+            0,
+            13
+          ],
+          "route_weights": [
+            0.38861948,
+            0.20663002,
+            0.20305267,
+            0.2016978
+          ],
+          "halt_probability": 0.7484180927276611,
+          "latency_ms": 0.501042
+        },
+        {
+          "selected_cells": [
+            7,
+            0,
+            5,
+            13
+          ],
+          "route_weights": [
+            0.3827982,
+            0.20728992,
+            0.2057881,
+            0.2041238
+          ],
+          "halt_probability": 0.7262078523635864,
+          "latency_ms": 0.47901
+        },
+        {
+          "selected_cells": [
+            7,
+            0,
+            5,
+            13
+          ],
+          "route_weights": [
+            0.37804738,
+            0.21006957,
+            0.20661913,
+            0.20526394
+          ],
+          "halt_probability": 0.7297535538673401,
+          "latency_ms": 0.484948
+        }
+      ]
+    }
+  ],
+  "mae": 0.2518862287203471,
+  "total_thoughts": 18,
+  "total_latency_ms": 12.746405,
+  "mean_thought_latency_ms": 0.7081336111111111
+}
