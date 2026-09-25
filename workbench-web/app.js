@@ -68,6 +68,7 @@ let history = [];
 let activeStream = null;
 let lastMetrics = null;
 let remoteManifest = null;
+let nativeAppManifest = null;
 let benchCancelled = false;
 let lastBenchmark = null;
 let lastAgentTest = null;
@@ -273,6 +274,60 @@ async function applyUpdate() {
     await nativeRequest("update.reload");
   } catch (error) {
     $("#update-status").textContent = "Update failed: " + error.message;
+  }
+}
+
+async function checkNativeAppUpdate(showToast = false) {
+  try {
+    const data = await nativeRequest("app.update.check");
+    nativeAppManifest = data.manifest;
+    const text = data.update_available
+      ? "Native update available: " +
+        data.installed_version_name + " → " + data.remote_version_name
+      : "Native app is current (" + data.installed_version_name + ").";
+    $("#app-update-status").textContent = text;
+    $("#install-app-update").disabled = !data.update_available;
+    if (showToast) toast(text);
+    return data;
+  } catch (error) {
+    nativeAppManifest = null;
+    $("#app-update-status").textContent =
+      "Native update check unavailable: " + error.message;
+    $("#install-app-update").disabled = true;
+    if (showToast) toast(error.message);
+    return null;
+  }
+}
+
+async function installNativeAppUpdate() {
+  const state = await checkNativeAppUpdate(false);
+  if (!state?.update_available || !nativeAppManifest) {
+    return toast("No native update is available.");
+  }
+
+  if (!state.can_install_packages) {
+    $("#app-update-status").textContent =
+      "Android needs one-time permission to install AI Workbench updates.";
+    await nativeRequest("app.update.permission");
+    return toast("Enable Allow from this source, return here, then tap Install native update again.");
+  }
+
+  $("#app-update-status").textContent =
+    "Downloading and verifying signed native update…";
+
+  try {
+    const result = await nativeRequest("app.update.install", {
+      manifest: nativeAppManifest
+    });
+    if (result.permission_required) {
+      await nativeRequest("app.update.permission");
+      return;
+    }
+    $("#app-update-status").textContent =
+      "Verified update downloaded. Android installer opened.";
+  } catch (error) {
+    $("#app-update-status").textContent =
+      "Native update failed: " + error.message;
   }
 }
 
@@ -991,6 +1046,9 @@ async function boot() {
     await nativeRequest("generation.stop");
   });
 
+  $("#check-app-update").addEventListener("click", () => checkNativeAppUpdate(true));
+  $("#install-app-update").addEventListener("click", installNativeAppUpdate);
+
   $("#check-update").addEventListener("click", () => checkUpdate());
   $("#update-button").addEventListener("click", async () => {
     const result = await checkUpdate(false);
@@ -1013,6 +1071,7 @@ async function boot() {
   await refreshAgent();
   loadSavedBenchmark();
   await refreshGitHub();
+  checkNativeAppUpdate(false);
   checkUpdate(false);
 }
 
