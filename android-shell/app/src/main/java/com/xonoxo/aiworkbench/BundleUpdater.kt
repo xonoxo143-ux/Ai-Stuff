@@ -13,6 +13,10 @@ import java.util.zip.ZipInputStream
 class BundleUpdater(private val context: Context) {
     companion object {
         const val KERNEL_VERSION = 2
+        // APKs built after the first Agent phone run contain at least this
+        // Workbench generation. Older mutable bundles are invalidated on
+        // install so a stale v19/v20 bundle cannot shadow the fixed UI.
+        const val BUNDLED_WORKBENCH_FLOOR = 22L
         const val REPO = "xonoxo143-ux/Ai-Stuff"
         const val REF = "refs/heads/aistuff"
         const val MANIFEST_URL =
@@ -22,6 +26,15 @@ class BundleUpdater(private val context: Context) {
     private val root = File(context.filesDir, "workbench").apply { mkdirs() }
     private val current = File(root, "current").apply { mkdirs() }
     private val prefs = context.getSharedPreferences("ai_workbench_updates", Context.MODE_PRIVATE)
+
+    init {
+        val installed = prefs.getLong("version", 0L)
+        if (installed in 1 until BUNDLED_WORKBENCH_FLOOR) {
+            current.deleteRecursively()
+            current.mkdirs()
+            prefs.edit().putLong("version", 0L).apply()
+        }
+    }
 
     fun currentDir(): File = current
 
@@ -38,7 +51,7 @@ class BundleUpdater(private val context: Context) {
     }
 
     fun check(): JSONObject {
-        val manifest = fetchJson(MANIFEST_URL)
+        val manifest = fetchJson(cacheBust(MANIFEST_URL, "manifest"))
         validateManifest(manifest)
         return JSONObject()
             .put("local_version", currentVersion())
@@ -54,7 +67,7 @@ class BundleUpdater(private val context: Context) {
         val expected = manifest.getString("sha256").lowercase()
 
         val zip = File(root, "staging-$version.zip")
-        download(url, zip)
+        download(cacheBust(url, version.toString()), zip)
 
         val actual = sha256(zip)
         if (actual != expected) {
@@ -123,11 +136,19 @@ class BundleUpdater(private val context: Context) {
         }
     }
 
+    private fun cacheBust(url: String, tag: String): String {
+        val separator = if (url.contains("?")) "&" else "?"
+        return "$url${separator}v=${tag}&ts=${System.currentTimeMillis()}"
+    }
+
     private fun fetchJson(url: String): JSONObject {
         val connection = URL(url).openConnection() as HttpURLConnection
+        connection.useCaches = false
         connection.connectTimeout = 20_000
         connection.readTimeout = 30_000
-        connection.setRequestProperty("User-Agent", "AIWorkbenchKernel/1")
+        connection.setRequestProperty("User-Agent", "AIWorkbenchKernel/2")
+        connection.setRequestProperty("Cache-Control", "no-cache, no-store")
+        connection.setRequestProperty("Pragma", "no-cache")
         val code = connection.responseCode
         val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
             ?.bufferedReader()
@@ -140,9 +161,12 @@ class BundleUpdater(private val context: Context) {
 
     private fun download(url: String, target: File) {
         val connection = URL(url).openConnection() as HttpURLConnection
+        connection.useCaches = false
         connection.connectTimeout = 20_000
         connection.readTimeout = 60_000
-        connection.setRequestProperty("User-Agent", "AIWorkbenchKernel/1")
+        connection.setRequestProperty("User-Agent", "AIWorkbenchKernel/2")
+        connection.setRequestProperty("Cache-Control", "no-cache, no-store")
+        connection.setRequestProperty("Pragma", "no-cache")
         val code = connection.responseCode
         if (code !in 200..299) {
             connection.disconnect()
