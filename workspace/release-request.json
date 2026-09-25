@@ -1,5 +1,5 @@
 {
   "schema": 1,
-  "requested_at": "2026-09-25T21:45:00Z",
-  "reason": "Publish coupled Agent benchmark fixes and native in-place update UI"
+  "requested_at": "2026-09-25T22:15:00Z",
+  "reason": "Validate and publish sparse-dense Agent benchmark UI"
 }
