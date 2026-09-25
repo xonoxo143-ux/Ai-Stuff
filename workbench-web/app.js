@@ -21,6 +21,45 @@ const MODELS = [
   }
 ];
 
+const AGENT_BENCHMARK = {
+  schema: 1,
+  name: "agent-ecology-v0-depth-context",
+  description: "Measures recurrent thought depth, routing stability, and context-sensitive recruitment on the first learned Agent ecology.",
+  depths: [1, 2, 3, 4, 6],
+  programs: [
+    { id: "heldout-add-square", events: [
+      {op:"SET",arg:1.25},{op:"ADD",arg:0.75},{op:"SQUARE"},{op:"HALF"},{op:"NEG"},{op:"ABS"}
+    ]},
+    { id: "heldout-abs-sub", events: [
+      {op:"SET",arg:-1.5},{op:"ABS"},{op:"SUB",arg:0.5},{op:"MUL",arg:2.0},{op:"NEG"},{op:"ADD",arg:1.0}
+    ]},
+    { id: "heldout-mul-neg", events: [
+      {op:"SET",arg:0.8},{op:"MUL",arg:1.5},{op:"NEG"},{op:"ABS"},{op:"ADD",arg:0.4},{op:"SQUARE"}
+    ]},
+    { id: "square-half-chain", events: [
+      {op:"SET",arg:-2.0},{op:"ADD",arg:0.5},{op:"SQUARE"},{op:"HALF"},{op:"SUB",arg:0.25},{op:"NEG"}
+    ]},
+    { id: "square-half-context-b", events: [
+      {op:"SET",arg:1.2},{op:"SQUARE"},{op:"HALF"},{op:"MUL",arg:-1.0},{op:"ABS"},{op:"SUB",arg:0.3}
+    ]},
+    { id: "add-square-context-b", events: [
+      {op:"SET",arg:-0.75},{op:"NEG"},{op:"ADD",arg:0.5},{op:"SQUARE"},{op:"HALF"},{op:"ABS"}
+    ]},
+    { id: "mul-neg-context-b", events: [
+      {op:"SET",arg:2.0},{op:"MUL",arg:0.5},{op:"NEG"},{op:"ABS"},{op:"SUB",arg:0.25},{op:"ADD",arg:0.75}
+    ]},
+    { id: "abs-sub-context-b", events: [
+      {op:"SET",arg:-0.4},{op:"ABS"},{op:"SUB",arg:0.1},{op:"SQUARE"},{op:"HALF"},{op:"ADD",arg:0.2}
+    ]},
+    { id: "same-add-different-history", events: [
+      {op:"SET",arg:1.1},{op:"NEG"},{op:"ABS"},{op:"ADD",arg:0.3},{op:"HALF"},{op:"ADD",arg:0.3}
+    ]},
+    { id: "same-neg-different-history", events: [
+      {op:"SET",arg:0.6},{op:"SQUARE"},{op:"NEG"},{op:"ABS"},{op:"MUL",arg:1.25},{op:"NEG"}
+    ]}
+  ]
+};
+
 const pending = new Map();
 let requestCounter = 0;
 let installed = [];
@@ -570,23 +609,13 @@ function renderAgentBenchmarkSummary(result) {
 
 async function runAgentBenchmark() {
   $("#agent-status").textContent = "Starting depth/context benchmark…";
-  $("#agent-summary").textContent = "Loading benchmark definition…";
-  $("#agent-trace").textContent = "Preparing…";
+  $("#agent-summary").textContent = "Preparing 50 controlled runs…";
+  $("#agent-trace").textContent = "Benchmark started.";
 
-  let suite;
-  try {
-    suite = await fetch("benchmarks/agent-ecology-v0.json", { cache: "no-store" }).then(response => {
-      if (!response.ok) throw new Error("HTTP " + response.status);
-      return response.json();
-    });
-  } catch (error) {
-    $("#agent-status").textContent = "Could not start benchmark.";
-    $("#agent-summary").textContent =
-      "Benchmark definition failed to load: " + error.message;
-    $("#agent-trace").textContent =
-      "Update the Workbench again. The current release now contains the benchmark and this error will be visible instead of looking like a dead button.";
-    return;
-  }
+  // Keep this benchmark definition inside the UI bundle. The previous version
+  // awaited a WebView fetch before changing visible state, which could hang
+  // silently on some devices and made a working click look dead.
+  const suite = AGENT_BENCHMARK;
 
   const status = await refreshAgent();
   if (!status?.available) return;
