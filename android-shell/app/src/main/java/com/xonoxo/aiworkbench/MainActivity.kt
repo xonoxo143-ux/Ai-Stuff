@@ -516,10 +516,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
         }
     }
 
-    private fun githubAppSlug(): String {
-        val suffix = deviceId().replace("-", "").take(10).lowercase()
-        return "ai-workbench-$suffix"
-    }
+    private fun githubAppSlug(): String = GitHubClient.APP_SLUG
 
     private fun githubSetupInfo(): JSONObject {
         val slug = githubAppSlug()
