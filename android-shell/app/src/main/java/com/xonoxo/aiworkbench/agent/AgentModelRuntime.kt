@@ -17,6 +17,7 @@ data class AgentModelInfo(
     val activeCells: Int,
     val stateDim: Int,
     val workspaceSlots: Int,
+    val thoughtSteps: Int,
 )
 
 data class AgentThoughtResult(
@@ -66,6 +67,7 @@ class AgentModelRuntime : Closeable {
             activeCells = config.getInt("active_cells"),
             stateDim = config.getInt("state_dim"),
             workspaceSlots = config.getInt("workspace_slots"),
+            thoughtSteps = config.getInt("max_thought_steps"),
         )
 
         val initial = manifest.getJSONArray("initial_workspace")
