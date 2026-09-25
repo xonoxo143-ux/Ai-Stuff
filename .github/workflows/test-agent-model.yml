@@ -51,7 +51,7 @@ jobs:
         working-directory: agent-model
         run: |
           set -euo pipefail
-          python -m agent_ecology.export_onnx             artifacts/agent-ecology-v0.pt             --output artifacts/agent-ecology-thought-step.onnx
+          python -m agent_ecology.export_onnx             artifacts/agent-ecology-v0.pt             --output artifacts/agent-ecology-thought-step.onnx             --dense-output artifacts/agent-ecology-thought-step-dense.onnx
 
       - uses: actions/upload-artifact@v4
         with:
@@ -59,6 +59,7 @@ jobs:
           path: |
             agent-model/artifacts/agent-ecology-v0.pt
             agent-model/artifacts/agent-ecology-thought-step.onnx
+            agent-model/artifacts/agent-ecology-thought-step-dense.onnx
             agent-model/artifacts/agent-ecology-thought-step.json
             agent-model/artifacts/metrics.json
           retention-days: 30
