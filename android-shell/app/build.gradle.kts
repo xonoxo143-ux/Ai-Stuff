@@ -9,11 +9,11 @@ android {
     ndkVersion = "28.1.13356709"
 
     defaultConfig {
-        applicationId = "com.xonoxo.aiworkbench"
+        applicationId = "com.xonoxo.aiworkbench.k2"
         minSdk = 28
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-kernel1"
+        versionCode = 4
+        versionName = "0.4.0-kernel2"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
