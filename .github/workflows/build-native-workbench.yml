@@ -67,6 +67,11 @@ jobs:
           path: android-shell/app/.cxx
           key: native-kernel-${{ runner.os }}-${{ hashFiles('android-shell/app/src/main/cpp/**', 'android-shell/app/build.gradle.kts') }}
 
+      - name: Run Agent kernel unit tests
+        run: |
+          set -euo pipefail
+          gradle -p android-shell --no-daemon --console=plain :app:testDebugUnitTest
+
       - name: Create debug keystore
         run: |
           mkdir -p "$HOME/.android"
