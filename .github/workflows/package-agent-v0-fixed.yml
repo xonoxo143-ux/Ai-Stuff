@@ -1,0 +1,114 @@
+name: Package Agent v0 Fixed Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - ".github/workflows/package-agent-v0-fixed.yml"
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+  attestations: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      ANDROID_NDK_VERSION: "28.1.13356709"
+      ANDROID_CMAKE_VERSION: "3.22.1"
+      BASE_MODEL_RUN_ID: "36106396883"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download exact first Agent v0 model package
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Phone-Package
+          path: previous-agent
+          github-token: ${{ github.token }}
+          run-id: ${{ env.BASE_MODEL_RUN_ID }}
+
+      - name: Bundle exact trained model and current Workbench
+        run: |
+          set -euo pipefail
+
+          rm -rf android-shell/app/src/main/assets/agent-model
+          mkdir -p android-shell/app/src/main/assets/agent-model
+          cp previous-agent/agent-model/artifacts/agent-ecology-thought-step.onnx             android-shell/app/src/main/assets/agent-model/
+          cp previous-agent/agent-model/artifacts/agent-ecology-thought-step.json             android-shell/app/src/main/assets/agent-model/
+
+          rm -rf android-shell/app/src/main/assets/workbench
+          mkdir -p android-shell/app/src/main/assets/workbench/benchmarks
+          cp -a workbench-web/. android-shell/app/src/main/assets/workbench/
+          cp workspace/benchmarks/chatbot-v0.json             android-shell/app/src/main/assets/workbench/benchmarks/
+          cp workspace/benchmarks/agent-ecology-v0.json             android-shell/app/src/main/assets/workbench/benchmarks/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Use Android SDK
+        run: |
+          test -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android build components
+        run: |
+          set -euo pipefail
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
+          sdkmanager             "platform-tools"             "platforms;android-35"             "build-tools;35.0.1"             "ndk;${ANDROID_NDK_VERSION}"             "cmake;${ANDROID_CMAKE_VERSION}"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Run kernel tests
+        run: |
+          set -euo pipefail
+          gradle -p android-shell --no-daemon --console=plain :app:testDebugUnitTest
+
+      - name: Create debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -keyalg RSA -genkeypair -alias androiddebugkey               -keypass android               -keystore "$HOME/.android/debug.keystore"               -storepass android               -dname "CN=Android Debug,O=Android,C=US"               -validity 10000
+          fi
+
+      - name: Build corrected Agent v0 APK
+        run: |
+          set -euo pipefail
+          gradle -p android-shell --no-daemon --console=plain :app:assembleDebug
+          mkdir -p dist
+          cp android-shell/app/build/outputs/apk/debug/app-debug.apk             dist/AIWorkbench-Agent-v0-corrected.apk
+          sha256sum dist/AIWorkbench-Agent-v0-corrected.apk             | tee dist/AIWorkbench-Agent-v0-corrected.apk.sha256
+
+      - name: Verify corrected APK
+        run: |
+          set -euo pipefail
+          tools="${ANDROID_SDK_ROOT}/build-tools/35.0.1"
+          "$tools/apksigner" verify --verbose dist/AIWorkbench-Agent-v0-corrected.apk
+          unzip -l dist/AIWorkbench-Agent-v0-corrected.apk             | tee dist/apk-contents.txt
+          grep -q "assets/agent-model/agent-ecology-thought-step.onnx" dist/apk-contents.txt
+          grep -q "assets/workbench/index.html" dist/apk-contents.txt
+
+      - name: Attest APK
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/AIWorkbench-Agent-v0-corrected.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-v0-Corrected-APK
+          path: dist/*
+          retention-days: 30
