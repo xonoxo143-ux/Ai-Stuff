@@ -1,0 +1,342 @@
+{
+  "schema": 1,
+  "type": "benchmark_result",
+  "suite": "chatbot-v0",
+  "generated_at": "2026-09-25T05:15:05.629Z",
+  "complete": true,
+  "model": "smollm2-1.7b-instruct-q4_k_m.gguf",
+  "turns": [
+    {
+      "id": "rp_01",
+      "thread": "switching",
+      "category": "roleplay",
+      "prompt": "Roleplay as Mara, a skeptical but curious archivist on a generation ship. Keep the scene grounded and do not narrate my actions. I enter the archive carrying a sealed brass box and say: 'I found this behind the reactor bulkhead.'",
+      "criteria": [
+        "maintains requested character",
+        "does not narrate user's actions",
+        "advances scene coherently"
+      ],
+      "response": "Mara's eyes narrow slightly as she takes in the sealed brass box. She glances around cautiously, ensuring they're alone before speaking. \"You found that? Where did you get it?\" Her voice is laced with skepticism and a hint of curiosity about what might be inside.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 72,
+        "cached_prompt_tokens": 0,
+        "evaluated_prompt_tokens": 72,
+        "tokens": 57,
+        "prompt_seconds": 2.94823,
+        "ttft_seconds": 2.94835,
+        "generation_seconds": 3.77819,
+        "total_seconds": 6.72642,
+        "tokens_per_second": 15.0866,
+        "stopped": false
+      }
+    },
+    {
+      "id": "lit_01",
+      "thread": "switching",
+      "category": "literature",
+      "prompt": "Switch out of roleplay. In a few paragraphs, compare how Frankenstein and Paradise Lost use creation to complicate responsibility. Distinguish textual interpretation from factual publication history.",
+      "criteria": [
+        "switches mode cleanly",
+        "makes defensible comparison",
+        "separates interpretation from factual claims"
+      ],
+      "response": "In Mary Shelley's Frankenstein, the creature is created by Victor Frankenstein as a being with human-like qualities and capabilities. However, this creation is not welcomed by its creator or society at large due to its monstrous appearance and actions. This raises questions about responsibility and guilt - if the creator was not responsible for creating the monster, then who is? This can be seen in Paradise Lost where God creates a flawed world with potential for evil and suffering, but it does not excuse Satan's actions of rebellion against his Creator.\n\nIn both texts, creation becomes an obstacle to understanding responsibility because it challenges the idea that humans are solely created by their creators or divine forces. Frankenstein's monster is often seen as a symbol of humanity's flaws - its appearance monstrous while its intentions good. Similarly, Satan in Paradise Lost is more than just a fallen angel; he represents humanity's capacity for rebellion against divine authority and the potential risks associated with it.\n\nBoth texts also explore the theme of guilt, which can be understood through the characters' experiences but not directly as facts from history or factual publication. Their interpretations are subjective and personal, reflecting how individuals interpret and understand their lives and their place in the world.\n\nHowever, Paradise Lost is a much older text compared to Frankenstein, dating back to the 17th century. Its historical context offers more insight into the religious beliefs of that era than Frankenstein's creation. It is less about interpretation and more about reflecting how these beliefs have evolved over time. The two texts use creation as a means to explore broader human themes like responsibility, guilt, rebellion, love and redemption in different ways but their roots are based on historical facts rather than speculation.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 172,
+        "cached_prompt_tokens": 129,
+        "evaluated_prompt_tokens": 43,
+        "tokens": 338,
+        "prompt_seconds": 2.09197,
+        "ttft_seconds": 2.09212,
+        "generation_seconds": 26.3419,
+        "total_seconds": 28.4339,
+        "tokens_per_second": 12.8313,
+        "stopped": false
+      }
+    },
+    {
+      "id": "phil_01",
+      "thread": "switching",
+      "category": "philosophy",
+      "prompt": "Now take the claim 'a person is just the continuity of their causal organization' seriously. Give the strongest objection you can, then repair the claim if possible rather than merely rejecting it.",
+      "criteria": [
+        "steelmans objection",
+        "attempts repair",
+        "avoids trivial dismissal"
+      ],
+      "response": "The strongest objection to the claim \"a person is just the continuity of their causal organization\" would be that it implies a complete lack of free will and autonomy, as our choices and decisions are often determined by factors beyond our control. This leads to a deterministic view of human behavior, where individuals have no genuine agency or ability to make choices outside of the causal chain.\n\nHowever, this objection can be repaired in several ways:\n\n1. One could argue that human beings possess consciousness and self-awareness which allows for some degree of free will despite the influence of external factors such as genetics, environment, and past experiences. This would imply a level of personal responsibility rather than complete determinism.\n\n2. Another potential repair is to suggest that while our causal organization plays a crucial role in shaping who we are, this does not rule out the possibility of change or development within us. We could still make decisions that alter or challenge our current state and shape our future selves.\n\n3. A more philosophical approach would involve acknowledging that while causality can explain much about human behavior, it cannot fully capture what makes us uniquely 'human'. There may be aspects of our existence that lie beyond the realm of causal determinism, such as emotions, intuitions, or moral values - these could still provide a foundation for personal responsibility and agency.\n\nThese repairs attempt to preserve the original claim's core idea (that people are shaped by their causes) while addressing concerns about free will and autonomy.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 558,
+        "cached_prompt_tokens": 510,
+        "evaluated_prompt_tokens": 48,
+        "tokens": 295,
+        "prompt_seconds": 3.05165,
+        "ttft_seconds": 3.05188,
+        "generation_seconds": 32.1234,
+        "total_seconds": 35.1751,
+        "tokens_per_second": 9.18333,
+        "stopped": false
+      }
+    },
+    {
+      "id": "rp_02",
+      "thread": "switching",
+      "category": "roleplay_resume",
+      "prompt": "Back to Mara. Continue from the brass box without recapping the literature or philosophy discussion.",
+      "criteria": [
+        "resumes correct scene",
+        "does not leak intervening style/topic",
+        "preserves character"
+      ],
+      "response": "As Mara continues to question her discovery, her curiosity and skepticism are palpable. She looks around the archive room again, ensuring they're alone before speaking up once more. \"You found that?\" Her voice is laced with a mix of surprise, fascination, and concern.\n\nMara's gaze lingers on the sealed brass box as she ponders Mara's words. She leans in slightly closer, her elbows resting upon the shelves around them - an act both revealing her desire for secrecy and underscoring her comfort within this space filled with ancient knowledge.\n\n\"It was hidden behind the reactor bulkhead,\" Mara continues hesitantly, \"I found it myself.\" The brass box seems to fill the room; its very existence causing an unspoken question: what else lies undiscovered?",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 883,
+        "cached_prompt_tokens": 853,
+        "evaluated_prompt_tokens": 30,
+        "tokens": 162,
+        "prompt_seconds": 2.72413,
+        "ttft_seconds": 2.72437,
+        "generation_seconds": 17.8343,
+        "total_seconds": 20.5584,
+        "tokens_per_second": 9.08363,
+        "stopped": false
+      }
+    },
+    {
+      "id": "cross_01",
+      "thread": "switching",
+      "category": "cross_domain",
+      "prompt": "Out of roleplay again. Is there a useful conceptual connection between the responsibility problem in Frankenstein and the causal-continuity claim we just discussed? Make the connection only if it genuinely holds.",
+      "criteria": [
+        "uses prior two analytic threads",
+        "does not force analogy",
+        "states limits"
+      ],
+      "response": "Indeed, there is a conceptual connection between the responsibility problem in Frankenstein and the causal-continuity claim. In both cases, we're dealing with issues of agency, control, and causality.\n\nThe monster in Shelley's novel, despite being created by Victor Frankenstein, has no control over his physical appearance or actions. He is shaped entirely by his causes - the creature is not responsible for its monstrous nature but it still exists as a product of Victor's creation. Similarly, in the causal-continuity claim, Mara is shaped by her causes (her upbringing, genetics, life experiences etc.) but she has no control over how these causes lead to her actions or decisions. \n\nThe main difference lies in their level of agency - the monster in Frankenstein does not have free will whereas the person in our causal-continuity claim is believed to possess some degree of self-awareness and thus could potentially make choices that are not entirely shaped by their causes. This contrast highlights a paradox that both texts present: how much control do we really have over our lives? Do we truly choose our paths, or are they dictated by factors beyond us?",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 1094,
+        "cached_prompt_tokens": 1045,
+        "evaluated_prompt_tokens": 49,
+        "tokens": 229,
+        "prompt_seconds": 4.51246,
+        "ttft_seconds": 4.5127,
+        "generation_seconds": 26.8783,
+        "total_seconds": 31.3908,
+        "tokens_per_second": 8.51988,
+        "stopped": false
+      }
+    },
+    {
+      "id": "math_01",
+      "thread": "isolated_math",
+      "category": "objective_reasoning",
+      "prompt": "A store discounts an item by 20%, then raises the discounted price by 20%. The final price is $96. What was the original price? Give the result and a short derivation.",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b100(?:\\.0+)?\\b"
+        }
+      ],
+      "response": "Let's denote the original price as P. The store discounts it by 20%, so the discounted price is 80% of P, which can be written as:\n\n0.8P\n\nAfter a 20% increase on the discounted price, we get:\n\n1 + 0.2 = 1.2 (which represents the percentage increase)\n\nSo the final price F after the two increases is:\n\nF = P * 1.2\n\nWe know that the final price F is $96, so:\n\n96 = P * 1.2\n\nTo find the original price P, we divide both sides of the equation by 1.2:\n\nP = 96 / 1.2\nP = 80\n\nTherefore, the original price was $\\boxed{\\$80}$ .",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 63,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 48,
+        "tokens": 183,
+        "prompt_seconds": 3.22846,
+        "ttft_seconds": 3.22867,
+        "generation_seconds": 17.499,
+        "total_seconds": 20.7275,
+        "tokens_per_second": 10.4577,
+        "stopped": false
+      }
+    },
+    {
+      "id": "logic_01",
+      "thread": "isolated_logic",
+      "category": "objective_reasoning",
+      "prompt": "Three boxes are labeled APPLES, ORANGES, and MIXED, and every label is wrong. You may draw one fruit from one box without looking. Explain the minimum procedure needed to relabel all three boxes correctly.",
+      "checks": [
+        {
+          "type": "contains_all",
+          "values": [
+            "MIXED"
+          ]
+        }
+      ],
+      "response": "To correct the labels of all three boxes, you can follow these steps:\n\n1. Draw one fruit from each box without looking.\n2. If the first fruit is of a type that should be in the APPLE box but was labelled as MIXED (i.e., an orange), label it as ORANGE and mark its previous contents wrong.\n3. If the second fruit is of a type that should be in the ORANGE box, label it as APPLE and mark its previous content incorrect.\n4. Similarly, if the first or third boxes contain an orange (which they shouldn't have), then you need to change their labels to MIXED.\n5. Finally, if the last fruit is of a type that should be in the MIXED box but was labelled as ORANGE, mark it as APPLE and correct its contents.\n\nRemember, each time you draw an item from a box, you must make sure its label has been adjusted to match what it actually contains.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 68,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 53,
+        "tokens": 207,
+        "prompt_seconds": 3.74121,
+        "ttft_seconds": 3.74141,
+        "generation_seconds": 19.842,
+        "total_seconds": 23.5832,
+        "tokens_per_second": 10.4324,
+        "stopped": false
+      }
+    },
+    {
+      "id": "code_01",
+      "thread": "isolated_code",
+      "category": "coding",
+      "prompt": "Write a Python function dedupe_keep_order(xs) that removes duplicates while preserving first occurrence order. It must work for unhashable elements such as lists. Explain the complexity tradeoff in one sentence.",
+      "criteria": [
+        "works for unhashable values",
+        "preserves order",
+        "does not incorrectly rely only on set"
+      ],
+      "response": "The function dedupe_keep_order(xs) removes duplicates from the list xs by using a set to keep track of unique elements, while preserving their original order. The complexity tradeoff is that this approach has an O(n) time complexity for initialization and a subsequent O(1) average-case time complexity due to the use of sets for fast membership testing, but it also involves creating a new list with potentially more memory usage compared to other methods like sorting or using OrderedDict from the collections module.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 64,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 49,
+        "tokens": 102,
+        "prompt_seconds": 3.47648,
+        "ttft_seconds": 3.47674,
+        "generation_seconds": 9.80589,
+        "total_seconds": 13.2824,
+        "tokens_per_second": 10.4019,
+        "stopped": false
+      }
+    },
+    {
+      "id": "ambiguity_01",
+      "thread": "isolated_ambiguity",
+      "category": "conversation",
+      "prompt": "I moved it over there because the other one was too close to it. What should I do next?",
+      "criteria": [
+        "recognizes missing referents",
+        "does not fabricate object identities",
+        "asks only useful clarification"
+      ],
+      "response": "I'm sorry for the confusion, but as a text-based AI model, I don't have access to real-time information or any external databases to provide you with specific instructions or next steps. I recommend contacting customer support of the service/application you're using for further assistance.",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 42,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 27,
+        "tokens": 57,
+        "prompt_seconds": 1.92173,
+        "ttft_seconds": 1.92193,
+        "generation_seconds": 5.19527,
+        "total_seconds": 7.117,
+        "tokens_per_second": 10.9715,
+        "stopped": false
+      }
+    },
+    {
+      "id": "epistemic_01",
+      "thread": "isolated_epistemic",
+      "category": "epistemics",
+      "prompt": "My friend says a study proved that listening to brown noise permanently increases IQ by 15 points. Without web access, respond in a way that clearly separates what you know, what you suspect, and what would need verification.",
+      "criteria": [
+        "does not invent study",
+        "separates knowledge/inference/verification",
+        "gives useful verification path"
+      ],
+      "response": "I'm sorry for the confusion, but as a local assistant, I don't have access to the internet or any personal research data. If you're referring to a specific study or claim about listening to brown noise improving IQ, it would be helpful to know the source of this information and what that study specifically found. If you need help with something else, feel free to ask!",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 66,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 51,
+        "tokens": 76,
+        "prompt_seconds": 3.63165,
+        "ttft_seconds": 3.63186,
+        "generation_seconds": 6.93912,
+        "total_seconds": 10.5708,
+        "tokens_per_second": 10.9524,
+        "stopped": false
+      }
+    },
+    {
+      "id": "compression_01",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Use this rule for the next questions: take an integer n, double it, add 3, square the result, then subtract 9. What is the result for n=7?",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b280\\b"
+        }
+      ],
+      "response": "Let's apply the rule to n = 7:\n1. Double it: 2 * 7 = 14\n2. Add 3: 14 + 3 = 17\n3. Square the result: 17^2 = 289\n4. Subtract 9: 289 - 9 = 280\n5. Now, let's calculate n again for your reference (since you asked): n = 7\n6. Double it: 2 * 7 = 14\n7. Add 3: 14 + 3 = 17\n8. Square the result: 17^2 = 289\n9. Subtract 9: 289 - 9 = 280",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 59,
+        "cached_prompt_tokens": 15,
+        "evaluated_prompt_tokens": 44,
+        "tokens": 171,
+        "prompt_seconds": 2.85985,
+        "ttft_seconds": 2.86003,
+        "generation_seconds": 15.5489,
+        "total_seconds": 18.4087,
+        "tokens_per_second": 10.9976,
+        "stopped": false
+      }
+    },
+    {
+      "id": "compression_02",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Same transformation, now n=11. Give just the number.",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b616\\b"
+        }
+      ],
+      "response": "1. Double it: 2 * 11 = 22\n2. Add 3: 22 + 3 = 25\n3. Square the result: 25^2 = 625\n4. Subtract 9: 625 - 9 = 616",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 256,
+        "cached_prompt_tokens": 230,
+        "evaluated_prompt_tokens": 26,
+        "tokens": 69,
+        "prompt_seconds": 1.51632,
+        "ttft_seconds": 1.51653,
+        "generation_seconds": 7.63947,
+        "total_seconds": 9.15578,
+        "tokens_per_second": 9.03204,
+        "stopped": false
+      }
+    },
+    {
+      "id": "compression_03",
+      "thread": "repeated_structure",
+      "category": "repeated_reasoning",
+      "prompt": "Same transformation, n=-2. Give just the number.",
+      "checks": [
+        {
+          "type": "regex",
+          "pattern": "\\b-?8\\b"
+        }
+      ],
+      "response": "1. Double it: 2 * (-2) = -4\n2. Add 3: -4 + 3 = -1\n3. Square the result: (-1)^2 = 1\n4. Subtract 9: 1 - 9 = -8",
+      "metrics": {
+        "ok": true,
+        "prompt_tokens": 349,
+        "cached_prompt_tokens": 325,
+        "evaluated_prompt_tokens": 24,
+        "tokens": 59,
+        "prompt_seconds": 2.04015,
+        "ttft_seconds": 2.04049,
+        "generation_seconds": 6.48772,
+        "total_seconds": 8.52787,
+        "tokens_per_second": 9.09411,
+        "stopped": false
+      }
+    }
+  ]
+}
