@@ -6,8 +6,7 @@ on:
     branches:
       - aistuff
     paths:
-      - "android-shell/**"
-      - ".github/workflows/build-native-workbench.yml"
+      - "workspace/native-build-request.json"
 
 permissions:
   contents: write
