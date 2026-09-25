@@ -15,6 +15,7 @@
 
   <nav id="tabs">
     <button data-tab="run" class="active">Run</button>
+    <button data-tab="agent">Agent</button>
     <button data-tab="chat">Chat</button>
     <button data-tab="bench">Bench</button>
     <button data-tab="data">Data</button>
@@ -40,6 +41,18 @@
       </div>
       <pre id="runtime-info" class="card mono">Waiting for kernel…</pre>
       <div id="metrics" class="card">No inference measurements yet.</div>
+    </section>
+
+    <section id="agent" class="tab">
+      <h2>Agent v0</h2>
+      <div id="agent-status" class="card">Checking for learned Agent model…</div>
+      <div class="grid2">
+        <button id="agent-selftest">Run hardware self-test</button>
+        <button id="agent-reset" class="secondary">Reset state</button>
+      </div>
+      <div id="agent-summary" class="card">No Agent run yet.</div>
+      <pre id="agent-trace" class="card mono agent-trace">The first hardware test will show selected capability cells, routing weights, predictions, and per-thought latency.</pre>
+      <button id="push-agent-test" class="secondary">Push Agent result to GitHub</button>
     </section>
 
     <section id="chat" class="tab">
