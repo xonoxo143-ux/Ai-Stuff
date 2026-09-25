@@ -12,7 +12,7 @@ import java.util.zip.ZipInputStream
 
 class BundleUpdater(private val context: Context) {
     companion object {
-        const val KERNEL_VERSION = 1
+        const val KERNEL_VERSION = 2
         const val REPO = "xonoxo143-ux/Ai-Stuff"
         const val REF = "refs/heads/aistuff"
         const val MANIFEST_URL =
