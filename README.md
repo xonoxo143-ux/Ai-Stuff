@@ -73,3 +73,18 @@ Git stores source, workbench bundles/manifests, benchmark suites, small results,
 Git does **not** store model weights, large checkpoints, bulky datasets, or training caches.
 
 See `docs/AGENT_V0_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/WORKBENCH_V0.md`.
+
+
+## Stable native identity
+
+The active Android app now has a frozen package/signing identity so future native
+builds can update **in place** instead of forcing uninstall/reinstall cycles.
+
+- package: `com.xonoxo.aiworkbench.k2`
+- signing certificate: pinned in `docs/ANDROID_SIGNING.md`
+- Workbench HTML/JS still updates independently through the mutable bundle path
+- native updates are SHA-256 checked, package checked, and signing-certificate
+  checked before Android's installer is opened
+
+The private signing key is never committed to this public repository. CI consumes
+the one repository secret `AI_WORKBENCH_SIGNING_BUNDLE`.
