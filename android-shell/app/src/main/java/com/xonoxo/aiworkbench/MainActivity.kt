@@ -527,13 +527,13 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             .appendQueryParameter("name", slug)
             .appendQueryParameter(
                 "description",
-                "Private AI Workbench connection for uploading benchmark results."
+                "Device-specific AI Workbench connection for uploading benchmark results."
             )
             .appendQueryParameter(
                 "url",
                 "https://github.com/${GitHubClient.OWNER}/${GitHubClient.REPO}"
             )
-            .appendQueryParameter("public", "false")
+            .appendQueryParameter("public", "true")
             .appendQueryParameter("webhook_active", "false")
             .appendQueryParameter("contents", "write")
             .build()
