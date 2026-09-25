@@ -1,0 +1,2 @@
+stable-signing-ready: 2026-09-25T21:47:00Z
+reason: first stable-signed migration build
