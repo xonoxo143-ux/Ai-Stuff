@@ -23,6 +23,7 @@ class EcologyConfig:
     halt_threshold: float = 0.90
     router_temperature: float = 1.0
     routing_noise_std: float = 0.10
+    dense_training_compute: bool = True
 
     def validate(self) -> None:
         if self.event_dim <= 0 or self.output_dim <= 0:
@@ -264,6 +265,89 @@ class SparseRecurrentEcology(nn.Module):
 
         return new_cell_states, messages
 
+    def _dense_training_cell_update(
+        self,
+        event_embedding: Tensor,
+        workspace: Tensor,
+        cell_states: Tensor,
+        selected: Tensor,
+        route_weights: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
+        """
+        Expensive training path.
+
+        It evaluates every private cell candidate so training can gather useful
+        gradients without materializing a separate copy of selected weights for
+        every batch item. Only top-k cells are committed to private state and
+        only their public messages are exposed.
+
+        This intentionally spends more compute during learning than deployment.
+        Runtime/eval remains genuinely sparse.
+        """
+        c = self.config
+        b = event_embedding.shape[0]
+        n = c.num_cells
+        h = c.state_dim
+        k = c.active_cells
+
+        signatures = self.cell_signatures
+        read_queries = self.signature_read_query(signatures)
+        read_logits = torch.einsum(
+            "nh,bsh->bns", read_queries, workspace
+        ) / (h ** 0.5)
+        read_weights = torch.softmax(read_logits, dim=-1)
+        workspace_reads = torch.einsum(
+            "bns,bsh->bnh", read_weights, workspace
+        )
+
+        event_repeated = event_embedding.unsqueeze(1).expand(-1, n, -1)
+        cell_input = torch.cat([workspace_reads, event_repeated], dim=-1)
+
+        input_gates = torch.einsum(
+            "noi,bni->bno", self.w_ih, cell_input
+        ) + self.b_ih.unsqueeze(0)
+        hidden_gates = torch.einsum(
+            "noh,bnh->bno", self.w_hh, cell_states
+        ) + self.b_hh.unsqueeze(0)
+
+        i_r, i_z, i_n = input_gates.chunk(3, dim=-1)
+        h_r, h_z, h_n = hidden_gates.chunk(3, dim=-1)
+
+        reset = torch.sigmoid(i_r + h_r)
+        update = torch.sigmoid(i_z + h_z)
+        candidate = torch.tanh(i_n + reset * h_n)
+        candidate_states = (
+            (1.0 - update) * candidate + update * cell_states
+        )
+
+        selected_states = torch.gather(
+            candidate_states,
+            dim=1,
+            index=selected.unsqueeze(-1).expand(-1, -1, h),
+        )
+        new_cell_states = cell_states.scatter(
+            dim=1,
+            index=selected.unsqueeze(-1).expand(-1, -1, h),
+            src=selected_states,
+        )
+
+        all_messages = torch.einsum(
+            "nmh,bnh->bnm", self.w_msg, candidate_states
+        ) + self.b_msg.unsqueeze(0)
+        all_messages = torch.tanh(all_messages)
+        selected_messages = torch.gather(
+            all_messages,
+            dim=1,
+            index=selected.unsqueeze(-1).expand(
+                b, k, c.message_dim
+            ),
+        )
+        selected_messages = (
+            selected_messages * route_weights.unsqueeze(-1)
+        )
+
+        return new_cell_states, selected_messages
+
     def _workspace_write(
         self,
         workspace: Tensor,
@@ -314,13 +398,22 @@ class SparseRecurrentEcology(nn.Module):
             add_training_noise=add_training_noise,
         )
 
-        new_cell_states, messages = self._selected_cell_update(
-            event_embedding,
-            workspace,
-            cell_states,
-            selected,
-            route_weights,
-        )
+        if self.training and self.config.dense_training_compute:
+            new_cell_states, messages = self._dense_training_cell_update(
+                event_embedding,
+                workspace,
+                cell_states,
+                selected,
+                route_weights,
+            )
+        else:
+            new_cell_states, messages = self._selected_cell_update(
+                event_embedding,
+                workspace,
+                cell_states,
+                selected,
+                route_weights,
+            )
         new_workspace = self._workspace_write(workspace, messages)
 
         pooled = new_workspace.mean(dim=1)
