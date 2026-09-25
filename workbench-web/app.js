@@ -379,7 +379,7 @@ function renderGitHub(state) {
     ? "GitHub setup: " + githubState.error
     : "GitHub connection has not been created yet.";
   $("#github-help").textContent =
-    "Tap Create connection. GitHub will open a pre-filled private GitHub App registration. Create it, return here, then tap Continue. No keys or tokens are copied manually.";
+    "Tap Create connection. GitHub will open a pre-filled device-specific GitHub App registration. Create it, return here, then tap Continue. No keys or tokens are copied manually.";
 }
 
 async function refreshGitHub() {
