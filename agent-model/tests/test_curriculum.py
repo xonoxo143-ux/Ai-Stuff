@@ -4,6 +4,7 @@ from agent_ecology.curriculum import (
     OP_TO_ID,
     apply_op,
     held_out_bigrams,
+    sample_forced_bigram_batch,
     sample_program_batch,
 )
 
@@ -45,3 +46,19 @@ def test_training_generator_omits_held_out_bigrams():
             op_ids[:, t].tolist(),
         )
         assert all(pair not in forbidden for pair in pairs)
+
+
+def test_forced_recombination_batch_contains_held_out_pair():
+    torch.manual_seed(13)
+    bigrams = held_out_bigrams()
+    _, _, op_ids = sample_forced_bigram_batch(
+        batch_size=64,
+        sequence_length=5,
+        bigrams=bigrams,
+    )
+    valid = {
+        (OP_TO_ID[a], OP_TO_ID[b])
+        for a, b in bigrams
+    }
+    for row in range(op_ids.shape[0]):
+        assert (int(op_ids[row, 1]), int(op_ids[row, 2])) in valid
