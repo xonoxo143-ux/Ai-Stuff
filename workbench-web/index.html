@@ -73,16 +73,23 @@
         <div id="github-code" class="device-code">----</div>
         <div class="muted">The code is copied automatically. Authorize it in GitHub, then return here.</div>
       </div>
+      <div id="github-client-id-card" class="card">
+        <label>GitHub App Client ID
+          <input id="github-client-id" type="text" autocomplete="off" placeholder="Iv1...">
+        </label>
+        <button id="github-save-client-id" class="secondary">Save Client ID & continue</button>
+        <p class="muted">This is the public Client ID shown on the GitHub App settings page. It is not a secret.</p>
+      </div>
       <div class="grid2">
         <button id="github-create">1. Create connection</button>
-        <button id="github-discover" class="secondary">2. Continue</button>
+        <button id="github-discover" class="secondary">2. Auto-detect</button>
         <button id="github-settings" class="secondary">3. App settings</button>
         <button id="github-install" class="secondary">4. Grant repo access</button>
         <button id="github-signin">5. Sign in with GitHub</button>
         <button id="github-check-auth" class="secondary">Check authorization</button>
         <button id="github-signout" class="danger">Sign out</button>
       </div>
-      <p id="github-help" class="muted">One-time setup only: GitHub creates a device-specific AI Workbench connection owned by your account. No keys or tokens need to be copied into the app.</p>
+      <p id="github-help" class="muted">One-time setup only. If auto-detect fails, paste the public Client ID from GitHub above. No client secret, private key, PAT, or token is required.</p>
     </section>
   </main>
   <div id="toast" aria-live="polite"></div>
