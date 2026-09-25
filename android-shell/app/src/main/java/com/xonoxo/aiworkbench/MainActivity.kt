@@ -38,6 +38,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
     private lateinit var runtime: NativeRuntime
     private lateinit var agentModel: AgentModelRuntime
     private lateinit var updater: BundleUpdater
+    private lateinit var nativeUpdater: NativeAppUpdater
     private lateinit var secureStore: SecureStore
     private val github = GitHubClient()
     private val ioExecutor = Executors.newCachedThreadPool()
@@ -51,6 +52,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
         runtime = NativeRuntime(this).also { it.listener = this }
         agentModel = AgentModelRuntime()
         updater = BundleUpdater(this)
+        nativeUpdater = NativeAppUpdater(this)
         secureStore = SecureStore(this)
         secureStore.put("github_client_id", GitHubClient.CLIENT_ID)
 
@@ -370,6 +372,62 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             "update.reload" -> {
                 webView.loadUrl(updater.activeUrl())
                 ok()
+            }
+
+            "app.update.check" -> ioExecutor.execute {
+                try {
+                    val data = nativeUpdater.check()
+                    runOnUiThread { ok(data) }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "app.update.permission" -> {
+                try {
+                    nativeUpdater.openInstallPermissionSettings()
+                    ok(
+                        JSONObject().put(
+                            "can_install_packages",
+                            nativeUpdater.canRequestInstalls()
+                        )
+                    )
+                } catch (t: Throwable) {
+                    fail(t)
+                }
+            }
+
+            "app.update.install" -> ioExecutor.execute {
+                try {
+                    val manifest = payload.getJSONObject("manifest")
+                    if (!nativeUpdater.canRequestInstalls()) {
+                        runOnUiThread {
+                            ok(
+                                JSONObject()
+                                    .put("permission_required", true)
+                                    .put("downloaded", false)
+                            )
+                        }
+                    } else {
+                        val verified = nativeUpdater.downloadAndVerify(manifest)
+                        runOnUiThread {
+                            try {
+                                nativeUpdater.launchInstaller(
+                                    verified.getString("path")
+                                )
+                                ok(
+                                    verified
+                                        .put("permission_required", false)
+                                        .put("installer_opened", true)
+                                )
+                            } catch (t: Throwable) {
+                                fail(t)
+                            }
+                        }
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
             }
 
             "secret.set" -> {
