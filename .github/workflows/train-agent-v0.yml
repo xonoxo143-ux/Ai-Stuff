@@ -90,6 +90,7 @@ jobs:
           mkdir -p android-shell/app/src/main/assets/workbench/benchmarks
           cp -a workbench-web/. android-shell/app/src/main/assets/workbench/
           cp workspace/benchmarks/chatbot-v0.json             android-shell/app/src/main/assets/workbench/benchmarks/
+          cp workspace/benchmarks/agent-ecology-v0.json android-shell/app/src/main/assets/workbench/benchmarks/
 
       - uses: actions/setup-java@v4
         with:
