@@ -1,0 +1,57 @@
+name: Agent V1 Capacity Pressure Sweep
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_ecology/capacity_world.py"
+      - "agent-model/agent_ecology/v1_capacity_sweep.py"
+      - "agent-model/tests/test_capacity_world.py"
+      - "docs/AGENT_V1_A1_CAPACITY_AUDIT.md"
+      - ".github/workflows/agent-v1-capacity-sweep.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-v1-capacity-pressure
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run capacity tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_capacity_world.py
+
+      - name: Run paired capacity-pressure sweep
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.v1_capacity_sweep             --family-counts 8,16,32,64             --seeds 301,302,303             --model-seed-base 4100             --experiences-per-family 20             --sequence-length 4             --state-dim 24             --workspace-slots 3             --signature-dim 12             --message-dim 12             --thought-steps 2             --output /tmp/v1-capacity-sweep.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-V1-Capacity-Sweep
+          path: /tmp/v1-capacity-sweep.json
+          retention-days: 30
