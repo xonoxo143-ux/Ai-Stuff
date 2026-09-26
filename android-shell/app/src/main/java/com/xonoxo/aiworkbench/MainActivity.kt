@@ -23,6 +23,8 @@ import androidx.webkit.WebViewFeature
 import com.xonoxo.aiworkbench.agent.AgentExecutionBackend
 import com.xonoxo.aiworkbench.agent.AgentModelInfo
 import com.xonoxo.aiworkbench.agent.AgentModelRuntime
+import com.xonoxo.aiworkbench.agent.AgentMotifRuntime
+import com.xonoxo.aiworkbench.agent.MotifTimingStats
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -38,6 +40,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
     private lateinit var webView: WebView
     private lateinit var runtime: NativeRuntime
     private lateinit var agentModel: AgentModelRuntime
+    private lateinit var motifRuntime: AgentMotifRuntime
     private lateinit var updater: BundleUpdater
     private lateinit var nativeUpdater: NativeAppUpdater
     private lateinit var secureStore: SecureStore
@@ -52,6 +55,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
 
         runtime = NativeRuntime(this).also { it.listener = this }
         agentModel = AgentModelRuntime()
+        motifRuntime = AgentMotifRuntime()
         updater = BundleUpdater(this)
         nativeUpdater = NativeAppUpdater(this)
         secureStore = SecureStore(this)
@@ -362,6 +366,41 @@ class MainActivity : Activity(), NativeRuntime.Listener {
             "agent.model.selfTest" -> ioExecutor.execute {
                 try {
                     val result = runAgentSelfTest()
+                    runOnUiThread { ok(result) }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "agent.motif.status" -> ioExecutor.execute {
+                try {
+                    val manifest = bundledMotifManifest()
+                    runOnUiThread {
+                        ok(
+                            JSONObject()
+                                .put("available", manifest != null)
+                                .put("loaded", motifRuntime.isLoaded())
+                                .put(
+                                    "motif",
+                                    manifest?.optJSONArray("motif")
+                                        ?: JSONObject.NULL
+                                )
+                                .put(
+                                    "probation_summary",
+                                    manifest?.optJSONObject(
+                                        "probation_summary"
+                                    ) ?: JSONObject.NULL
+                                )
+                        )
+                    }
+                } catch (t: Throwable) {
+                    runOnUiThread { fail(t) }
+                }
+            }
+
+            "agent.motif.benchmark" -> ioExecutor.execute {
+                try {
+                    val result = runMotifHardwareBenchmark()
                     runOnUiThread { ok(result) }
                 } catch (t: Throwable) {
                     runOnUiThread { fail(t) }
@@ -695,6 +734,156 @@ class MainActivity : Activity(), NativeRuntime.Listener {
                 IllegalArgumentException("Unknown kernel request: $type")
             )
         }
+    }
+
+    private fun bundledMotifManifest(): JSONObject? {
+        val names = assets.list("agent-motif") ?: return null
+        val manifestName = names.firstOrNull {
+            it.endsWith("-phone.json")
+        } ?: return null
+
+        return assets.open("agent-motif/$manifestName")
+            .bufferedReader()
+            .use { JSONObject(it.readText()) }
+    }
+
+    private fun materializeMotifAsset(
+        name: String,
+        expectedSha: String,
+    ): File {
+        val dir = File(filesDir, "agent-motif").apply { mkdirs() }
+        val target = File(dir, name)
+        if (!target.exists() || sha256(target) != expectedSha.lowercase()) {
+            assets.open("agent-motif/$name").use { input ->
+                target.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        require(sha256(target) == expectedSha.lowercase()) {
+            "Bundled motif asset failed SHA-256 verification: $name"
+        }
+        return target
+    }
+
+    private fun motifSamples(
+        name: String,
+        expectedSha: String,
+        inputDim: Int,
+        sampleCount: Int,
+    ): FloatArray {
+        val file = materializeMotifAsset(name, expectedSha)
+        val expectedBytes = inputDim * sampleCount * 4
+        require(file.length() == expectedBytes.toLong()) {
+            "Motif boundary sample file has the wrong size"
+        }
+
+        val bytes = file.readBytes()
+        val buffer = ByteBuffer.wrap(bytes)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .asFloatBuffer()
+        val values = FloatArray(buffer.remaining())
+        buffer.get(values)
+        return values
+    }
+
+    private fun motifStatsJson(stats: MotifTimingStats): JSONObject {
+        return JSONObject()
+            .put("count", stats.count)
+            .put("total_ms", stats.totalMs)
+            .put("mean_ms", stats.meanMs)
+            .put("median_ms", stats.medianMs)
+            .put("p90_ms", stats.p90Ms)
+            .put("p95_ms", stats.p95Ms)
+    }
+
+    private fun runMotifHardwareBenchmark(): JSONObject {
+        val manifest = bundledMotifManifest()
+            ?: throw IllegalStateException(
+                "This APK does not contain a compiled motif package"
+            )
+
+        val teacher = manifest.getJSONObject("teacher")
+        val compiled = manifest.getJSONObject("compiled")
+        val samples = manifest.getJSONObject("samples")
+
+        val teacherFile = materializeMotifAsset(
+            teacher.getString("file"),
+            teacher.getString("sha256"),
+        )
+        val compiledFile = materializeMotifAsset(
+            compiled.getString("file"),
+            compiled.getString("sha256"),
+        )
+
+        if (!motifRuntime.isLoaded()) {
+            motifRuntime.load(
+                teacherFile.absolutePath,
+                compiledFile.absolutePath,
+                threads = 4,
+            )
+        }
+
+        val inputDim = manifest.getInt("input_dim")
+        val sampleCount = manifest.getInt("sample_count")
+        val sampleValues = motifSamples(
+            samples.getString("file"),
+            samples.getString("sha256"),
+            inputDim,
+            sampleCount,
+        )
+
+        val result = motifRuntime.benchmark(
+            samples = sampleValues,
+            inputDim = inputDim,
+            sampleCount = sampleCount,
+            warmupPasses = 2,
+            trials = 12,
+        )
+
+        val trialJson = JSONArray()
+        for (trial in result.trials) {
+            trialJson.put(
+                JSONObject()
+                    .put("trial", trial["trial"])
+                    .put("order", JSONArray(trial["order"] as List<*>))
+                    .put(
+                        "teacher_total_ms",
+                        trial["teacher_total_ms"]
+                    )
+                    .put(
+                        "compiled_total_ms",
+                        trial["compiled_total_ms"]
+                    )
+            )
+        }
+
+        return JSONObject()
+            .put("schema", 1)
+            .put("type", "agent_motif_hardware_probation")
+            .put("motif", manifest.getJSONArray("motif"))
+            .put("input_dim", inputDim)
+            .put("sample_count", sampleCount)
+            .put("teacher", motifStatsJson(result.teacher))
+            .put("compiled", motifStatsJson(result.compiled))
+            .put(
+                "teacher_over_compiled_median_ratio",
+                result.teacherOverCompiledMedianRatio
+            )
+            .put(
+                "teacher_over_compiled_mean_ratio",
+                result.teacherOverCompiledMeanRatio
+            )
+            .put("max_output_abs_delta", result.maxOutputAbsDelta)
+            .put(
+                "offline_parity",
+                manifest.getJSONObject("parity")
+            )
+            .put(
+                "probation_summary",
+                manifest.getJSONObject("probation_summary")
+            )
+            .put("trials", trialJson)
     }
 
     private fun bundledAgentManifestName(): String? {
@@ -1062,6 +1251,7 @@ class MainActivity : Activity(), NativeRuntime.Listener {
     override fun onDestroy() {
         runtime.shutdown()
         agentModel.close()
+        motifRuntime.close()
         ioExecutor.shutdownNow()
         webView.destroy()
         super.onDestroy()
