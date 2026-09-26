@@ -48,7 +48,7 @@ def main() -> None:
         for experience in world.iter_from(args.start, stop):
             evaluator_row = {
                 "index": experience.index,
-                "hidden_regime": experience.hidden_regime,
+                "family_id": experience.family_id,\n                "hidden_regime": experience.hidden_regime,
                 "hidden_rules": list(experience.hidden_rules),
                 "forced_pattern_applied":
                     experience.forced_pattern_applied,

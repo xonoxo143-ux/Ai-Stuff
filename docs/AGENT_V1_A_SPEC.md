@@ -109,23 +109,38 @@ Measure development over time, not only final score.
 
 ## 4. A0 lifetime world
 
-The A0 generator preserves the v0 register-machine event schema so the existing recurrent model can enter the world without an input rewrite.
+The first all-regime A1 pilot exposed an important weakness in the original A0 world: it was still one scalar register-machine family with hidden modifiers. That did not satisfy the v0 closeout requirement for a richer **multi-family** controlled curriculum.
 
-The evaluator changes hidden target dynamics across seven phases:
+A0.1 therefore keeps the deterministic lifetime machinery but expands the public event schema:
 
-| Lifetime fraction | Hidden regime | Main pressure |
-|---|---|---|
-| 0–10% | base | establish baseline |
-| 10–25% | gain-add | changed operation semantics |
-| 25–40% | mul-neg interaction | order-sensitive pair effect |
-| 40–55% | gain + mul-neg | recombination of learned rules |
-| 55–70% | base + frequent decoy | old regime returns with misleading recurrence |
-| 70–85% | square-half interaction | new order-sensitive rule |
-| 85–100% | gain + square-half | old rule returns in a new composition |
+```text
+8 operation channels
++ argument
++ argument-present flag
++ bias/context flag
++ 8 visible family-context channels
+= 19-dimensional event
+```
 
-Regime identity and rule names are evaluator metadata only. They are not appended to the event tensor.
+The visible family cue tells the agent which surface context it is operating in. It does **not** reveal the hidden lifetime regime or hidden interaction rule.
 
-The world is deterministic per `(seed, experience_index)`. This makes checkpoint/resume and paired-control comparison exact without depending on global RNG state.
+Eight simple target-dynamics families are used. They share the same operation vocabulary but differ in how candidate register updates are transformed (direct, inertial, overshoot, mirrored, saturating, biased, quantized, and gated).
+
+The evaluator changes which families are present and which hidden interaction rules apply across seven phases:
+
+| Lifetime fraction | Hidden regime | Visible family pool | Main pressure |
+|---|---|---|---|
+| 0–10% | foundation | 0–1 | establish early specialization |
+| 10–25% | family expansion A | 0–3 | new task families appear |
+| 25–40% | interaction A | 0–3 | order-sensitive pair effect |
+| 40–55% | recombination A | 0–5 | more families + combined hidden rules |
+| 55–70% | return + decoy | 0–1 | old families return with misleading recurrence |
+| 70–85% | family expansion B | 4–7 | new/previously absent families dominate |
+| 85–100% | mixed return | 0–7 | all families + old rule in new composition |
+
+Regime identity and hidden rule names remain evaluator metadata only.
+
+The world remains deterministic per `(seed, experience_index)`, so checkpoint/resume and paired-control comparison remain exact without depending on global RNG state.
 
 ## 5. A0 pass conditions
 

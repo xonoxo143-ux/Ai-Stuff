@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Iterator, Optional, Sequence, Tuple
 
 import torch
@@ -18,6 +19,7 @@ class RegimePhase:
     name: str
     start_fraction: float
     end_fraction: float
+    families: Tuple[int, ...]
     rules: RuleSet = ()
     forced_bigram: Optional[Bigram] = None
     forced_probability: float = 0.0
@@ -27,6 +29,10 @@ class RegimePhase:
     def validate(self) -> None:
         if not 0.0 <= self.start_fraction < self.end_fraction <= 1.0:
             raise ValueError("invalid regime fraction interval")
+        if not self.families:
+            raise ValueError("each regime must expose at least one family")
+        if any(family < 0 for family in self.families):
+            raise ValueError("family ids must be non-negative")
         for probability in (self.forced_probability, self.decoy_probability):
             if not 0.0 <= probability <= 1.0:
                 raise ValueError("pattern probabilities must be in [0, 1]")
@@ -37,48 +43,53 @@ class RegimePhase:
 
 def default_regime_schedule() -> Tuple[RegimePhase, ...]:
     return (
-        RegimePhase("base", 0.00, 0.10),
+        RegimePhase("foundation", 0.00, 0.10, families=(0, 1)),
         RegimePhase(
-            "gain_add",
+            "family_expansion_a",
             0.10,
             0.25,
-            rules=("gain_add",),
+            families=(0, 1, 2, 3),
         ),
         RegimePhase(
-            "mul_neg_interaction",
+            "interaction_a",
             0.25,
             0.40,
+            families=(0, 1, 2, 3),
             rules=("mul_neg_interaction",),
             forced_bigram=("MUL", "NEG"),
             forced_probability=0.35,
         ),
         RegimePhase(
-            "gain_plus_mul_neg",
+            "recombination_a",
             0.40,
             0.55,
+            families=(0, 1, 2, 3, 4, 5),
             rules=("gain_add", "mul_neg_interaction"),
             forced_bigram=("MUL", "NEG"),
             forced_probability=0.35,
         ),
         RegimePhase(
-            "base_with_decoy",
+            "return_with_decoy",
             0.55,
             0.70,
+            families=(0, 1),
             decoy_bigram=("ABS", "HALF"),
             decoy_probability=0.55,
         ),
         RegimePhase(
-            "square_half_interaction",
+            "family_expansion_b",
             0.70,
             0.85,
+            families=(4, 5, 6, 7),
             rules=("square_half_interaction",),
             forced_bigram=("SQUARE", "HALF"),
             forced_probability=0.35,
         ),
         RegimePhase(
-            "gain_plus_square_half",
+            "mixed_return",
             0.85,
             1.00,
+            families=(0, 1, 2, 3, 4, 5, 6, 7),
             rules=("gain_add", "square_half_interaction"),
             forced_bigram=("SQUARE", "HALF"),
             forced_probability=0.35,
@@ -93,13 +104,18 @@ class LifetimeWorldConfig:
     seed: int = 20260926
     value_low: float = -2.0
     value_high: float = 2.0
+    num_families: int = 8
     phases: Tuple[RegimePhase, ...] = field(
         default_factory=default_regime_schedule
     )
 
     @property
-    def event_dim(self) -> int:
+    def base_event_dim(self) -> int:
         return ProgramCurriculumConfig().event_dim
+
+    @property
+    def event_dim(self) -> int:
+        return self.base_event_dim + self.num_families
 
     def validate(self) -> None:
         if self.total_experiences <= 0:
@@ -108,12 +124,16 @@ class LifetimeWorldConfig:
             raise ValueError("sequence_length must be at least 3")
         if self.value_low >= self.value_high:
             raise ValueError("value_low must be below value_high")
+        if not 1 <= self.num_families <= 8:
+            raise ValueError("num_families must be in [1, 8]")
         if not self.phases:
             raise ValueError("at least one regime phase is required")
 
         expected_start = 0.0
         for phase in self.phases:
             phase.validate()
+            if max(phase.families) >= self.num_families:
+                raise ValueError("regime references unavailable family")
             if abs(phase.start_fraction - expected_start) > 1e-9:
                 raise ValueError("regime phases must be contiguous")
             expected_start = phase.end_fraction
@@ -128,7 +148,10 @@ class LifetimeExperience:
     targets: Tensor
     op_ids: Tensor
 
-    # Evaluator-only metadata. These fields must never be concatenated onto the
+    # Visible contextual variable encoded in the event tensor.
+    family_id: int
+
+    # Evaluator-only metadata. These must never be concatenated onto the
     # event tensor or fed to the model.
     hidden_regime: str
     hidden_rules: RuleSet
@@ -164,41 +187,72 @@ def _clamp(value: float) -> float:
     return max(-8.0, min(8.0, value))
 
 
+def _family_transform(
+    previous: float,
+    candidate: float,
+    argument: float,
+    family_id: int,
+) -> float:
+    if family_id == 0:
+        value = candidate
+    elif family_id == 1:
+        value = 0.70 * candidate + 0.30 * previous
+    elif family_id == 2:
+        value = 1.20 * candidate - 0.20 * previous
+    elif family_id == 3:
+        value = -candidate
+    elif family_id == 4:
+        value = 4.0 * math.tanh(candidate / 4.0)
+    elif family_id == 5:
+        direction = 1.0 if candidate >= 0.0 else -1.0
+        value = candidate + 0.35 * direction
+    elif family_id == 6:
+        value = round(candidate * 2.0) / 2.0
+    elif family_id == 7:
+        gate = 0.80 if abs(argument) > 0.75 else 0.35
+        value = gate * candidate + (1.0 - gate) * previous
+    else:
+        raise ValueError(f"unsupported family id: {family_id}")
+    return _clamp(value)
+
+
 def _apply_hidden_step(
     register: float,
     op_id: int,
     argument: float,
     previous_op_id: Optional[int],
     rules: Sequence[str],
+    family_id: int,
 ) -> float:
     op = OPS[op_id]
     rule_set = set(rules)
+    adjusted_argument = argument
 
     if "gain_add" in rule_set and op in ("ADD", "SUB"):
-        argument *= 1.5
+        adjusted_argument *= 1.5
 
     if (
         "square_half_interaction" in rule_set
         and previous_op_id == OP_TO_ID["SQUARE"]
         and op_id == OP_TO_ID["HALF"]
     ):
-        result = register * 0.25
+        candidate = register * 0.25
     elif op == "SET":
-        result = argument
+        candidate = adjusted_argument
     elif op == "ADD":
-        result = register + argument
+        candidate = register + adjusted_argument
     elif op == "SUB":
-        result = register - argument
+        candidate = register - adjusted_argument
     elif op == "MUL":
-        result = register * argument
+        candidate = register * adjusted_argument
     elif op == "NEG":
-        result = -register
+        candidate = -register
     elif op == "ABS":
-        result = abs(register)
+        candidate = abs(register)
     elif op == "HALF":
-        result = register * 0.5
+        candidate = register * 0.5
     elif op == "SQUARE":
-        result = register * register
+        candidate = register * register
     else:
         raise ValueError(f"unsupported operation id: {op_id}")
 
@@ -207,9 +261,14 @@ def _apply_hidden_step(
         and previous_op_id == OP_TO_ID["MUL"]
         and op_id == OP_TO_ID["NEG"]
     ):
-        result += 0.75
+        candidate += 0.75
 
-    return _clamp(result)
+    return _family_transform(
+        register,
+        _clamp(candidate),
+        adjusted_argument,
+        family_id,
+    )
 
 
 def targets_for_program(
@@ -217,6 +276,7 @@ def targets_for_program(
     arguments: Tensor,
     *,
     rules: Sequence[str] = (),
+    family_id: int = 0,
 ) -> Tensor:
     if op_ids.ndim != 1 or arguments.ndim != 1:
         raise ValueError("op_ids and arguments must be rank-1")
@@ -234,6 +294,7 @@ def targets_for_program(
             float(arguments[position]),
             previous,
             rules,
+            family_id,
         )
         values.append(register)
         previous = current
@@ -243,11 +304,11 @@ def targets_for_program(
 
 class LifetimeWorld:
     """
-    Deterministic nonstationary procedural world for Agent v1-A.
+    Deterministic nonstationary multi-family world for Agent v1-A.
 
     Every experience is a pure function of (world seed, experience index).
-    Random-access replay is therefore exact and checkpointing only needs the
-    next experience index plus a configuration fingerprint.
+    Family context is visible. Lifetime regime and hidden interaction rules are
+    evaluator-only.
     """
 
     def __init__(self, config: LifetimeWorldConfig):
@@ -285,8 +346,6 @@ class LifetimeWorld:
         pair: Bigram,
         generator: torch.Generator,
     ) -> None:
-        # Position zero remains SET. With sequence_length >= 3 there is always
-        # at least one legal two-operation insertion window.
         start = int(
             torch.randint(
                 1,
@@ -302,6 +361,16 @@ class LifetimeWorld:
         phase = self.regime_for(index)
         generator = self._generator(index)
         length = self.config.sequence_length
+
+        family_position = int(
+            torch.randint(
+                0,
+                len(phase.families),
+                (1,),
+                generator=generator,
+            ).item()
+        )
+        family_id = phase.families[family_position]
 
         op_ids = torch.empty(length, dtype=torch.long)
         op_ids[0] = OP_TO_ID["SET"]
@@ -366,10 +435,14 @@ class LifetimeWorld:
         events[:, arg_column + 1] = needs_argument.float()
         events[:, arg_column + 2] = 1.0
 
+        family_start = self.config.base_event_dim
+        events[:, family_start + family_id] = 1.0
+
         targets = targets_for_program(
             op_ids,
             arguments,
             rules=phase.rules,
+            family_id=family_id,
         )
 
         return LifetimeExperience(
@@ -377,6 +450,7 @@ class LifetimeWorld:
             events=events,
             targets=targets,
             op_ids=op_ids,
+            family_id=family_id,
             hidden_regime=phase.name,
             hidden_rules=phase.rules,
             forced_pattern_applied=forced_applied,
