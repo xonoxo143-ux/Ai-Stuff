@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "package": "com.xonoxo.aiworkbench.k2",
-  "version_code": 1790375144,
-  "version_name": "0.4.42-stable",
-  "sha256": "5fa4387a80777da800250c4f46e56f13262c11f8f22b1c2915bebdcffa44ebd5",
+  "version_code": 1790384627,
+  "version_name": "0.4.43-stable",
+  "sha256": "c5cfeaaa82a7e44d5cda012bfc6ad7ad414bd43970a794a21f014fedd7826b59",
   "signing_sha256": "E2:E3:D6:D0:FE:17:D9:7F:E7:68:55:F5:75:8D:92:3D:BA:2A:5F:7D:95:EA:59:DA:25:7B:38:B0:42:C9:07:EF",
-  "apk_url": "https://github.com/xonoxo143-ux/Ai-Stuff/releases/download/native-1790375144/AIWorkbench.apk",
-  "source_sha": "c306b39e98c93576a2be4b64457205c3a63b44a0"
+  "apk_url": "https://github.com/xonoxo143-ux/Ai-Stuff/releases/download/native-1790384627/AIWorkbench.apk",
+  "source_sha": "9ebad73bce44f0355059155c7dc0a5629cd60e4a"
 }
