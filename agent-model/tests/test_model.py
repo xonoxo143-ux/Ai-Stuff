@@ -154,3 +154,32 @@ def test_sparse_and_dense_reference_are_semantically_equivalent():
                 atol=2e-5,
                 rtol=2e-5,
             )
+
+
+def test_forced_route_overrides_learned_router():
+    model = tiny_model().eval()
+    state = model.initial_state(2)
+    event = torch.randn(2, 7)
+    forced = torch.tensor([[1, 6], [0, 5]], dtype=torch.long)
+
+    result = model.thought_step(
+        event,
+        state.workspace,
+        state.cell_states,
+        add_training_noise=False,
+        forced_selected=forced,
+    )
+
+    selected = result[3]
+    weights = result[4]
+    new_states = result[2]
+
+    assert torch.equal(selected, forced)
+    assert torch.allclose(weights, torch.full_like(weights, 0.5))
+
+    changed = (new_states - state.cell_states).abs().sum(dim=-1) > 1e-7
+    for row in range(2):
+        changed_ids = set(
+            torch.nonzero(changed[row], as_tuple=False).flatten().tolist()
+        )
+        assert changed_ids.issubset(set(forced[row].tolist()))

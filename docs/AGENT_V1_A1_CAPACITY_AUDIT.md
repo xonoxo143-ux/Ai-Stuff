@@ -1,60 +1,66 @@
 # Agent v1-A1 capacity-pressure audit
 
 **Date:** 2026-09-26  
-**Status:** running
+**Commit tested:** `775369918dda7939ddb3d445aa6313eac2d54091`  
+**Workflow run:** `36259235363`  
+**Status:** complete — expected raw-capacity crossover not found
 
-The first two lifetime curricula did not establish reproducible marginal value for more than 16 stored cells.
-
-The next test therefore stops guessing one "hard enough" world and measures the capacity boundary directly.
-
-## Controlled family dynamics
-
-Each family exposes a fixed-width 8-dimensional continuous context code.
-
-Behind that public code is a deterministic family-specific recurrent target system:
-
-```text
-z_(t+1) = tanh(A_f z_t + B_f u_t + b_f)
-y_t     = 4 tanh(w_f · z_t)
-```
-
-where the family-specific matrices are generated independently from the public code.
-
-This gives each family genuinely different temporal dynamics while keeping:
-
-- the public event interface width fixed;
-- the active cell budget fixed at top-4 for sparse systems;
-- the per-family exposure budget controlled.
-
-## Sweep
-
-Test:
+The controlled family-dynamics sweep tested:
 
 ```text
 family count: 8, 16, 32, 64
 controls: fixed16, sparse64, dense64
 paired seeds: 3
+active sparse budget: top-4
 ```
 
-The lifetime phases are:
-
-1. foundation — first quarter of families;
-2. expansion — first half available;
-3. novel-only — second half dominates;
-4. mixed-return — all families return.
-
-The primary diagnostic is not whether 64 wins at one arbitrary setting.
-
-It is whether a reproducible crossover appears as stored environmental diversity grows:
+## Aggregate result
 
 ```text
-small family count:
-    fixed16 ≈ sparse64
-
-larger family count:
-    sparse64 < fixed16 loss
+families   sparse64-fixed16   sparse wins   dense64-fixed16
+8          -0.01133           2/3           +0.02875
+16         -0.00141           2/3           -0.00099
+32         +0.00593           0/3           +0.00139
+64         +0.00190           0/3           -0.00345
 ```
 
-while sparse top-4 remains preferable to simply activating all 64.
+Lower is better.
 
-If no crossover appears, the current recurrent cell substrate has not demonstrated a reason to recruit reserve capacity and A2 remains blocked.
+Late mixed-return sparse64-fixed16 deltas:
+
+```text
+8    +0.00357
+16   +0.01993
+32   +0.00308
+64   -0.00017
+```
+
+## Interpretation
+
+The predicted crossover did not appear.
+
+Increasing environmental diversity did not make the learned sparse-64 ecology progressively better than fixed-16.
+
+This leaves two major explanations:
+
+1. 16 recurrent cells are not representationally saturated by this benchmark;
+2. additional cells could be useful, but larger learned routing/training makes that capacity difficult to allocate and mature.
+
+The present sweep cannot distinguish those explanations because model size and routing/optimization difficulty change together.
+
+## Decision
+
+Reserve recruitment remains blocked.
+
+The next gate is an evaluator-only routing ceiling:
+
+```text
+learned16 vs learned64
+oracle16  vs oracle64
+```
+
+The oracle route assigns visible families to deterministic top-4 coalitions. It is not a proposed autonomous-agent mechanism. It exists only to remove routing quality from the raw-capacity question.
+
+If oracle64 gains a diversity-dependent advantage while learned64 does not, the bottleneck is allocation/trainability.
+
+If oracle64 also fails to gain, reserve capacity has not yet earned a role in this substrate.

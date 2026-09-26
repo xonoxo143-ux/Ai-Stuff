@@ -377,6 +377,7 @@ class SparseRecurrentEcology(nn.Module):
         cell_states: Tensor,
         *,
         add_training_noise: bool = True,
+        forced_selected: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
         """
         Execute exactly one internal sparse thought step.
@@ -392,11 +393,44 @@ class SparseRecurrentEcology(nn.Module):
         """
         event_embedding = self.event_encoder(event)
 
-        selected, route_weights, scores, _router_probs = self._route(
-            event_embedding,
-            workspace,
-            add_training_noise=add_training_noise,
-        )
+        if forced_selected is None:
+            selected, route_weights, scores, _router_probs = self._route(
+                event_embedding,
+                workspace,
+                add_training_noise=add_training_noise,
+            )
+        else:
+            # Diagnostic hook for controlled routing experiments. The forced
+            # route is supplied by the evaluator and must never be used by the
+            # autonomous agent as privileged task information.
+            batch = event.shape[0]
+            expected = (batch, self.config.active_cells)
+            if tuple(forced_selected.shape) != expected:
+                raise ValueError(
+                    f"forced_selected must have shape {expected}"
+                )
+            selected = forced_selected.to(
+                device=event.device,
+                dtype=torch.long,
+            )
+            if bool(torch.any(selected < 0)) or bool(
+                torch.any(selected >= self.config.num_cells)
+            ):
+                raise ValueError("forced_selected contains invalid cell ids")
+
+            # Keep router scores in the trace so learned-vs-oracle diagnostics
+            # can inspect what the learned router would have done.
+            _ignored, _ignored_weights, scores, _router_probs = self._route(
+                event_embedding,
+                workspace,
+                add_training_noise=False,
+            )
+            route_weights = torch.full(
+                expected,
+                1.0 / self.config.active_cells,
+                device=event.device,
+                dtype=event_embedding.dtype,
+            )
 
         if self.training and self.config.dense_training_compute:
             new_cell_states, messages = self._dense_training_cell_update(
@@ -483,6 +517,7 @@ class SparseRecurrentEcology(nn.Module):
         force_steps: Optional[int] = None,
         add_training_noise: bool = True,
         return_trace: bool = False,
+        forced_selected: Optional[Tensor] = None,
     ) -> Tuple[Tensor, EcologyState, Optional[Dict[str, Tensor]]]:
         if event.ndim != 2 or event.shape[-1] != self.config.event_dim:
             raise ValueError(
@@ -523,6 +558,7 @@ class SparseRecurrentEcology(nn.Module):
                 workspace,
                 cell_states,
                 add_training_noise=add_training_noise,
+                forced_selected=forced_selected,
             )
 
             outputs.append(output)
@@ -564,6 +600,7 @@ class SparseRecurrentEcology(nn.Module):
         force_steps: Optional[int] = None,
         add_training_noise: bool = True,
         return_trace: bool = False,
+        forced_selected: Optional[Tensor] = None,
     ) -> Tuple[Tensor, EcologyState, Optional[List[Dict[str, Tensor]]]]:
         """
         Process a sequence of external events while preserving private cell state.
@@ -593,6 +630,7 @@ class SparseRecurrentEcology(nn.Module):
                 force_steps=force_steps,
                 add_training_noise=add_training_noise,
                 return_trace=return_trace,
+                forced_selected=forced_selected,
             )
             outputs.append(output)
             if trace is not None:
