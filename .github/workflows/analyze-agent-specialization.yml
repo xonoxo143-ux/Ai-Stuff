@@ -1,0 +1,56 @@
+name: Analyze Agent Specialization
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - "workspace/analyze-agent-request.json"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      BASE_MODEL_RUN_ID: "36106396883"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Agent v0 checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Phone-Package
+          path: previous-agent
+          github-token: ${{ github.token }}
+          run-id: ${{ env.BASE_MODEL_RUN_ID }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install analysis stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run causal specialization analysis
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.analyze_specialization             ../previous-agent/agent-model/artifacts/agent-ecology-v0.pt             --batch-size 128             --batches 4             --sequence-length 6             --pair-candidates 24             --output artifacts/specialization-analysis.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-v0-Specialization-Analysis
+          path: agent-model/artifacts/specialization-analysis.json
+          retention-days: 30
