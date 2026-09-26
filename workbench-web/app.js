@@ -436,6 +436,7 @@ async function refreshAgent() {
       $("#agent-selftest").disabled = true;
       $("#agent-benchmark").disabled = true;
       $("#agent-backend-benchmark").disabled = true;
+      $("#agent-motif-benchmark").disabled = true;
       $("#agent-reset").disabled = true;
       return status;
     }
@@ -443,6 +444,7 @@ async function refreshAgent() {
     $("#agent-selftest").disabled = false;
     $("#agent-benchmark").disabled = false;
     $("#agent-backend-benchmark").disabled = false;
+    $("#agent-motif-benchmark").disabled = false;
     $("#agent-reset").disabled = false;
     if (status.loaded && status.model) {
       const m = status.model;
@@ -461,6 +463,7 @@ async function refreshAgent() {
     $("#agent-selftest").disabled = true;
     $("#agent-benchmark").disabled = true;
     $("#agent-backend-benchmark").disabled = true;
+    $("#agent-motif-benchmark").disabled = true;
     $("#agent-reset").disabled = true;
     return null;
   }
@@ -1003,6 +1006,62 @@ async function runAgentBackendBenchmark() {
   }
 }
 
+async function runAgentMotifBenchmark() {
+  $("#agent-status").textContent =
+    "Running compiled motif hardware probation…";
+  $("#agent-summary").textContent =
+    "Comparing original cells 1+10 against their compiled composite.";
+  $("#agent-trace").textContent =
+    "Warming teacher and compiled ONNX graphs, then alternating measured trials…";
+
+  try {
+    const status = await nativeRequest("agent.motif.status");
+    if (!status.available) {
+      throw new Error(
+        "This native build does not contain the compiled motif package yet. Check for a native app update."
+      );
+    }
+
+    const result = await nativeRequest("agent.motif.benchmark");
+    lastAgentTest = {
+      ...result,
+      generated_at: new Date().toISOString()
+    };
+
+    const teacher = result.teacher;
+    const compiled = result.compiled;
+    const ratio = Number(result.teacher_over_compiled_median_ratio);
+
+    $("#agent-status").textContent =
+      "Compiled motif hardware probation complete.";
+    $("#agent-summary").textContent =
+      "Teacher median " + Number(teacher.median_ms).toFixed(4) +
+      " ms · compiled median " + Number(compiled.median_ms).toFixed(4) +
+      " ms · teacher/compiled " + ratio.toFixed(2) + "×";
+
+    $("#agent-trace").textContent =
+      "Teacher: mean " + Number(teacher.mean_ms).toFixed(4) +
+      " ms · p90 " + Number(teacher.p90_ms).toFixed(4) + " ms\n" +
+      "Compiled: mean " + Number(compiled.mean_ms).toFixed(4) +
+      " ms · p90 " + Number(compiled.p90_ms).toFixed(4) + " ms\n" +
+      "Hardware boundary max |Δ|: " +
+      Number(result.max_output_abs_delta).toExponential(3) + "\n" +
+      "Offline mean ΔMAE vs teacher: " +
+      Number(
+        result.probation_summary?.mean_task_mae_delta || 0
+      ).toFixed(6) + "\n" +
+      "Offline non-worse fraction: " +
+      Number(
+        result.probation_summary?.nonworse_fraction || 0
+      ).toFixed(3);
+  } catch (error) {
+    $("#agent-status").textContent =
+      "Motif probation failed: " + error.message;
+    $("#agent-summary").textContent = "No motif hardware result.";
+    $("#agent-trace").textContent = String(error.stack || error);
+  }
+}
+
 async function resetAgent() {
   try {
     await nativeRequest("agent.model.reset");
@@ -1029,7 +1088,9 @@ async function pushAgentTest() {
         ? "agent-depth-context-"
         : lastAgentTest.type === "agent_sparse_dense_benchmark"
           ? "agent-sparse-dense-"
-          : "agent-hardware-";
+          : lastAgentTest.type === "agent_motif_hardware_probation"
+            ? "agent-motif-probation-"
+            : "agent-hardware-";
     await nativeRequest("github.pushResult", {
       filename: prefix + Date.now() + ".json",
       content: JSON.stringify(lastAgentTest, null, 2)
@@ -1281,6 +1342,10 @@ async function boot() {
   $("#agent-backend-benchmark").addEventListener(
     "click",
     runAgentBackendBenchmark
+  );
+  $("#agent-motif-benchmark").addEventListener(
+    "click",
+    runAgentMotifBenchmark
   );
   $("#agent-reset").addEventListener("click", resetAgent);
   $("#push-agent-test").addEventListener("click", pushAgentTest);
