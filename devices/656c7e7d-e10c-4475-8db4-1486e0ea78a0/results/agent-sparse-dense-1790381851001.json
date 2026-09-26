@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "type": "agent_sparse_dense_benchmark",
+  "generated_at": "2026-09-26T00:17:26.859Z",
+  "model": {
+    "id": "agent-ecology-v0",
+    "event_dim": 11,
+    "output_dim": 1,
+    "num_cells": 16,
+    "active_cells": 4,
+    "state_dim": 96,
+    "workspace_slots": 4,
+    "thought_steps": 3,
+    "dense_reference_available": true
+  },
+  "design": {
+    "semantics": "same weights, same router, same top-k committed cells/messages",
+    "sparse_candidate_cells": 4,
+    "dense_candidate_cells": 16,
+    "thought_steps_per_event": 3,
+    "events_per_program": 6,
+    "warmup_runs_per_backend": 2,
+    "measured_trials": 12,
+    "alternating_backend_order": true
+  },
+  "sparse": {
+    "thought_count": 216,
+    "total_ms": 212.71760400000008,
+    "mean_ms": 0.9848037222222226,
+    "median_ms": 0.731589,
+    "p90_ms": 1.494427,
+    "p95_ms": 2.302656
+  },
+  "dense": {
+    "thought_count": 216,
+    "total_ms": 355.4097419999998,
+    "mean_ms": 1.6454154722222214,
+    "median_ms": 1.304114,
+    "p90_ms": 2.756354,
+    "p95_ms": 3.959323
+  },
+  "dense_over_sparse_median_ratio": 1.7825773760950478,
+  "dense_over_sparse_mean_ratio": 1.6708054966621366,
+  "semantic_parity": {
+    "max_output_abs_delta": 0,
+    "selected_cell_mismatch_count": 0,
+    "max_route_weight_abs_delta": 0
+  },
+  "trials": [
+    {
+      "trial": 0,
+      "order": [
+        "sparse",
+        "dense"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 14.299896999999998,
+      "dense_total_ms": 30.262083
+    },
+    {
+      "trial": 1,
+      "order": [
+        "dense",
+        "sparse"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 16.264633999999997,
+      "dense_total_ms": 29.086664999999996
+    },
+    {
+      "trial": 2,
+      "order": [
+        "sparse",
+        "dense"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 13.814688999999996,
+      "dense_total_ms": 30.037343
+    },
+    {
+      "trial": 3,
+      "order": [
+        "dense",
+        "sparse"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 21.654584999999994,
+      "dense_total_ms": 28.976720000000004
+    },
+    {
+      "trial": 4,
+      "order": [
+        "sparse",
+        "dense"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 13.891249,
+      "dense_total_ms": 33.313179
+    },
+    {
+      "trial": 5,
+      "order": [
+        "dense",
+        "sparse"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 15.471406000000004,
+      "dense_total_ms": 28.486773999999997
+    },
+    {
+      "trial": 6,
+      "order": [
+        "sparse",
+        "dense"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 19.587759999999996,
+      "dense_total_ms": 26.86026
+    },
+    {
+      "trial": 7,
+      "order": [
+        "dense",
+        "sparse"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 24.573852000000002,
+      "dense_total_ms": 29.16479
+    },
+    {
+      "trial": 8,
+      "order": [
+        "sparse",
+        "dense"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 13.753645999999998,
+      "dense_total_ms": 30.723961000000006
+    },
+    {
+      "trial": 9,
+      "order": [
+        "dense",
+        "sparse"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 20.685833,
+      "dense_total_ms": 29.909270999999997
+    },
+    {
+      "trial": 10,
+      "order": [
+        "sparse",
+        "dense"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 15.608019999999996,
+      "dense_total_ms": 32.242293000000004
+    },
+    {
+      "trial": 11,
+      "order": [
+        "dense",
+        "sparse"
+      ],
+      "parity": {
+        "max_output_abs_delta": 0,
+        "selected_cell_mismatch_count": 0,
+        "max_route_weight_abs_delta": 0
+      },
+      "sparse_total_ms": 23.112033000000004,
+      "dense_total_ms": 26.346403000000002
+    }
+  ]
+}
