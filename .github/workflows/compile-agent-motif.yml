@@ -1,0 +1,68 @@
+name: Compile Agent Motif
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - "workspace/compile-motif-request.json"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      BASE_MODEL_RUN_ID: "36106396883"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Agent v0 checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Phone-Package
+          path: previous-agent
+          github-token: ${{ github.token }}
+          run-id: ${{ env.BASE_MODEL_RUN_ID }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Compile provisional motif 1+10
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.compile_motif \
+            ../previous-agent/agent-model/artifacts/agent-ecology-v0.pt \
+            --left 1 \
+            --right 10 \
+            --collect-batches 80 \
+            --collect-batch-size 128 \
+            --sequence-length 6 \
+            --hidden-dims 64,96,128 \
+            --train-steps 1600 \
+            --train-batch-size 512 \
+            --eval-batches 4 \
+            --eval-batch-size 128 \
+            --output artifacts/motif-compilation.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-v0-Motif-Compilation
+          path: agent-model/artifacts/motif-compilation.json
+          retention-days: 30
