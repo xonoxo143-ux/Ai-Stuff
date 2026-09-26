@@ -27,6 +27,7 @@ jobs:
       ANDROID_NDK_VERSION: "28.1.13356709"
       ANDROID_CMAKE_VERSION: "3.22.1"
       BASE_MODEL_RUN_ID: "36106396883"
+      MOTIF_PHONE_RUN_ID: "36206749774"
 
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +39,14 @@ jobs:
           path: previous-agent
           github-token: ${{ github.token }}
           run-id: ${{ env.BASE_MODEL_RUN_ID }}
+
+      - name: Download probationary motif phone package
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Motif-Phone
+          path: motif-phone
+          github-token: ${{ github.token }}
+          run-id: ${{ env.MOTIF_PHONE_RUN_ID }}
 
       - uses: actions/setup-python@v5
         with:
@@ -64,6 +73,23 @@ jobs:
           assert m["schema"] == 2
           assert m["dense_reference"]["onnx_file"] == "agent-ecology-thought-step-dense.onnx"
           print("Agent runtime package contains sparse + dense reference backends.")
+          PY
+
+      - name: Bundle probationary compiled motif
+        run: |
+          set -euo pipefail
+          rm -rf android-shell/app/src/main/assets/agent-motif
+          mkdir -p android-shell/app/src/main/assets/agent-motif
+          cp motif-phone/* android-shell/app/src/main/assets/agent-motif/
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("android-shell/app/src/main/assets/agent-motif/motif-1-10-phone.json")
+          m = json.loads(p.read_text())
+          assert m["schema"] == 1
+          assert m["motif"] == [1, 10]
+          print("Bundled compiled motif hardware probation package.")
           PY
 
       - name: Bundle fallback workbench
@@ -141,6 +167,10 @@ jobs:
           grep -q "assets/agent-model/agent-ecology-thought-step.onnx" dist/apk-contents.txt
           grep -q "assets/agent-model/agent-ecology-thought-step-dense.onnx" dist/apk-contents.txt
           grep -q "assets/agent-model/agent-ecology-thought-step.json" dist/apk-contents.txt
+          grep -q "assets/agent-motif/motif-1-10-teacher.onnx" dist/apk-contents.txt
+          grep -q "assets/agent-motif/motif-1-10-compiled.onnx" dist/apk-contents.txt
+          grep -q "assets/agent-motif/motif-1-10-boundary-samples.f32" dist/apk-contents.txt
+          grep -q "assets/agent-motif/motif-1-10-phone.json" dist/apk-contents.txt
 
       - name: Attest APK with GitHub OIDC
         uses: actions/attest@v4
