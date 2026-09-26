@@ -14,6 +14,10 @@ permissions:
 
 jobs:
   analyze:
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [71, 113]
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -51,6 +55,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Agent-v0-Specialization-Analysis
-          path: agent-model/artifacts/specialization-analysis.json
+          name: Agent-v0-Specialization-Analysis-${{ matrix.seed }}
+          path: agent-model/artifacts/specialization-analysis-${{ matrix.seed }}.json
           retention-days: 30
