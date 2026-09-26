@@ -10,6 +10,8 @@ on:
       - "docs/AGENT_V1_A_SPEC.md"
       - "docs/AGENT_V1_A0_RESULT.md"
       - "docs/AGENT_V1_A1_SMOKE.md"
+      - "docs/AGENT_V1_A1_PILOT_01.md"
+      - "docs/AGENT_V1_A1_PILOT_02.md"
       - ".github/workflows/test-agent-v1.yml"
 
 permissions:
@@ -52,22 +54,17 @@ jobs:
           python -m agent_ecology.v1a             --world-size 1000             --count 256             --seed 77             --output /tmp/v1a-second.jsonl
           cmp /tmp/v1a-first.jsonl /tmp/v1a-second.jsonl
 
-      - name: Paired fixed-control pilot across all lifetime regimes
+      - name: Paired five-seed fixed-control replication
         working-directory: agent-model
         run: |
           set -euo pipefail
-          COMMON="--world-size 500 --experiences 500 --sequence-length 4 --world-seed 91 --model-seed 17 --state-dim 24 --workspace-slots 3 --signature-dim 12 --message-dim 12 --thought-steps 2 --routing-noise-std 0.0 --log-every 50"
-          python -m agent_ecology.v1_controls --control fixed16 $COMMON --output /tmp/v1a-fixed16.json
-          python -m agent_ecology.v1_controls --control sparse64 $COMMON --output /tmp/v1a-sparse64.json
-          python -m agent_ecology.v1_controls --control dense64 $COMMON --output /tmp/v1a-dense64.json
+          python -m agent_ecology.v1_compare             --seeds 91,92,93,94,95             --model-seed-base 1700             --world-size 500             --experiences 500             --sequence-length 4             --state-dim 24             --workspace-slots 3             --signature-dim 12             --message-dim 12             --thought-steps 2             --routing-noise-std 0.0             --log-every 100             --output /tmp/v1a-multiseed.json
 
-      - name: Upload V1 pilot artifacts
+      - name: Upload V1 replication artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Agent-V1-A0-A1-Pilot
+          name: Agent-V1-A1-Multiseed
           path: |
             /tmp/v1a-first.jsonl
-            /tmp/v1a-fixed16.json
-            /tmp/v1a-sparse64.json
-            /tmp/v1a-dense64.json
+            /tmp/v1a-multiseed.json
           retention-days: 30
