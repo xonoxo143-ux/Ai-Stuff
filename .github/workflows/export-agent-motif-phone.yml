@@ -1,0 +1,65 @@
+name: Export Agent Motif for Phone
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aistuff
+    paths:
+      - "workspace/export-motif-phone-request.json"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      BASE_MODEL_RUN_ID: "36106396883"
+      MOTIF_PROBATION_RUN_ID: "36206573309"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Agent v0 checkpoint
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Phone-Package
+          path: previous-agent
+          github-token: ${{ github.token }}
+          run-id: ${{ env.BASE_MODEL_RUN_ID }}
+
+      - name: Download probationary motif
+        uses: actions/download-artifact@v4
+        with:
+          name: Agent-v0-Motif-Probation
+          path: motif-probation
+          github-token: ${{ github.token }}
+          run-id: ${{ env.MOTIF_PROBATION_RUN_ID }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install export stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "onnx>=1.16" "onnxruntime>=1.18"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Export teacher and compiled motif graphs
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.export_motif_pair             ../previous-agent/agent-model/artifacts/agent-ecology-v0.pt             ../motif-probation/motif-1-10-hidden64.pt             --output-dir artifacts/motif-phone             --sample-count 64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-v0-Motif-Phone
+          path: agent-model/artifacts/motif-phone/*
+          retention-days: 30
