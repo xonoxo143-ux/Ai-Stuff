@@ -219,6 +219,8 @@ def summarize(runs: List[Dict[str, object]]) -> Dict[str, object]:
         routing_gap16 = []
         routing_gap64 = []
         late_oracle_delta = []
+        privileged64_minus_learned16 = []
+        learned64_minus_privileged64 = []
 
         for seed, controls in sorted(seed_groups.items()):
             if set(controls) != set(CONTROLS):
@@ -251,6 +253,14 @@ def summarize(runs: List[Dict[str, object]]) -> Dict[str, object]:
                 float(o64["late_mixed_loss"])
                 - float(o16["late_mixed_loss"])
             )
+            privileged64_minus_learned16.append(
+                float(o64["mean_task_loss"])
+                - float(l16["mean_task_loss"])
+            )
+            learned64_minus_privileged64.append(
+                float(l64["mean_task_loss"])
+                - float(o64["mean_task_loss"])
+            )
 
         result[str(families)] = {
             "pairs": len(seed_groups),
@@ -262,6 +272,18 @@ def summarize(runs: List[Dict[str, object]]) -> Dict[str, object]:
             "mean_learned_minus_oracle_64": mean(routing_gap64),
             "mean_late_oracle64_minus_oracle16":
                 mean(late_oracle_delta),
+            "mean_privileged64_minus_learned16":
+                mean(privileged64_minus_learned16),
+            "privileged64_beats_learned16": sum(
+                x < 0 for x in privileged64_minus_learned16
+            ),
+            "mean_learned64_minus_privileged64":
+                mean(learned64_minus_privileged64),
+            "privileged64_beats_learned64": sum(
+                x > 0 for x in learned64_minus_privileged64
+            ),
+            "paired_privileged64_minus_learned16":
+                privileged64_minus_learned16,
         }
 
     return {"by_family_count": result}

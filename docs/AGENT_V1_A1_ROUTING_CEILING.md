@@ -1,66 +1,118 @@
 # Agent v1-A1 routing ceiling
 
 **Date:** 2026-09-26  
-**Status:** running
+**Commit tested:** `1cc2481380ef8086c401c2eea2dd4f65a7a8dff7`  
+**Workflow run:** `36263698180`  
+**Status:** first diagnostic complete; replication running
 
-## Question
+## Why this test exists
 
-The capacity sweep found no reliable advantage from increasing the learned ecology from 16 to 64 cells.
+The preceding capacity sweep found no reliable advantage from simply training a 64-cell sparse ecology instead of a 16-cell sparse ecology.
 
-That result confounds two effects:
+That result confounded:
 
 ```text
 stored representational capacity
 vs
-ability to route/train that capacity
+ability to allocate/train that capacity
 ```
 
-Sparse-expert literature independently warns that poor routing can leave experts under-trained, so this is a real confound rather than a project-specific excuse.
+Sparse-expert literature independently documents under-trained experts and routing imbalance as failure modes, so the confound is real.
 
-## Diagnostic design
+## Diagnostic
 
-Compare:
+The experiment compared:
 
 ```text
 learned16
 learned64
 
-oracle16
-oracle64
+privileged-structured16
+privileged-structured64
 ```
 
-All sparse variants still execute top-4 cells.
+All variants execute only top-4 cells.
 
-For oracle routing, evaluator-visible family identity is assigned to a deterministic four-cell coalition.
+The privileged structured route assigns each visible family to a deterministic four-cell coalition. It is evaluator machinery, not a proposed agent mechanism and not a claim of globally optimal routing.
 
 With 16 cells there are four disjoint coalitions.
 
 With 64 cells there are sixteen.
 
-As family count rises, oracle16 is therefore forced to reuse the same cell coalitions across unrelated hidden dynamics much more often than oracle64.
+As family diversity grows, the smaller bank must share the same coalitions across more unrelated hidden dynamics.
 
-The oracle route is privileged evaluator machinery and is **not** a candidate agent architecture.
+## First result — three paired seeds
 
-## Interpretation matrix
+### Learned routing
 
-### oracle64 improves, learned64 does not
+```text
+families   learned64 - learned16
+8          +0.02911
+16         +0.00179
+32         +0.00564
+64         +0.00059
+```
 
-Extra capacity is useful, but learned allocation/training is the bottleneck.
+The learned 64-cell ecology did not beat learned 16 on mean loss at any family count.
 
-That would strengthen the case for developmental reserves: keep excess capacity dormant and mature it only when needed.
+### Structured 64 vs structured 16
 
-### neither oracle64 nor learned64 improves
+```text
+families   structured64 - structured16   wins
+8          -0.00025                       2/3
+16         -0.02056                       3/3
+32         -0.01335                       3/3
+64         -0.00640                       2/3
+```
 
-Current cells are not capacity-limited under this benchmark. Reserve recruitment remains unjustified.
+That appears to expose useful additional capacity when allocation is supplied.
 
-### both improve
+However, structured16 itself was often worse than learned16. Therefore **structured64 vs structured16 is not the cleanest capacity comparison**; the fixed partition can handicap the small model.
 
-The prior learned-routing sweep was underpowered/noisy; replicate before A2.
+### Cleaner comparison: structured64 vs learned16
 
-### learned64 improves but oracle64 does not
+Derived paired means:
 
-The fixed oracle partition is a poor diagnostic; do not infer a capacity result from it.
+```text
+8 families    structured64 - learned16 ≈ +0.00905
+16 families                           ≈ -0.00702
+32 families                           ≈ -0.00837
+64 families                           ≈ -0.00743
+```
+
+This has the crossover shape the previous sweep did not:
+
+```text
+low diversity:
+    extra allocated capacity does not help
+
+higher diversity:
+    allocated 64-cell capacity beats the learned 16-cell baseline
+```
+
+At the same time, learned64 remains unable to realize that advantage.
+
+## Current interpretation
+
+The strongest surviving explanation is now:
+
+> The substrate contains useful extra capacity, but exposing all 64 cells to learned routing/training from the start makes that capacity difficult to allocate and mature.
+
+This is exactly the failure mode that could give dormant reserve cells a purpose:
+
+```text
+keep unnecessary capacity out of competition
+→ mature a small ecology first
+→ introduce new capacity only under persistent pressure
+→ probation it before permanent retention
+```
+
+But three pairs and one deterministic partition are not enough to unlock A2 by themselves.
 
 ## Gate
 
-Do not implement learned reserve recruitment until this diagnostic and replication are interpretable.
+Run an independent replication with more paired seeds and report **structured64 directly against learned16**, not only against structured16.
+
+If the 16/32/64-family crossover survives, A2 reserve recruitment is unblocked as an experimental mechanism.
+
+If it does not, reserve recruitment remains blocked.

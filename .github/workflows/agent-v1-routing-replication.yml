@@ -1,0 +1,56 @@
+name: Agent V1 Routing Capacity Replication
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_ecology/v1_route_ceiling.py"
+      - "agent-model/agent_ecology/capacity_world.py"
+      - "docs/AGENT_V1_A1_ROUTING_REPLICATION.md"
+      - ".github/workflows/agent-v1-routing-replication.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-v1-routing-capacity-replication
+  cancel-in-progress: true
+
+jobs:
+  replicate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_v1_route_ceiling.py
+
+      - name: Replicate routing-capacity crossover
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.v1_route_ceiling             --family-counts 8,16,32,64             --seeds 701,702,703,704,705,706             --model-seed-base 8100             --experiences-per-family 20             --sequence-length 4             --state-dim 24             --workspace-slots 3             --signature-dim 12             --message-dim 12             --thought-steps 2             --output /tmp/v1-routing-replication.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-V1-Routing-Capacity-Replication
+          path: /tmp/v1-routing-replication.json
+          retention-days: 30
