@@ -1,0 +1,58 @@
+name: Test Agent V1 Developmental Foundation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/**"
+      - "docs/AGENT_V1_A_SPEC.md"
+      - ".github/workflows/test-agent-v1.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-v1-developmental-foundation
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU test stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run Agent model tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests
+
+      - name: Prove lifetime trace replay is deterministic
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.v1a             --world-size 1000             --count 256             --seed 77             --output /tmp/v1a-first.jsonl
+          python -m agent_ecology.v1a             --world-size 1000             --count 256             --seed 77             --output /tmp/v1a-second.jsonl
+          cmp /tmp/v1a-first.jsonl /tmp/v1a-second.jsonl
+
+      - name: Upload deterministic A0 trace
+        uses: actions/upload-artifact@v4
+        with:
+          name: Agent-V1-A0-Trace
+          path: /tmp/v1a-first.jsonl
+          retention-days: 30
