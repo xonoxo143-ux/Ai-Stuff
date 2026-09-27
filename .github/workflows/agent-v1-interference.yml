@@ -1,0 +1,57 @@
+name: Agent V1 Direct Interference Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_ecology/interference_world.py"
+      - "agent-model/agent_ecology/v1_interference.py"
+      - "agent-model/tests/test_v1_interference.py"
+      - "docs/AGENT_V1_A1_INTERFERENCE_SPEC.md"
+      - ".github/workflows/agent-v1-interference.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-v1-direct-interference
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_v1_interference.py
+
+      - name: Run direct forgetting diagnostic
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.v1_interference             --family-counts 16,32,64             --seeds 901,902,903             --model-seed-base 10000             --train-examples 20             --eval-examples 16             --sequence-length 4             --state-dim 24             --workspace-slots 3             --signature-dim 12             --message-dim 12             --thought-steps 2             --output /tmp/v1-interference.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-V1-Direct-Interference
+          path: /tmp/v1-interference.json
+          retention-days: 30
