@@ -1,0 +1,57 @@
+name: Agent V1 Selective Isolation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_ecology/v1_selective_isolation.py"
+      - "agent-model/tests/test_v1_selective_isolation.py"
+      - "docs/AGENT_V1_A1_INTERFERENCE_LOCALIZE_RESULT.md"
+      - "docs/AGENT_V1_A1_SELECTIVE_ISOLATION.md"
+      - ".github/workflows/agent-v1-selective-isolation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-v1-selective-isolation
+  cancel-in-progress: true
+
+jobs:
+  isolate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_v1_selective_isolation.py
+
+      - name: Run selective-isolation diagnostic
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.v1_selective_isolation             --family-count 64             --seeds 1301,1302,1303             --model-seed-base 14000             --checkpoints-after 7,15,23,31,39,47,55             --train-examples 20             --eval-examples 16             --sequence-length 4             --state-dim 24             --workspace-slots 3             --signature-dim 12             --message-dim 12             --thought-steps 2             --output /tmp/v1-selective-isolation.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-V1-Selective-Isolation
+          path: /tmp/v1-selective-isolation.json
+          retention-days: 30
