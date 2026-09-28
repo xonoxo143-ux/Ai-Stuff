@@ -2,7 +2,7 @@ import http from "node:http";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -19,6 +19,14 @@ const taskBountyPollMs = Math.max(
 );
 const taskBountyWebhookSecret = process.env.TASKBOUNTY_WEBHOOK_SECRET || "";
 const taskFeedSelfTest = process.env.TASK_FEED_SELF_TEST === "true";
+
+const basedAgentsFeedUrl =
+  process.env.BASEDAGENTS_FEED_URL ||
+  "https://api.basedagents.ai/v1/tasks?status=open";
+const basedAgentsPollMs = Math.max(
+  300_000,
+  Number(process.env.BASEDAGENTS_POLL_MS || 3_600_000),
+);
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -40,6 +48,21 @@ const feedState = {
   rejectedCount: 0,
   webhookConfigured: Boolean(taskBountyWebhookSecret),
   pollMs: taskBountyPollMs,
+};
+
+const basedAgentsState = {
+  provider: "basedagents",
+  mode: "public_open_task_feed",
+  lastAttemptAt: null,
+  lastSuccessAt: null,
+  lastError: null,
+  syncCount: 0,
+  discoveredCount: 0,
+  paidCandidateCount: 0,
+  reputationCandidateCount: 0,
+  reviewCount: 0,
+  rejectedCount: 0,
+  pollMs: basedAgentsPollMs,
 };
 
 function json(res, status, body) {
@@ -134,6 +157,96 @@ function normalizeTask(raw, source = "taskbounty_public_feed") {
   };
 }
 
+function normalizeBasedAgentsTask(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const taskId = String(raw.task_id || raw.id || "").trim();
+  if (!taskId || taskId.length > 200) return null;
+
+  const bountyDisplay = raw.bounty?.amount_display;
+  const bountyUsd = Number.isFinite(Number(bountyDisplay))
+    ? Number(bountyDisplay)
+    : null;
+
+  return {
+    provider: "basedagents",
+    source: "basedagents_public_feed",
+    taskId,
+    title: String(raw.title || "").trim().slice(0, 500),
+    description: String(raw.description || "").trim().slice(0, 5000),
+    category: String(raw.category || "").trim().slice(0, 80) || null,
+    outputFormat: String(raw.output_format || "").trim().slice(0, 40) || null,
+    claimable: raw.claimable === true,
+    bountyUsd,
+    bountyToken: raw.bounty?.token || null,
+    bountyNetwork: raw.bounty?.network || null,
+    escrowStatus: raw.escrow?.status || null,
+    createdAt: typeof raw.created_at === "string" ? raw.created_at.slice(0, 80) : null,
+    taskUrl: `https://basedagents.ai/tasks/${encodeURIComponent(taskId)}`,
+  };
+}
+
+function evaluateBasedAgentsTask(task) {
+  const reasons = [];
+  let score = 50;
+  let status = "rejected";
+
+  if (!task.claimable) {
+    reasons.push("not_claimable");
+  } else if (task.bountyUsd != null) {
+    if (task.bountyToken !== "USDC" || task.bountyNetwork !== "eip155:8453") {
+      status = "manual_review";
+      reasons.push("unexpected_payment_rail");
+    } else if (task.escrowStatus !== "funded") {
+      status = "manual_review";
+      reasons.push("escrow_not_confirmed_funded");
+    } else if (task.bountyUsd < 1) {
+      reasons.push("paid_bounty_below_1_usd");
+    } else {
+      status = "candidate";
+      score += Math.min(25, Math.floor(task.bountyUsd));
+      reasons.push("claimable_funded_usdc_bounty");
+    }
+  } else if (/^\[first task/i.test(task.title)) {
+    status = "reputation_candidate";
+    score = 65;
+    reasons.push("zero_cost_new_agent_reputation_task");
+  } else {
+    reasons.push("free_task_not_selected_for_bootstrap");
+  }
+
+  const riskText = `${task.title} ${task.description}`.toLowerCase();
+  const highRiskPatterns = [
+    "malware",
+    "phishing",
+    "credential theft",
+    "steal credentials",
+    "ransomware",
+    "bypass authentication",
+    "exploit production",
+    "weapon",
+    "spyware",
+  ];
+  if (highRiskPatterns.some((p) => riskText.includes(p))) {
+    status = "manual_review";
+    score = Math.min(score, 40);
+    reasons.push("potentially_sensitive_or_harmful_scope");
+  }
+
+  return {
+    status,
+    score: Math.max(0, Math.min(100, score)),
+    reasons,
+    nextAction:
+      status === "candidate"
+        ? "await_ai_feasibility_review"
+        : status === "reputation_candidate"
+          ? "eligible_once_for_bootstrap_reputation"
+          : status === "manual_review"
+            ? "hold_for_review"
+            : "ignore",
+  };
+}
+
 function evaluateTask(task) {
   const reasons = [];
   let score = 50;
@@ -206,18 +319,42 @@ function evaluateTask(task) {
 }
 
 function recomputeFeedCounts() {
-  let candidates = 0;
-  let review = 0;
-  let rejected = 0;
+  let tbCandidates = 0;
+  let tbReview = 0;
+  let tbRejected = 0;
+  let tbDiscovered = 0;
+
+  let baPaid = 0;
+  let baReputation = 0;
+  let baReview = 0;
+  let baRejected = 0;
+  let baDiscovered = 0;
+
   for (const item of taskQueue.values()) {
-    if (item.evaluation.status === "candidate") candidates += 1;
-    else if (item.evaluation.status === "manual_review") review += 1;
-    else if (item.evaluation.status === "rejected") rejected += 1;
+    if (item.provider === "taskbounty") {
+      tbDiscovered += 1;
+      if (item.evaluation.status === "candidate") tbCandidates += 1;
+      else if (item.evaluation.status === "manual_review") tbReview += 1;
+      else if (item.evaluation.status === "rejected") tbRejected += 1;
+    } else if (item.provider === "basedagents") {
+      baDiscovered += 1;
+      if (item.evaluation.status === "candidate") baPaid += 1;
+      else if (item.evaluation.status === "reputation_candidate") baReputation += 1;
+      else if (item.evaluation.status === "manual_review") baReview += 1;
+      else if (item.evaluation.status === "rejected") baRejected += 1;
+    }
   }
-  feedState.candidateCount = candidates;
-  feedState.reviewCount = review;
-  feedState.rejectedCount = rejected;
-  feedState.discoveredCount = taskQueue.size;
+
+  feedState.candidateCount = tbCandidates;
+  feedState.reviewCount = tbReview;
+  feedState.rejectedCount = tbRejected;
+  feedState.discoveredCount = tbDiscovered;
+
+  basedAgentsState.paidCandidateCount = baPaid;
+  basedAgentsState.reputationCandidateCount = baReputation;
+  basedAgentsState.reviewCount = baReview;
+  basedAgentsState.rejectedCount = baRejected;
+  basedAgentsState.discoveredCount = baDiscovered;
 }
 
 function ingestTask(raw, source) {
@@ -249,6 +386,36 @@ function ingestTask(raw, source) {
   return record;
 }
 
+function ingestBasedAgentsTask(raw) {
+  const task = normalizeBasedAgentsTask(raw);
+  if (!task) return null;
+
+  const key = `basedagents:${task.taskId}`;
+  const previous = taskQueue.get(key);
+  const evaluation = evaluateBasedAgentsTask(task);
+  const record = {
+    ...task,
+    evaluation,
+    firstSeenAt: previous?.firstSeenAt || new Date().toISOString(),
+    lastSeenAt: new Date().toISOString(),
+  };
+  taskQueue.set(key, record);
+  recomputeFeedCounts();
+
+  if (!previous || JSON.stringify(previous.evaluation) !== JSON.stringify(evaluation)) {
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      type: previous ? "job.updated" : "job.available",
+      source: "basedagents_public_feed",
+      externalId: task.taskId,
+      status: evaluation.status,
+      score: evaluation.score,
+    });
+  }
+  return record;
+}
+
 function extractTasks(payload) {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== "object") return [];
@@ -258,6 +425,28 @@ function extractTasks(payload) {
   if (payload.task && typeof payload.task === "object") return [payload.task];
   if (payload.task_id || payload.id) return [payload];
   return [];
+}
+
+async function syncBasedAgents() {
+  basedAgentsState.lastAttemptAt = new Date().toISOString();
+  try {
+    const response = await fetch(basedAgentsFeedUrl, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error(`basedagents_http_${response.status}`);
+    const payload = await response.json();
+    const tasks = Array.isArray(payload?.tasks) ? payload.tasks : [];
+    for (const task of tasks) ingestBasedAgentsTask(task);
+
+    basedAgentsState.lastSuccessAt = new Date().toISOString();
+    basedAgentsState.lastError = null;
+    basedAgentsState.syncCount += 1;
+    recomputeFeedCounts();
+  } catch (err) {
+    basedAgentsState.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
 }
 
 async function syncTaskBounty() {
@@ -291,6 +480,23 @@ function verifyTaskBountySignature(rawBody, provided) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+function basedAgentsSummary() {
+  return {
+    provider: basedAgentsState.provider,
+    mode: basedAgentsState.mode,
+    lastAttemptAt: basedAgentsState.lastAttemptAt,
+    lastSuccessAt: basedAgentsState.lastSuccessAt,
+    lastError: basedAgentsState.lastError,
+    syncCount: basedAgentsState.syncCount,
+    discoveredCount: basedAgentsState.discoveredCount,
+    paidCandidateCount: basedAgentsState.paidCandidateCount,
+    reputationCandidateCount: basedAgentsState.reputationCandidateCount,
+    reviewCount: basedAgentsState.reviewCount,
+    rejectedCount: basedAgentsState.rejectedCount,
+    pollMs: basedAgentsState.pollMs,
+  };
+}
+
 function taskFeedSummary() {
   return {
     provider: feedState.provider,
@@ -319,7 +525,11 @@ const server = http.createServer(async (req, res) => {
       bootId,
       startedAt,
       lastTickAt,
-      taskFeed: taskFeedSummary(),
+      taskFeeds: {
+        taskBounty: taskFeedSummary(),
+        basedAgents: basedAgentsSummary(),
+        basedAgents: basedAgentsSummary(),
+      },
     });
   }
 
@@ -333,7 +543,10 @@ const server = http.createServer(async (req, res) => {
       outboundWorkEnabled,
       operatingFloatTargetUsd,
       eventIngressConfigured: Boolean(eventToken),
-      taskFeed: taskFeedSummary(),
+      taskFeeds: {
+        taskBounty: taskFeedSummary(),
+        basedAgents: basedAgentsSummary(),
+      },
     });
   }
 
@@ -430,6 +643,11 @@ const taskFeedTimer = setInterval(() => {
 }, taskBountyPollMs);
 taskFeedTimer.unref();
 
+const basedAgentsTimer = setInterval(() => {
+  void syncBasedAgents();
+}, basedAgentsPollMs);
+basedAgentsTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -461,11 +679,13 @@ server.listen(PORT, "0.0.0.0", () => {
     }),
   );
   void syncTaskBounty();
+  void syncBasedAgents();
 });
 
 function shutdown(signal) {
   clearInterval(heartbeat);
   clearInterval(taskFeedTimer);
+  clearInterval(basedAgentsTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
