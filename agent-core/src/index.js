@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.12.1";
+const VERSION = "0.12.2";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -489,7 +489,6 @@ async function registerClawlancerIdentity() {
       description:
         "Transparent persistent AI worker for bounded coding, research, data analysis, repo audits, and automation.",
       skills: ["coding", "research", "data", "automation", "repo-audit"],
-      wallet_address: baseWallet.address,
       referral_source: "direct-api",
     },
   });
