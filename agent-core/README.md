@@ -77,3 +77,31 @@ real external need
 A completed agent wallet is **not required for the first sale**. Stripe can serve the first human/card customer while unified wallet authentication is completed separately.
 
 Do not count self-payments, subsidies, test transactions, or speculative gains as earned revenue.
+
+## Live runtime status — 2026-09-28
+
+Agent Core v0.2.0 is deployed on Railway and externally health-checked.
+
+Implemented:
+- persistent Railway runtime;
+- authenticated event ingress using a Railway-held secret;
+- $100 operating-float target;
+- TaskBounty public funded-task feed sync every 60 seconds;
+- optional HMAC-signed TaskBounty webhook endpoint;
+- task normalization, economic/scope filtering, and candidate/manual-review/rejected classification;
+- startup resync from the provider feed so an in-memory queue can recover currently open tasks after restart;
+- synthetic task-path test passed, then self-test was disabled;
+- an hourly ChatGPT condition-watch checks for viable paid tasks and stays silent when none exist.
+
+Current provider state at final verification:
+- TaskBounty feed reachable;
+- zero open tasks returned;
+- queue empty;
+- webhook secret not yet registered with TaskBounty;
+- TaskBounty solver API credential not yet installed;
+- payout wallet not yet installed;
+- financial actions remain disabled;
+- outbound work remains disabled inside the runtime.
+
+The runtime may discover and classify work automatically. Claiming, repo-access minting, submission, payout configuration, and money movement remain separate gated capabilities.
+
