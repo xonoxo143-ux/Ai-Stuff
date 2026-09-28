@@ -324,23 +324,22 @@ function solveSwarmSpotCaptcha(challenge) {
   if (nums.length < 2) throw new Error("swarmspot_captcha_numbers_not_found");
   const [a, b] = nums;
 
-  if (/\b(distributed across|divided among|split among|per worker|each worker)\b/.test(clean)) {
+  const divisionPattern =
+    /\b(distributed across|divided into|divided among|split into|split among|split equally among|spread across|per worker|per packet|per shard|per batch|per agent|per tile|how many each)\b/;
+  const subtractionPattern =
+    /\b(still|remain|remains|remaining|left|consumed|merged|removed|closed|used|drop off|dropped|assigned|decommissioned|filtered out|filtered|went offline|offline|spent|complete successfully|completed|revoked)\b/;
+  const additionPattern =
+    /\b(more|added|additional|plus|increase|gains|gain|boot up|connect|published|in the queue)\b/;
+
+  if (divisionPattern.test(clean)) {
     if (b === 0) throw new Error("swarmspot_captcha_divide_by_zero");
     return a / b;
   }
-  if (
-    /\b(each|per)\b/.test(clean) &&
-    /\b(total|altogether|in all|members|requests|tasks|messages|pallets)\b/.test(clean)
-  ) {
-    return a * b;
-  }
-  if (/\b(more|added|plus|increase|in the queue)\b/.test(clean)) {
-    return a + b;
-  }
-  if (/\b(still|remaining|left|consumed|merged|removed|closed|used)\b/.test(clean)) {
-    return a - b;
-  }
-  if (/\b(total|altogether|in all)\b/.test(clean)) return a * b;
+  if (subtractionPattern.test(clean)) return a - b;
+  if (additionPattern.test(clean)) return a + b;
+  if (/\beach\b/.test(clean)) return a * b;
+  if (/\b(total|altogether|in all)\b/.test(clean)) return a + b;
+
   throw new Error("swarmspot_captcha_operation_not_recognized");
 }
 
