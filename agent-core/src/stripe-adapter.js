@@ -377,72 +377,36 @@ export function createStripeAdapter({ rememberEvent }) {
         const passwordSelector =
           'input[type="password"], input[name="password"], input[autocomplete="current-password"]';
 
-        // Stripe can replace the password node during login. Avoid carrying a
-        // Locator across that React re-render: wait for a node to exist, then
-        // query the live DOM and set/submit it in a single browser-context turn.
+        // Stripe's controlled password input rejects direct value mutation.
+        // Focus the live DOM node without a Locator, then send browser-level
+        // keyboard input so this behaves like real typing while still requiring
+        // no physical keyboard from the user.
         await page.waitForFunction(
           (selector) => Boolean(document.querySelector(selector)),
           passwordSelector,
           { timeout: 20_000 },
         );
 
-        const passwordResult = await page.evaluate(
-          ({ selector, value }) => {
-            const el = document.querySelector(selector);
-            if (!(el instanceof HTMLInputElement)) {
-              return { entered: false, submitted: false, reason: "password_node_missing" };
-            }
+        const focused = await page.evaluate((selector) => {
+          const el = document.querySelector(selector);
+          if (!(el instanceof HTMLInputElement)) return false;
+          el.focus();
+          el.select();
+          return document.activeElement === el;
+        }, passwordSelector);
+        if (!focused) throw new Error("stripe_password_focus_failed");
 
-            const descriptor = Object.getOwnPropertyDescriptor(
-              HTMLInputElement.prototype,
-              "value",
-            );
-            if (descriptor?.set) descriptor.set.call(el, value);
-            else el.value = value;
-            el.dispatchEvent(new Event("input", { bubbles: true }));
-            el.dispatchEvent(new Event("change", { bubbles: true }));
-            el.focus();
+        await page.keyboard.press("ControlOrMeta+A").catch(() => {});
+        await page.keyboard.press("Backspace").catch(() => {});
+        await page.keyboard.insertText(stripeDashboardPasswordTemp);
 
-            const entered = el.value === value && el.value.length > 0;
-            const form = el.closest("form");
-            if (!entered) {
-              return { entered: false, submitted: false, reason: "password_value_not_set" };
-            }
+        const passwordEntered = await page.evaluate((selector) => {
+          const el = document.querySelector(selector);
+          return el instanceof HTMLInputElement && el.value.length > 0;
+        }, passwordSelector);
+        if (!passwordEntered) throw new Error("stripe_password_keyboard_input_failed");
 
-            if (form) {
-              if (typeof form.requestSubmit === "function") form.requestSubmit();
-              else form.submit();
-              return { entered: true, submitted: true, reason: null };
-            }
-
-            el.dispatchEvent(
-              new KeyboardEvent("keydown", {
-                key: "Enter",
-                code: "Enter",
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-              }),
-            );
-            el.dispatchEvent(
-              new KeyboardEvent("keyup", {
-                key: "Enter",
-                code: "Enter",
-                keyCode: 13,
-                which: 13,
-                bubbles: true,
-              }),
-            );
-            return { entered: true, submitted: false, reason: "form_missing" };
-          },
-          { selector: passwordSelector, value: stripeDashboardPasswordTemp },
-        );
-
-        if (!passwordResult.entered) {
-          throw new Error(
-            `stripe_password_injection_failed:${passwordResult.reason || "unknown"}`,
-          );
-        }
+        await page.keyboard.press("Enter");
         await page.waitForTimeout(6000);
 
         const bodyText = (
