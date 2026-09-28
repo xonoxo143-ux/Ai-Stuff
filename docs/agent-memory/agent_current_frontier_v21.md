@@ -146,3 +146,39 @@ non-language Agent state
 ```
 
 The replicated workflow now tests both surface byte modeling and this external-state composition seam.
+
+
+## Replicated language-organ gate
+
+Workflow `36394549359` completed successfully.
+
+Five-seed synthetic surface-language result:
+
+```text
+GRU          mean 2.002 bits/byte   5/5 validation wins
+Transformer  mean 2.606 bits/byte   0/5 validation wins
+Patch RNN    mean 3.381 bits/byte   0/5 validation wins
+```
+
+The Transformer trained roughly 2.5× faster than the GRU.
+
+The fixed-patch RNN is removed from the main path.
+
+The external-state→English seam also replicated:
+
+```text
+GRU          64/64 exact, 3/3 seeds
+Transformer  64/64 exact, 3/3 seeds
+```
+
+Current next gate is the mirror interface:
+
+```text
+English bytes
+→ small perception organ
+→ bounded non-language state
+```
+
+The perception probe deliberately holds out both sentence forms and semantic combinations. It compares unidirectional GRU, bidirectional GRU, and Transformer encoders.
+
+This begins testing whether language perception and language production should specialize into different architectures.

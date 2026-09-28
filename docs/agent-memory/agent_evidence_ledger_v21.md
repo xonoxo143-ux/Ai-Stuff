@@ -194,3 +194,44 @@ Several experiments showed that:
 
 Design consequence:
 > Structural changes must pay rent at the whole-system level.
+
+---
+
+## E-LANG-001 — Tiny from-scratch byte models show architecture-specific tradeoffs
+**Status:** SUPPORTED IN SYNTHETIC BENCHMARK
+
+Five-seed Agent language-organ v0 replication at roughly 130k-150k parameters:
+
+- GRU: mean 2.002 validation bits/byte; best on 5/5 seeds.
+- Transformer: mean 2.606 bits/byte; about 2.5× faster training.
+- fixed-patch RNN: mean 3.381 bits/byte; no validation wins and slower than the Transformer.
+
+Design consequence:
+- retain GRU and Transformer as distinct surviving candidates;
+- drop the current fixed-patch RNN formulation;
+- do not infer that multiscale language in general is rejected.
+
+Scope:
+- controlled synthetic micro-English only.
+
+---
+
+## E-LANG-002 — Bounded non-language state can drive compositional language
+**Status:** SUPPORTED IN SYNTHETIC BENCHMARK
+
+Across three seeds, both the GRU and Transformer language-production candidates generated all 64 held-out combinations of structured non-language state exactly after the small conditioning curriculum.
+
+Result:
+
+```text
+GRU          64/64 exact on 3/3 seeds
+Transformer  64/64 exact on 3/3 seeds
+```
+
+Design consequence:
+
+> The Agent can maintain a language-production boundary in which internal state is supplied as a compact non-language conditioning channel instead of serialized prompt text.
+
+Scope:
+- synthetic 4-slot semantic state;
+- does not prove open-domain language or that the final Agent state should use these human-defined slots.

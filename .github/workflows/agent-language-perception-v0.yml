@@ -1,0 +1,64 @@
+name: Agent Language Perception V0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_language/perception_probe.py"
+      - "agent-model/tests/test_agent_language_perception_v0.py"
+      - "docs/AGENT_LANGUAGE_PERCEPTION_V0.md"
+      - ".github/workflows/agent-language-perception-v0.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-language-perception-v0
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run perception contract tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_agent_language_perception_v0.py
+
+      - name: Compare perception organs
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_language.perception_probe \
+            --models gru,bigru,transformer \
+            --seeds 11,22,33 \
+            --steps 200 \
+            --batch-size 64 \
+            --threads 4 \
+            --output /tmp/agent-language-perception-v0.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Language-Perception-V0
+          path: /tmp/agent-language-perception-v0.json
+          retention-days: 30

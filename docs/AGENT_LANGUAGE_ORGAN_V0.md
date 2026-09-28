@@ -143,7 +143,28 @@ after 300 tiny updates.
 
 This establishes that both candidate families can, in principle, act as a language **output organ** driven by non-language state.
 
-No architecture is promoted until the replicated surface and conditioning tests complete.
+The replicated gate completed successfully.
+
+Five-seed surface result:
+
+```text
+GRU          2.002 mean bits/byte   5/5 wins
+Transformer  2.606 mean bits/byte   0/5 wins
+Patch RNN    3.381 mean bits/byte   0/5 wins
+```
+
+The Transformer trained about 2.5× faster than the GRU.
+
+Three-seed external-state composition result:
+
+```text
+GRU          64 / 64 exact on every seed
+Transformer  64 / 64 exact on every seed
+```
+
+The current fixed-patch RNN is therefore dropped from the main path.
+
+GRU and Transformer both survive because they currently optimize different axes: fixed-update quality versus training throughput.
 
 ## After the synthetic gate
 
