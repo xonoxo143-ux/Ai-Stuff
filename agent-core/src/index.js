@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.6.0";
+const VERSION = "0.6.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -112,6 +112,7 @@ const baseWallet = {
   source: null,
   lastError: null,
 };
+let pendingBaseWalletEncryptedBackup = null;
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -256,6 +257,7 @@ async function generateBaseWallet() {
   }
 
   const backup = encryptWalletBackup(wallet.privateKey, wallet.address);
+  pendingBaseWalletEncryptedBackup = backup;
   console.log(
     JSON.stringify({
       event: "base_wallet.encrypted_backup",
@@ -1093,6 +1095,16 @@ function taskFeedSummary() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+
+  if (req.method === "GET" && url.pathname === "/bootstrap/base-wallet-backup") {
+    if (!pendingBaseWalletEncryptedBackup) {
+      return json(res, 404, { error: "no_pending_backup" });
+    }
+    return json(res, 200, {
+      warning: "encrypted_ciphertext_only",
+      backup: pendingBaseWalletEncryptedBackup,
+    });
+  }
 
   if (req.method === "GET" && url.pathname === "/health") {
     return json(res, 200, {
