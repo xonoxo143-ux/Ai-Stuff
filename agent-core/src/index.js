@@ -387,7 +387,7 @@ function decryptSwarmSpotBackup(backup) {
 }
 
 function swarmSpotAuthHeader(username, password) {
-  return "Basic " + Buffer.from(\`\${username}:\${password}\`, "utf8").toString("base64");
+  return "Basic " + Buffer.from(`${username}:${password}`, "utf8").toString("base64");
 }
 
 async function swarmSpotRequest(path, { method = "GET", body = null, credentials = null } = {}) {
@@ -396,7 +396,7 @@ async function swarmSpotRequest(path, { method = "GET", body = null, credentials
   if (credentials) {
     headers.authorization = swarmSpotAuthHeader(credentials.username, credentials.password);
   }
-  const response = await fetch(\`https://swarm.spot/api\${path}\`, {
+  const response = await fetch(`https://swarm.spot/api${path}`, {
     method,
     headers,
     body: body === null ? undefined : JSON.stringify(body),
@@ -406,7 +406,7 @@ async function swarmSpotRequest(path, { method = "GET", body = null, credentials
   let payload = null;
   try { payload = text ? JSON.parse(text) : {}; } catch { payload = { raw: text.slice(0, 1000) }; }
   if (!response.ok) {
-    const error = new Error(\`swarmspot_http_\${response.status}\`);
+    const error = new Error(`swarmspot_http_${response.status}`);
     error.payload = payload;
     throw error;
   }
@@ -419,7 +419,7 @@ async function requestAndSolveSwarmSpotCaptcha() {
     const answer = solveSwarmSpotCaptcha(challenge.challenge);
     try {
       const solved = await swarmSpotRequest(
-        \`/captcha/\${encodeURIComponent(challenge.captcha_id)}/solve\`,
+        `/captcha/${encodeURIComponent(challenge.captcha_id)}/solve`,
         { method: "POST", body: { answer: String(answer) } },
       );
       if (solved?.captcha_token) return solved.captcha_token;
@@ -436,14 +436,14 @@ async function restoreSwarmSpotIdentity() {
     signal: AbortSignal.timeout(15_000),
   });
   if (response.status === 404) return false;
-  if (!response.ok) throw new Error(\`swarmspot_backup_http_\${response.status}\`);
+  if (!response.ok) throw new Error(`swarmspot_backup_http_${response.status}`);
   const backup = await response.json();
   const restored = decryptSwarmSpotBackup(backup);
   if (!restored?.username || !restored?.password) {
     throw new Error("swarmspot_backup_fields_missing");
   }
   const profile = await swarmSpotRequest(
-    \`/agents/\${encodeURIComponent(restored.username)}\`,
+    `/agents/${encodeURIComponent(restored.username)}`,
   );
   swarmSpot.status = "ready";
   swarmSpot.username = restored.username;
@@ -459,7 +459,7 @@ async function registerSwarmSpotIdentity() {
   // succeeded but its encrypted backup was not persisted.
   try {
     const existing = await swarmSpotRequest(
-      \`/agents/\${encodeURIComponent(swarmSpotUsername)}\`,
+      `/agents/${encodeURIComponent(swarmSpotUsername)}`,
     );
     if (existing?.username) {
       swarmSpot.status = "existing_unrecoverable";
@@ -479,9 +479,9 @@ async function registerSwarmSpotIdentity() {
     body: {
       username: swarmSpotUsername,
       password,
-      webhook_url: \`\${publicRuntimeBaseUrl}/integrations/swarmspot\`,
+      webhook_url: `${publicRuntimeBaseUrl}/integrations/swarmspot`,
       webhook_headers: {
-        Authorization: \`Bearer \${swarmSpotWebhookToken}\`,
+        Authorization: `Bearer ${swarmSpotWebhookToken}`,
       },
       email: agentEmail,
       captcha_token: captchaToken,
@@ -521,7 +521,7 @@ async function syncSwarmSpotTopics() {
         offset: "0",
       });
       const payload = await swarmSpotRequest(
-        \`/topics/search?\${params.toString()}\`,
+        `/topics/search?${params.toString()}`,
         { credentials: swarmSpot.credentials },
       );
       const items = Array.isArray(payload) ? payload :
@@ -1828,7 +1828,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "POST" && url.pathname === "/integrations/swarmspot") {
     const auth = req.headers.authorization || "";
-    if (!swarmSpotWebhookToken || auth !== \`Bearer \${swarmSpotWebhookToken}\`) {
+    if (!swarmSpotWebhookToken || auth !== `Bearer ${swarmSpotWebhookToken}`) {
       return json(res, 401, { error: "unauthorized" });
     }
     try {
