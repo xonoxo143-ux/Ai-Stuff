@@ -17,13 +17,13 @@ const stripeOnrampReturnUrl = process.env.STRIPE_CRYPTO_ONRAMP_RETURN_URL || "";
 function encodeStripeForm(obj, prefix = "", out = new URLSearchParams()) {
   for (const [key, value] of Object.entries(obj || {})) {
     if (value === undefined || value === null) continue;
-    const name = prefix ? \`\${prefix}[\${key}]\` : key;
+    const name = prefix ? `${prefix}[${key}]` : key;
     if (Array.isArray(value)) {
       value.forEach((item, index) => {
         if (item && typeof item === "object") {
-          encodeStripeForm(item, \`\${name}[\${index}]\`, out);
+          encodeStripeForm(item, `${name}[${index}]`, out);
         } else {
-          out.append(\`\${name}[\${index}]\`, String(item));
+          out.append(`${name}[${index}]`, String(item));
         }
       });
     } else if (value && typeof value === "object") {
@@ -38,7 +38,7 @@ function encodeStripeForm(obj, prefix = "", out = new URLSearchParams()) {
 async function stripeRequest(path, { method = "GET", body = null } = {}) {
   if (!stripeSecretKey) throw new Error("stripe_secret_key_missing");
   const headers = {
-    authorization: \`Bearer \${stripeSecretKey}\`,
+    authorization: `Bearer ${stripeSecretKey}`,
     accept: "application/json",
   };
   let requestBody;
@@ -46,7 +46,7 @@ async function stripeRequest(path, { method = "GET", body = null } = {}) {
     headers["content-type"] = "application/x-www-form-urlencoded";
     requestBody = encodeStripeForm(body).toString();
   }
-  const response = await fetch(\`\${STRIPE_API_BASE}\${path}\`, {
+  const response = await fetch(`${STRIPE_API_BASE}${path}`, {
     method,
     headers,
     body: requestBody,
@@ -64,8 +64,8 @@ async function stripeRequest(path, { method = "GET", body = null } = {}) {
       payload?.error?.message ||
       payload?.message ||
       payload?.error ||
-      \`HTTP \${response.status}\`;
-    const err = new Error(\`stripe_http_\${response.status}: \${String(detail).slice(0, 400)}\`);
+      `HTTP ${response.status}`;
+    const err = new Error(`stripe_http_${response.status}: ${String(detail).slice(0, 400)}`);
     err.status = response.status;
     throw err;
   }
@@ -86,7 +86,7 @@ function verifyStripeSignature(rawBody, header, toleranceSeconds = 300) {
   if (Math.abs(Math.floor(Date.now() / 1000) - ts) > toleranceSeconds) return false;
 
   const expected = createHmac("sha256", stripeWebhookSecret)
-    .update(\`\${timestamp}.\`)
+    .update(`${timestamp}.`)
     .update(rawBody)
     .digest("hex");
 
@@ -175,7 +175,7 @@ export function createStripeAdapter({ rememberEvent }) {
           rememberEvent({
             id: String(event?.id || "").slice(0, 240) || null,
             receivedAt: state.lastWebhookAt,
-            type: \`stripe.\${type}\`,
+            type: `stripe.${type}`,
             source: "stripe_webhook",
             externalId: String(object?.id || "").slice(0, 240) || null,
           });
