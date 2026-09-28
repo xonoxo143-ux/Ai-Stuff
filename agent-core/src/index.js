@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.9.1";
+const VERSION = "0.10.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -74,6 +74,19 @@ const swarmSpotPollMs = Math.max(
 const swarmSpotWebhookToken = eventToken
   ? createHmac("sha256", eventToken).update("swarmspot-webhook-v1").digest("hex")
   : "";
+
+const agentSoukApiBase = process.env.AGENTSOUK_API_BASE || "https://api.agentsouk.dev";
+const agentSoukBootstrapEnabled = process.env.AGENTSOUK_BOOTSTRAP === "true";
+const agentSoukPublishService = process.env.AGENTSOUK_PUBLISH_SERVICE === "true";
+const agentSoukHandle =
+  process.env.AGENTSOUK_HANDLE || "continuity-worker-541-r2";
+const agentSoukBackupUrl =
+  process.env.AGENTSOUK_IDENTITY_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/agentsouk-identity.enc.json";
+const agentSoukPollMs = Math.max(
+  300_000,
+  Number(process.env.AGENTSOUK_POLL_MS || 3_600_000),
+);
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -171,6 +184,32 @@ const swarmSpot = {
   },
 };
 
+const agentSouk = {
+  status: "not_initialized",
+  agentId: null,
+  handle: null,
+  did: null,
+  source: null,
+  lastError: null,
+  credentials: null,
+  walletBinding: {
+    status: "not_started",
+    address: null,
+    lastError: null,
+  },
+  serviceListing: {
+    status: "not_started",
+    listingId: null,
+    lastError: null,
+  },
+  lastSyncAt: null,
+  demand: {
+    bountyCount: 0,
+    openBounties: [],
+  },
+  opportunities: [],
+};
+
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     execFile(
@@ -260,6 +299,448 @@ function decryptWalletBackup(backup) {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
 
+
+
+function encryptAgentSoukBackup(value) {
+  if (!eventToken) throw new Error("agentsouk_encryption_key_unavailable");
+  const plaintext = Buffer.from(JSON.stringify(value), "utf8");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    agent_id: value.agent?.id || null,
+    handle: value.agent?.handle || null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptAgentSoukBackup(backup) {
+  if (!eventToken) throw new Error("agentsouk_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_agentsouk_backup");
+  }
+  const key = scryptSync(eventToken, Buffer.from(backup.salt_b64, "base64"), 32);
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(backup.iv_b64, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(backup.tag_b64, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(backup.ciphertext_b64, "base64")),
+    decipher.final(),
+  ]);
+  return JSON.parse(plaintext.toString("utf8"));
+}
+
+async function agentSoukRequest(path, {
+  method = "GET",
+  body = null,
+  apiKey = null,
+} = {}) {
+  const headers = { accept: "application/json" };
+  if (body !== null) headers["content-type"] = "application/json";
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  const response = await fetch(`${agentSoukApiBase}${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch { payload = { raw: raw.slice(0, 1000) }; }
+  if (!response.ok) {
+    const error = new Error(`agentsouk_http_${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function loadBaseWalletPrivateKey() {
+  const response = await fetch(baseWalletBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`wallet_backup_http_${response.status}`);
+  const backup = await response.json();
+  const privateKey = decryptWalletBackup(backup);
+  if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+    throw new Error("wallet_backup_private_key_invalid");
+  }
+  return privateKey;
+}
+
+async function signEthereumMessage(privateKey, message) {
+  await mkdir(baseWalletPkgDir, { recursive: true });
+  await execFileAsync(
+    "npm",
+    ["install", "--prefix", baseWalletPkgDir, "ethers@6.15.0", "--no-audit", "--no-fund"],
+    { timeout: 120_000 },
+  );
+  const result = await execFileAsync(
+    "node",
+    [
+      "-e",
+      "const {Wallet}=require('ethers');(async()=>{const w=new Wallet(process.env.PRIVATE_KEY);const sig=await w.signMessage(process.env.SIGN_MESSAGE);process.stdout.write(sig)})().catch(e=>{console.error(e);process.exit(1)})",
+    ],
+    {
+      cwd: baseWalletPkgDir,
+      env: { ...process.env, PRIVATE_KEY: privateKey, SIGN_MESSAGE: message },
+      timeout: 30_000,
+    },
+  );
+  const signature = String(result.stdout || "").trim();
+  if (!/^0x[a-fA-F0-9]{130}$/.test(signature)) {
+    throw new Error("ethereum_message_signature_invalid");
+  }
+  return signature;
+}
+
+async function restoreAgentSoukIdentity() {
+  const response = await fetch(agentSoukBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`agentsouk_backup_http_${response.status}`);
+  const backup = await response.json();
+  const restored = decryptAgentSoukBackup(backup);
+  const liveKey = restored?.apiKeys?.live;
+  const testKey = restored?.apiKeys?.test;
+  const secretKey = restored?.keypair?.secret_key;
+  if (!liveKey || !testKey || !secretKey) {
+    throw new Error("agentsouk_backup_fields_missing");
+  }
+  const me = await agentSoukRequest("/v1/agents/me", { apiKey: liveKey });
+  agentSouk.status = "ready";
+  agentSouk.agentId = me.id || restored?.agent?.id || null;
+  agentSouk.handle = me.handle || restored?.agent?.handle || null;
+  agentSouk.did = me.did || restored?.agent?.did || null;
+  agentSouk.source = "encrypted_git_backup";
+  agentSouk.lastError = null;
+  agentSouk.credentials = restored;
+  return true;
+}
+
+async function registerAgentSoukIdentity() {
+  try {
+    const existing = await agentSoukRequest(
+      `/v1/agents/${encodeURIComponent(agentSoukHandle)}`,
+    );
+    if (existing?.id) {
+      agentSouk.status = "existing_unrecoverable";
+      agentSouk.agentId = existing.id;
+      agentSouk.handle = existing.handle || agentSoukHandle;
+      agentSouk.lastError = "existing_identity_without_local_backup";
+      return;
+    }
+  } catch (err) {
+    if (err.status !== 404) throw err;
+  }
+
+  const created = await agentSoukRequest("/v1/agents", {
+    method: "POST",
+    body: {
+      name: "Continuity Worker 541 R2",
+      handle: agentSoukHandle,
+      description:
+        "Transparent persistent AI worker for bounded coding, live web research, repo audits, data work, and automation. No impersonation, spam, credential resale, or unauthorized security work.",
+      capabilities: [
+        "coding",
+        "repo-audit",
+        "live-web-research",
+        "data-analysis",
+        "automation",
+        "second-opinion",
+      ],
+      tags: ["ai-operated", "bounded-work", "base-usdc"],
+      framework: "custom",
+      endpoints: {
+        api_url: publicRuntimeBaseUrl,
+        webhook_url: `${publicRuntimeBaseUrl}/integrations/agentsouk`,
+        homepage: publicRuntimeBaseUrl,
+      },
+    },
+  });
+
+  if (!created?.agent?.id || !created?.api_keys?.live || !created?.keypair?.secret_key) {
+    throw new Error("agentsouk_registration_missing_fields");
+  }
+
+  const secretBundle = {
+    agent: {
+      id: created.agent.id,
+      handle: created.agent.handle,
+      did: created.agent.did,
+      public_key: created.agent.public_key,
+    },
+    apiKeys: {
+      live: created.api_keys.live,
+      test: created.api_keys.test,
+    },
+    keypair: {
+      secret_key: created.keypair.secret_key,
+      public_key: created.keypair.public_key,
+      did: created.keypair.did,
+    },
+  };
+  const backup = encryptAgentSoukBackup(secretBundle);
+  console.log(JSON.stringify({
+    event: "agentsouk.identity_backup",
+    note: "Encrypted ciphertext only; API keys and recovery key never leave runtime plaintext.",
+    backup,
+  }));
+
+  agentSouk.status = "backup_pending";
+  agentSouk.agentId = created.agent.id;
+  agentSouk.handle = created.agent.handle;
+  agentSouk.did = created.agent.did;
+  agentSouk.source = "new_registration_encrypted_backup_emitted";
+  agentSouk.lastError = null;
+  agentSouk.credentials = secretBundle;
+}
+
+async function maybeBindAgentSoukWallet() {
+  if (agentSouk.status !== "ready" || !agentSouk.credentials?.apiKeys?.live) return;
+  if (baseWallet.status !== "ready" || !baseWallet.address) {
+    agentSouk.walletBinding.status = "waiting_wallet";
+    return;
+  }
+
+  try {
+    const me = await agentSoukRequest("/v1/agents/me", {
+      apiKey: agentSouk.credentials.apiKeys.live,
+    });
+    if (
+      me.wallet_address &&
+      String(me.wallet_address).toLowerCase() === baseWallet.address.toLowerCase()
+    ) {
+      agentSouk.walletBinding.status = "verified";
+      agentSouk.walletBinding.address = me.wallet_address;
+      agentSouk.walletBinding.lastError = null;
+      return;
+    }
+    if (me.wallet_address) {
+      throw new Error("agentsouk_wallet_bound_to_different_address");
+    }
+
+    agentSouk.walletBinding.status = "binding";
+    const privateKey = await loadBaseWalletPrivateKey();
+    const message =
+      `agentsouk:wallet:${agentSouk.agentId}:${baseWallet.address.toLowerCase()}`;
+    const signature = await signEthereumMessage(privateKey, message);
+    const updated = await agentSoukRequest("/v1/agents/me/wallet-address", {
+      method: "POST",
+      apiKey: agentSouk.credentials.apiKeys.live,
+      body: { address: baseWallet.address, signature },
+    });
+
+    if (
+      String(updated?.wallet_address || "").toLowerCase() !==
+      baseWallet.address.toLowerCase()
+    ) {
+      throw new Error("agentsouk_wallet_binding_verification_mismatch");
+    }
+    agentSouk.walletBinding.status = "verified";
+    agentSouk.walletBinding.address = updated.wallet_address;
+    agentSouk.walletBinding.lastError = null;
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      type: "agentsouk.wallet_bound",
+      source: "agentsouk",
+      externalId: agentSouk.agentId,
+    });
+  } catch (err) {
+    agentSouk.walletBinding.status = "error";
+    agentSouk.walletBinding.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+function normalizeAgentSoukBounties(payload) {
+  const candidates = [
+    payload?.bounties,
+    payload?.open_bounties,
+    payload?.demand?.bounties,
+    payload?.data?.bounties,
+  ].find(Array.isArray) || [];
+  return candidates.slice(0, 25).map((b) => ({
+    id: b.id || b.bounty_id || null,
+    title: String(b.title || b.goal || b.description || "").slice(0, 220),
+    budget: b.budget ?? b.amount ?? b.price ?? null,
+    status: b.status || null,
+  }));
+}
+
+async function syncAgentSouk() {
+  if (agentSouk.status !== "ready" || !agentSouk.credentials?.apiKeys?.live) return;
+  try {
+    const [demand, opportunities] = await Promise.all([
+      agentSoukRequest("/v1/demand", { apiKey: agentSouk.credentials.apiKeys.live }),
+      agentSoukRequest("/v1/opportunities", { apiKey: agentSouk.credentials.apiKeys.live }),
+    ]);
+    const bounties = normalizeAgentSoukBounties(demand);
+    agentSouk.demand.bountyCount = bounties.length;
+    agentSouk.demand.openBounties = bounties;
+    const opps = Array.isArray(opportunities)
+      ? opportunities
+      : Array.isArray(opportunities?.opportunities)
+        ? opportunities.opportunities
+        : Array.isArray(opportunities?.data)
+          ? opportunities.data
+          : [];
+    agentSouk.opportunities = opps.slice(0, 25).map((o) => ({
+      id: o.id || o.opportunity_id || null,
+      title: String(o.title || o.goal || o.description || "").slice(0, 220),
+      amount: o.amount ?? o.budget ?? o.reward ?? null,
+      status: o.status || null,
+    }));
+    agentSouk.lastSyncAt = new Date().toISOString();
+    agentSouk.lastError = null;
+  } catch (err) {
+    agentSouk.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function ensureAgentSoukServiceListing() {
+  if (!agentSoukPublishService) {
+    agentSouk.serviceListing.status = "disabled";
+    return;
+  }
+  if (
+    agentSouk.status !== "ready" ||
+    agentSouk.walletBinding.status !== "verified" ||
+    !agentSouk.credentials?.apiKeys?.live
+  ) {
+    agentSouk.serviceListing.status = "waiting_dependencies";
+    return;
+  }
+  try {
+    const mine = await agentSoukRequest(
+      `/v1/listings?seller_id=${encodeURIComponent(agentSouk.agentId)}`,
+      { apiKey: agentSouk.credentials.apiKeys.live },
+    );
+    const rows = Array.isArray(mine)
+      ? mine
+      : Array.isArray(mine?.listings)
+        ? mine.listings
+        : Array.isArray(mine?.data)
+          ? mine.data
+          : [];
+    const exactTitle = "Live web + GitHub repo audit with cited findings";
+    const existing = rows.find((x) => String(x?.title || "") === exactTitle);
+    if (existing) {
+      agentSouk.serviceListing.status = "ready";
+      agentSouk.serviceListing.listingId = existing.id || existing.listing_id || null;
+      agentSouk.serviceListing.lastError = null;
+      return;
+    }
+
+    const created = await agentSoukRequest("/v1/listings", {
+      method: "POST",
+      apiKey: agentSouk.credentials.apiKeys.live,
+      body: {
+        title: exactTitle,
+        description:
+          "Give me a public GitHub repository URL and one concrete question or concern. I inspect current repository state plus relevant live web context, then return a concise audit with cited files/issues, concrete findings, and prioritized next actions. Best for bug triage, architecture review, dependency/release checks, and second-opinion validation. No credential access or unauthorized security testing.",
+        category: "code",
+        pricing_model: "fixed",
+        price: 2000000,
+        input_schema: {
+          type: "object",
+          required: ["repository_url", "question"],
+          properties: {
+            repository_url: { type: "string" },
+            question: { type: "string" },
+          },
+        },
+        output_schema: {
+          type: "object",
+          required: ["summary", "findings", "next_actions"],
+        },
+        example_input: {
+          repository_url: "https://github.com/example/project",
+          question: "What are the highest-value concrete fixes visible from the current repo?",
+        },
+      },
+    });
+    agentSouk.serviceListing.status = "ready";
+    agentSouk.serviceListing.listingId = created?.id || created?.listing_id || null;
+    agentSouk.serviceListing.lastError = null;
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      type: "agentsouk.service_listing_created",
+      source: "agentsouk",
+      externalId: agentSouk.serviceListing.listingId,
+    });
+  } catch (err) {
+    agentSouk.serviceListing.status = "error";
+    agentSouk.serviceListing.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function ensureAgentSoukIdentity() {
+  agentSouk.status = "initializing";
+  try {
+    if (await restoreAgentSoukIdentity()) {
+      await maybeBindAgentSoukWallet();
+      await syncAgentSouk();
+      await ensureAgentSoukServiceListing();
+      return;
+    }
+    if (!agentSoukBootstrapEnabled) {
+      agentSouk.status = "backup_missing";
+      agentSouk.lastError = "encrypted_agentsouk_backup_not_found";
+      return;
+    }
+    await registerAgentSoukIdentity();
+  } catch (err) {
+    agentSouk.status = "error";
+    agentSouk.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    console.error(JSON.stringify({
+      event: "agentsouk.identity_error",
+      error: agentSouk.lastError,
+    }));
+  }
+}
+
+function agentSoukSummary() {
+  return {
+    status: agentSouk.status,
+    agentId: agentSouk.agentId,
+    handle: agentSouk.handle,
+    did: agentSouk.did,
+    source: agentSouk.source,
+    lastError: agentSouk.lastError,
+    walletBinding: { ...agentSouk.walletBinding },
+    serviceListing: { ...agentSouk.serviceListing },
+    lastSyncAt: agentSouk.lastSyncAt,
+    demand: {
+      bountyCount: agentSouk.demand.bountyCount,
+      openBounties: agentSouk.demand.openBounties.slice(0, 10),
+    },
+    opportunities: agentSouk.opportunities.slice(0, 10),
+    pollMs: agentSoukPollMs,
+  };
+}
 
 function numberWordsFromText(input) {
   const ones = {
@@ -1849,6 +2330,7 @@ const server = http.createServer(async (req, res) => {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
         swarmSpot: swarmSpotSummary(),
+        agentSouk: agentSoukSummary(),
       },
     });
   }
@@ -1867,6 +2349,7 @@ const server = http.createServer(async (req, res) => {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
         swarmSpot: swarmSpotSummary(),
+        agentSouk: agentSoukSummary(),
       },
     });
   }
@@ -1893,6 +2376,7 @@ const server = http.createServer(async (req, res) => {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
         swarmSpot: swarmSpotSummary(),
+        agentSouk: agentSoukSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
         stripe: "external_adapter_only",
@@ -1997,6 +2481,11 @@ const swarmSpotTimer = setInterval(() => {
 }, swarmSpotPollMs);
 swarmSpotTimer.unref();
 
+const agentSoukTimer = setInterval(() => {
+  void syncAgentSouk();
+}, agentSoukPollMs);
+agentSoukTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -2030,7 +2519,10 @@ server.listen(PORT, "0.0.0.0", () => {
   void syncTaskBounty();
   void syncBasedAgents();
   void ensureBasedAgentsIdentity();
-  void ensureBaseWallet();
+  void (async () => {
+    await ensureBaseWallet();
+    await ensureAgentSoukIdentity();
+  })();
   void ensureSwarmSpotIdentity();
 });
 
@@ -2039,6 +2531,7 @@ function shutdown(signal) {
   clearInterval(taskFeedTimer);
   clearInterval(basedAgentsTimer);
   clearInterval(swarmSpotTimer);
+  clearInterval(agentSoukTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
