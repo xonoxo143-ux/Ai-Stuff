@@ -14,7 +14,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.14.4";
+const VERSION = "0.14.5";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -3808,6 +3808,13 @@ server.listen(PORT, "0.0.0.0", () => {
         result,
       }));
     }
+  });
+  void stripeAdapter.ensureBrowserSession().then((ready) => {
+    console.log(JSON.stringify({
+      event: "stripe.browser_session",
+      ready,
+      status: stripeAdapter.summary().browserSession,
+    }));
   });
 });
 
