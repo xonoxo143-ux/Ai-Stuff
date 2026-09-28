@@ -144,10 +144,12 @@ jobs:
               "rss_kb_before_suite": int("${rss_before}" or 0),
               "rss_kb_after_suite": int("${rss_after}" or 0),
           }
-          Path("/tmp/spine-results/${name}-meta.json").write_text(
+          path = Path("/tmp/spine-results/${name}-meta.json")
+          path.write_text(
               json.dumps(meta, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
+          print(json.dumps({"candidate_meta": meta}, sort_keys=True))
           PY
 
             kill "${pid}" || true

@@ -14,6 +14,8 @@ from agent_runtime.spine_benchmark import (
 
 
 class SmartFake(BaseHTTPRequestHandler):
+    seen = []
+
     def do_POST(self):
         length = int(
             self.headers["Content-Length"]
@@ -22,6 +24,7 @@ class SmartFake(BaseHTTPRequestHandler):
             self.rfile.read(length)
         )
         messages = payload["messages"]
+        SmartFake.seen.append(payload)
         last = next(
             msg["content"]
             for msg in reversed(messages)
@@ -138,6 +141,7 @@ def test_scorers():
 
 
 def test_suite_detects_hybrid_value():
+    SmartFake.seen.clear()
     httpd = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         SmartFake,
@@ -193,6 +197,25 @@ def test_suite_detects_hybrid_value():
                 "completion_tokens"
             ]
             == 2
+        )
+
+        # Baseline and hybrid instruction cases must
+        # have identical model input when no capability
+        # fires and no memory is relevant.
+        baseline_instruction = SmartFake.seen[0]
+        hybrid_instruction = SmartFake.seen[10]
+        assert (
+            baseline_instruction["messages"]
+            == hybrid_instruction["messages"]
+        )
+
+        # Irrelevant semantic memory must not leak into
+        # ordinary hybrid cases.
+        assert all(
+            "favorite_fruit=mango"
+            not in message["content"]
+            for message
+            in hybrid_instruction["messages"]
         )
     finally:
         httpd.shutdown()

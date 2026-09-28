@@ -151,3 +151,27 @@ The suite records:
 - complete server logs and runner information.
 
 This first screen is deliberately small. It chooses what deserves a deeper benchmark; it is not a final language-model ranking.
+
+
+## Screen 01 protocol correction
+
+The first completed A/B run was informative but **not promoted as a clean comparison**.
+
+Observed in the first run:
+
+- Falcon-H1 baseline passed 10/12 automatic common cases; Qwen3 passed 8/12.
+- Qwen3 in hybrid mode consumed the exact arithmetic capability and semantic-memory item correctly.
+- Falcon-H1 in hybrid mode ignored both in this prompt format.
+
+However, hybrid mode also carried the semantic-memory item into unrelated cases. That changed the model prompt even when no relevant capability was needed and created a confound in baseline-vs-hybrid comparisons.
+
+Therefore Screen 01 is retained as a protocol-discovery result, not as a model-selection result.
+
+Screen 02 fixes the design:
+
+- common cases receive identical language-model messages in baseline and hybrid modes unless a capability actually fires;
+- semantic memory is injected only into the semantic-memory case;
+- arithmetic contributes only when its exact capability offers on the arithmetic expression;
+- load/RSS metadata is printed to logs as well as preserved in the artifact.
+
+The model choice remains **open** until the corrected run completes.

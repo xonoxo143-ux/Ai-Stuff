@@ -147,11 +147,13 @@ def _runtime(
     hybrid: bool,
     extra_body: Mapping[str, Any] | None,
     max_tokens: int,
+    semantic_seed: Mapping[str, Any] | None = None,
 ) -> AgentRuntime:
     memory = AgentMemory()
+    if semantic_seed:
+        memory.semantic.update(dict(semantic_seed))
     contributors = []
     if hybrid:
-        memory.semantic["favorite_fruit"] = "mango"
         contributors.append(
             ArithmeticCapability()
         )
@@ -247,6 +249,14 @@ def _one(
         hybrid=hybrid,
         extra_body=extra_body,
         max_tokens=max_tokens,
+        semantic_seed=(
+            {"favorite_fruit": "mango"}
+            if (
+                hybrid
+                and case.name == "semantic_memory"
+            )
+            else None
+        ),
     )
     started = perf_counter()
     response, trace = runtime.turn(
@@ -276,6 +286,7 @@ def _recall(
         hybrid=hybrid,
         extra_body=extra_body,
         max_tokens=max_tokens,
+        semantic_seed=None,
     )
     runtime.turn(
         (
