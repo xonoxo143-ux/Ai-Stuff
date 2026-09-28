@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.8.1";
+const VERSION = "0.9.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -56,6 +56,23 @@ const baseWalletBackupUrl =
   process.env.BASE_WALLET_BACKUP_URL ||
   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/base-wallet.enc.json";
 const baseWalletPkgDir = "/tmp/base-wallet-node";
+
+const swarmSpotBootstrapEnabled = process.env.SWARMSPOT_BOOTSTRAP === "true";
+const swarmSpotUsername =
+  process.env.SWARMSPOT_USERNAME || "continuity-worker-541-r2";
+const swarmSpotBackupUrl =
+  process.env.SWARMSPOT_IDENTITY_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/swarmspot-identity.enc.json";
+const publicRuntimeBaseUrl =
+  process.env.PUBLIC_RUNTIME_URL ||
+  "https://browser-worker-wnux-production.up.railway.app";
+const swarmSpotPollMs = Math.max(
+  300_000,
+  Number(process.env.SWARMSPOT_POLL_MS || 3_600_000),
+);
+const swarmSpotWebhookToken = eventToken
+  ? createHmac("sha256", eventToken).update("swarmspot-webhook-v1").digest("hex")
+  : "";
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -135,6 +152,18 @@ const baseWallet = {
   },
 };
 let pendingBaseWalletEncryptedBackup = null;
+
+const swarmSpot = {
+  status: "not_initialized",
+  username: null,
+  agentId: null,
+  source: null,
+  lastError: null,
+  lastSyncAt: null,
+  hireTopics: [],
+  getDoneTopics: [],
+  pendingWebhookEvents: 0,
+};
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -223,6 +252,345 @@ function decryptWalletBackup(backup) {
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+}
+
+
+function numberWordsFromText(input) {
+  const ones = {
+    zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+    seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+    thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+    eighteen: 18, nineteen: 19,
+  };
+  const tens = {
+    twenty: 20, thirty: 30, forty: 40, fifty: 50,
+    sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  };
+  const tokens = String(input || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, " ")
+    .replace(/-/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const values = [];
+  let current = 0;
+  let seen = false;
+  const flush = () => {
+    if (seen) values.push(current);
+    current = 0;
+    seen = false;
+  };
+
+  for (const token of tokens) {
+    if (/^\d+(?:\.\d+)?$/.test(token)) {
+      flush();
+      values.push(Number(token));
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(ones, token)) {
+      current += ones[token];
+      seen = true;
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(tens, token)) {
+      current += tens[token];
+      seen = true;
+      continue;
+    }
+    if (token === "hundred" && seen) {
+      current *= 100;
+      continue;
+    }
+    if (token === "thousand" && seen) {
+      current *= 1000;
+      continue;
+    }
+    flush();
+  }
+  flush();
+  return values;
+}
+
+function solveSwarmSpotCaptcha(challenge) {
+  const clean = String(challenge || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const nums = numberWordsFromText(clean);
+  if (nums.length < 2) throw new Error("swarmspot_captcha_numbers_not_found");
+  const [a, b] = nums;
+
+  if (
+    /\b(each|per)\b/.test(clean) &&
+    /\b(total|altogether|in all|members|requests|tasks|messages|pallets)\b/.test(clean)
+  ) {
+    return a * b;
+  }
+  if (/\b(distributed across|divided among|split among|per worker|each worker)\b/.test(clean)) {
+    if (b === 0) throw new Error("swarmspot_captcha_divide_by_zero");
+    return a / b;
+  }
+  if (/\b(more|added|plus|increase|in the queue)\b/.test(clean)) {
+    return a + b;
+  }
+  if (/\b(still|remaining|left|consumed|merged|removed|closed|used)\b/.test(clean)) {
+    return a - b;
+  }
+  if (/\b(total|altogether|in all)\b/.test(clean)) return a * b;
+  throw new Error("swarmspot_captcha_operation_not_recognized");
+}
+
+function encryptSwarmSpotBackup(value) {
+  if (!eventToken) throw new Error("swarmspot_encryption_key_unavailable");
+  const plaintext = Buffer.from(JSON.stringify(value), "utf8");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    username: value.username,
+    agent_id: value.agentId || null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptSwarmSpotBackup(backup) {
+  if (!eventToken) throw new Error("swarmspot_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_swarmspot_backup");
+  }
+  const key = scryptSync(eventToken, Buffer.from(backup.salt_b64, "base64"), 32);
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(backup.iv_b64, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(backup.tag_b64, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(backup.ciphertext_b64, "base64")),
+    decipher.final(),
+  ]);
+  return JSON.parse(plaintext.toString("utf8"));
+}
+
+function swarmSpotAuthHeader(username, password) {
+  return "Basic " + Buffer.from(\`\${username}:\${password}\`, "utf8").toString("base64");
+}
+
+async function swarmSpotRequest(path, { method = "GET", body = null, credentials = null } = {}) {
+  const headers = { accept: "application/json" };
+  if (body !== null) headers["content-type"] = "application/json";
+  if (credentials) {
+    headers.authorization = swarmSpotAuthHeader(credentials.username, credentials.password);
+  }
+  const response = await fetch(\`https://swarm.spot/api\${path}\`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const text = await response.text();
+  let payload = null;
+  try { payload = text ? JSON.parse(text) : {}; } catch { payload = { raw: text.slice(0, 1000) }; }
+  if (!response.ok) {
+    const error = new Error(\`swarmspot_http_\${response.status}\`);
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function requestAndSolveSwarmSpotCaptcha() {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const challenge = await swarmSpotRequest("/captcha", { method: "POST", body: {} });
+    const answer = solveSwarmSpotCaptcha(challenge.challenge);
+    try {
+      const solved = await swarmSpotRequest(
+        \`/captcha/\${encodeURIComponent(challenge.captcha_id)}/solve\`,
+        { method: "POST", body: { answer: String(answer) } },
+      );
+      if (solved?.captcha_token) return solved.captcha_token;
+    } catch (err) {
+      if (attempt === 2) throw err;
+    }
+  }
+  throw new Error("swarmspot_captcha_solve_failed");
+}
+
+async function restoreSwarmSpotIdentity() {
+  const response = await fetch(swarmSpotBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(\`swarmspot_backup_http_\${response.status}\`);
+  const backup = await response.json();
+  const restored = decryptSwarmSpotBackup(backup);
+  if (!restored?.username || !restored?.password) {
+    throw new Error("swarmspot_backup_fields_missing");
+  }
+  const profile = await swarmSpotRequest(
+    \`/agents/\${encodeURIComponent(restored.username)}\`,
+  );
+  swarmSpot.status = "ready";
+  swarmSpot.username = restored.username;
+  swarmSpot.agentId = profile?.agent_id || restored.agentId || null;
+  swarmSpot.source = "encrypted_git_backup";
+  swarmSpot.lastError = null;
+  swarmSpot.credentials = { username: restored.username, password: restored.password };
+  return true;
+}
+
+async function registerSwarmSpotIdentity() {
+  // Never mint a second account with the same permanent username if a prior bootstrap
+  // succeeded but its encrypted backup was not persisted.
+  try {
+    const existing = await swarmSpotRequest(
+      \`/agents/\${encodeURIComponent(swarmSpotUsername)}\`,
+    );
+    if (existing?.username) {
+      swarmSpot.status = "existing_unrecoverable";
+      swarmSpot.username = existing.username;
+      swarmSpot.agentId = existing.agent_id || null;
+      swarmSpot.lastError = "existing_account_without_local_backup";
+      return;
+    }
+  } catch (err) {
+    if (err.message !== "swarmspot_http_404") throw err;
+  }
+
+  const password = randomBytes(32).toString("base64url");
+  const captchaToken = await requestAndSolveSwarmSpotCaptcha();
+  const result = await swarmSpotRequest("/register", {
+    method: "POST",
+    body: {
+      username: swarmSpotUsername,
+      password,
+      webhook_url: \`\${publicRuntimeBaseUrl}/integrations/swarmspot\`,
+      webhook_headers: {
+        Authorization: \`Bearer \${swarmSpotWebhookToken}\`,
+      },
+      email: agentEmail,
+      captcha_token: captchaToken,
+    },
+  });
+
+  const backup = encryptSwarmSpotBackup({
+    username: result?.username || swarmSpotUsername,
+    password,
+    agentId: result?.agent_id || null,
+  });
+
+  console.log(JSON.stringify({
+    event: "swarmspot.identity_backup",
+    note: "Encrypted ciphertext only; password never leaves runtime plaintext.",
+    backup,
+  }));
+
+  swarmSpot.status = "backup_pending";
+  swarmSpot.username = result?.username || swarmSpotUsername;
+  swarmSpot.agentId = result?.agent_id || null;
+  swarmSpot.source = "new_registration_encrypted_backup_emitted";
+  swarmSpot.lastError = null;
+  swarmSpot.credentials = { username: swarmSpot.username, password };
+}
+
+async function syncSwarmSpotTopics() {
+  if (swarmSpot.status !== "ready" && swarmSpot.status !== "backup_pending") return;
+  if (!swarmSpot.credentials) return;
+  try {
+    const query = async (intent) => {
+      const params = new URLSearchParams({
+        intent,
+        sort_by: "updated_at",
+        sort_order: "desc",
+        limit: "25",
+        offset: "0",
+      });
+      const payload = await swarmSpotRequest(
+        \`/topics/search?\${params.toString()}\`,
+        { credentials: swarmSpot.credentials },
+      );
+      const items = Array.isArray(payload) ? payload :
+        Array.isArray(payload?.topics) ? payload.topics :
+        Array.isArray(payload?.data) ? payload.data : [];
+      return items.slice(0, 25).map((t) => ({
+        topic_id: t.topic_id || t.id || null,
+        title: String(t.title || "").slice(0, 200),
+        description: String(t.description || "").slice(0, 1000),
+        value: t.value ?? null,
+        currency: t.currency || null,
+        currency_type: t.currency_type || null,
+        intent: t.intent || intent,
+        updated_at: t.updated_at || t.created_at || null,
+        created_by: t.created_by || t.agent_id || null,
+      }));
+    };
+    const [hire, getDone] = await Promise.all([query("HIRE"), query("GET_DONE")]);
+    swarmSpot.hireTopics = hire;
+    swarmSpot.getDoneTopics = getDone;
+    swarmSpot.lastSyncAt = new Date().toISOString();
+    swarmSpot.lastError = null;
+  } catch (err) {
+    swarmSpot.lastError = err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function ensureSwarmSpotIdentity() {
+  swarmSpot.status = "initializing";
+  try {
+    if (await restoreSwarmSpotIdentity()) {
+      await syncSwarmSpotTopics();
+      return;
+    }
+    if (!swarmSpotBootstrapEnabled) {
+      swarmSpot.status = "backup_missing";
+      swarmSpot.lastError = "encrypted_swarmspot_backup_not_found";
+      return;
+    }
+    await registerSwarmSpotIdentity();
+    await syncSwarmSpotTopics();
+  } catch (err) {
+    swarmSpot.status = "error";
+    swarmSpot.lastError = err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    console.error(JSON.stringify({
+      event: "swarmspot.identity_error",
+      error: swarmSpot.lastError,
+    }));
+  }
+}
+
+function swarmSpotSummary() {
+  const topics = [...swarmSpot.hireTopics, ...swarmSpot.getDoneTopics];
+  const paidTopics = topics.filter((t) =>
+    Number.isFinite(Number(t.value)) && Number(t.value) > 0,
+  );
+  return {
+    status: swarmSpot.status,
+    username: swarmSpot.username,
+    agentId: swarmSpot.agentId,
+    source: swarmSpot.source,
+    lastError: swarmSpot.lastError,
+    lastSyncAt: swarmSpot.lastSyncAt,
+    hireTopicCount: swarmSpot.hireTopics.length,
+    getDoneTopicCount: swarmSpot.getDoneTopics.length,
+    paidTopicCount: paidTopics.length,
+    paidTopics: paidTopics.slice(0, 10),
+    pendingWebhookEvents: swarmSpot.pendingWebhookEvents,
+  };
 }
 
 async function fetchBasedAgentsTask(taskId) {
@@ -1403,7 +1771,7 @@ const server = http.createServer(async (req, res) => {
       taskFeeds: {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
-        basedAgents: basedAgentsSummary(),
+        swarmSpot: swarmSpotSummary(),
       },
     });
   }
@@ -1421,6 +1789,7 @@ const server = http.createServer(async (req, res) => {
       taskFeeds: {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
+        swarmSpot: swarmSpotSummary(),
       },
     });
   }
@@ -1445,6 +1814,8 @@ const server = http.createServer(async (req, res) => {
       },
       integrations: {
         taskBounty: taskFeedSummary(),
+        basedAgents: basedAgentsSummary(),
+        swarmSpot: swarmSpotSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
         stripe: "external_adapter_only",
@@ -1453,6 +1824,27 @@ const server = http.createServer(async (req, res) => {
       queue: Array.from(taskQueue.values()).slice(-100),
       recentEvents,
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/integrations/swarmspot") {
+    const auth = req.headers.authorization || "";
+    if (!swarmSpotWebhookToken || auth !== \`Bearer \${swarmSpotWebhookToken}\`) {
+      return json(res, 401, { error: "unauthorized" });
+    }
+    try {
+      const body = await readJson(req);
+      swarmSpot.pendingWebhookEvents += 1;
+      rememberEvent({
+        id: randomUUID(),
+        receivedAt: new Date().toISOString(),
+        type: "swarmspot." + String(body?.event || "event").slice(0, 80),
+        source: "swarmspot_webhook",
+        externalId: String(body?.thread_id || body?.topic_id || body?.message_id || "").slice(0, 240) || null,
+      });
+      return json(res, 202, { accepted: true });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/integrations/taskbounty") {
@@ -1523,6 +1915,11 @@ const basedAgentsTimer = setInterval(() => {
 }, basedAgentsPollMs);
 basedAgentsTimer.unref();
 
+const swarmSpotTimer = setInterval(() => {
+  void syncSwarmSpotTopics();
+}, swarmSpotPollMs);
+swarmSpotTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -1557,12 +1954,14 @@ server.listen(PORT, "0.0.0.0", () => {
   void syncBasedAgents();
   void ensureBasedAgentsIdentity();
   void ensureBaseWallet();
+  void ensureSwarmSpotIdentity();
 });
 
 function shutdown(signal) {
   clearInterval(heartbeat);
   clearInterval(taskFeedTimer);
   clearInterval(basedAgentsTimer);
+  clearInterval(swarmSpotTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
