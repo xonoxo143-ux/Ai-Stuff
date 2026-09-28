@@ -5,7 +5,11 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Mapping
 
-from .memory import MemoryConfig
+from .memory import (
+    MemoryConfig,
+    _semantic_overlap_score,
+    _semantic_tokens,
+)
 
 
 class SQLiteAgentMemory:
@@ -47,7 +51,45 @@ class SQLiteAgentMemory:
                 key TEXT PRIMARY KEY,
                 int_value INTEGER NOT NULL
             );
+            CREATE VIRTUAL TABLE IF NOT EXISTS semantic_fts
+            USING fts5(
+                key,
+                text,
+                tokenize='unicode61'
+            );
             """
+        )
+        self._db.commit()
+        self._ensure_semantic_fts()
+
+    def _ensure_semantic_fts(self) -> None:
+        semantic_count = int(
+            self._db.execute(
+                "SELECT COUNT(*) FROM semantic_memory"
+            ).fetchone()[0]
+        )
+        indexed_count = int(
+            self._db.execute(
+                "SELECT COUNT(*) FROM semantic_fts"
+            ).fetchone()[0]
+        )
+        if semantic_count == indexed_count:
+            return
+        self._db.execute(
+            "DELETE FROM semantic_fts"
+        )
+        rows = self._db.execute(
+            (
+                "SELECT key, value_json "
+                "FROM semantic_memory"
+            )
+        ).fetchall()
+        self._db.executemany(
+            (
+                "INSERT INTO semantic_fts"
+                "(key, text) VALUES(?, ?)"
+            ),
+            rows,
         )
         self._db.commit()
 
@@ -264,6 +306,8 @@ class SQLiteAgentMemory:
         updates: Mapping[str, Any],
     ) -> None:
         for key, value in updates.items():
+            key_text = str(key)
+            value_json = self._dump(value)
             self._db.execute(
                 """
                 INSERT INTO semantic_memory(
@@ -276,11 +320,97 @@ class SQLiteAgentMemory:
                         excluded.value_json
                 """,
                 (
-                    str(key),
-                    self._dump(value),
+                    key_text,
+                    value_json,
+                ),
+            )
+            self._db.execute(
+                (
+                    "DELETE FROM semantic_fts "
+                    "WHERE key = ?"
+                ),
+                (key_text,),
+            )
+            self._db.execute(
+                (
+                    "INSERT INTO semantic_fts"
+                    "(key, text) VALUES(?, ?)"
+                ),
+                (
+                    key_text,
+                    value_json,
                 ),
             )
         self._db.commit()
+
+    def search_semantic(
+        self,
+        query: str,
+        *,
+        limit: int = 4,
+    ) -> list[dict[str, Any]]:
+        tokens = sorted(
+            _semantic_tokens(query)
+        )
+        if not tokens or limit <= 0:
+            return []
+        expression = " OR ".join(
+            f'"{token}"'
+            for token in tokens
+        )
+        candidate_limit = max(
+            int(limit) * 4,
+            int(limit),
+        )
+        rows = self._db.execute(
+            """
+            SELECT key
+            FROM semantic_fts
+            WHERE semantic_fts MATCH ?
+            ORDER BY bm25(semantic_fts)
+            LIMIT ?
+            """,
+            (
+                expression,
+                candidate_limit,
+            ),
+        ).fetchall()
+
+        results = []
+        for (key,) in rows:
+            stored = self._db.execute(
+                (
+                    "SELECT value_json "
+                    "FROM semantic_memory "
+                    "WHERE key = ?"
+                ),
+                (key,),
+            ).fetchone()
+            if stored is None:
+                continue
+            value = self._load(stored[0])
+            score = _semantic_overlap_score(
+                query,
+                str(key),
+                value,
+            )
+            if score <= 0.0:
+                continue
+            results.append(
+                {
+                    "key": str(key),
+                    "value": value,
+                    "score": score,
+                }
+            )
+
+        results.sort(
+            key=lambda row: (
+                -float(row["score"]),
+                str(row["key"]),
+            )
+        )
+        return results[: int(limit)]
 
     def record_capability(
         self,

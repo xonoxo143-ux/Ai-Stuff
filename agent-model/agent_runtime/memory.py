@@ -1,7 +1,36 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Mapping
+
+
+def _semantic_tokens(value: Any) -> set[str]:
+    return {
+        token
+        for token in re.findall(
+            r"[A-Za-z0-9]+",
+            str(value).casefold(),
+        )
+        if len(token) > 2
+    }
+
+
+def _semantic_overlap_score(
+    query: str,
+    key: str,
+    value: Any,
+) -> float:
+    query_tokens = _semantic_tokens(query)
+    if not query_tokens:
+        return 0.0
+    document_tokens = _semantic_tokens(
+        f"{key} {value}"
+    )
+    return (
+        len(query_tokens & document_tokens)
+        / len(query_tokens)
+    )
 
 
 @dataclass
@@ -44,6 +73,36 @@ class AgentMemory:
     def update_semantic(self, updates: Mapping[str, Any]) -> None:
         for key, value in updates.items():
             self.semantic[str(key)] = value
+
+    def search_semantic(
+        self,
+        query: str,
+        *,
+        limit: int = 4,
+    ) -> list[dict[str, Any]]:
+        rows = []
+        for key, value in self.semantic.items():
+            score = _semantic_overlap_score(
+                query,
+                key,
+                value,
+            )
+            if score <= 0.0:
+                continue
+            rows.append(
+                {
+                    "key": key,
+                    "value": value,
+                    "score": score,
+                }
+            )
+        rows.sort(
+            key=lambda row: (
+                -float(row["score"]),
+                str(row["key"]),
+            )
+        )
+        return rows[: max(0, int(limit))]
 
     def record_capability(self, name: str, *, success: bool, cost: float) -> None:
         row = self.capability_stats.setdefault(

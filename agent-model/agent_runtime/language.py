@@ -160,9 +160,11 @@ class LanguageComposer:
             )
         ]
 
-        semantic_items = list(
-            context.semantic_memory.items()
-        )[-self.max_semantic_items:]
+        semantic_items = []
+        if self.max_semantic_items > 0:
+            semantic_items = list(
+                context.semantic_memory.items()
+            )[-self.max_semantic_items:]
         if semantic_items:
             memory_text = "\n".join(
                 f"{key}={value}"

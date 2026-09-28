@@ -227,3 +227,39 @@ def test_bad_backend_response_becomes_composer_failure_trace():
         )
     finally:
         httpd.shutdown()
+
+
+
+def test_zero_semantic_items_disables_direct_memory_dump():
+    class CaptureBackend:
+        name = "capture"
+
+        def __init__(self):
+            self.request = None
+
+        def generate(self, req):
+            from agent_runtime.language import (
+                LanguageGeneration,
+            )
+            self.request = req
+            return LanguageGeneration(
+                text="ok"
+            )
+
+    backend = CaptureBackend()
+    memory = AgentMemory()
+    memory.semantic["favorite"] = "mango"
+    runtime = AgentRuntime(
+        composer=LanguageComposer(
+            backend,
+            max_semantic_items=0,
+        ),
+        memory=memory,
+    )
+    response, _trace = runtime.turn("hello")
+    assert response == "ok"
+    assert all(
+        "favorite=mango"
+        not in message.content
+        for message in backend.request.messages
+    )

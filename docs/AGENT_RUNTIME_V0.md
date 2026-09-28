@@ -150,3 +150,31 @@ remembering conversational information
 !=
 changing model weights
 ```
+
+
+## Selective semantic retrieval
+
+The runtime now has a first replaceable semantic-memory retriever.
+
+`SemanticRetrievalCapability` sits between stored semantic memory and the language composer.
+
+Its current backends are deliberately cheap:
+
+- token-overlap for the in-memory test backend;
+- SQLite FTS5 shortlist + lexical overlap for durable memory.
+
+The language composer can set `max_semantic_items=0` so stored memory is not automatically dumped into the prompt.
+
+The intended production shape is:
+
+```text
+large semantic store
+        ↓
+retrieval capability
+        ↓
+small bounded memory report
+        ↓
+language / reasoning capability
+```
+
+Dense or hybrid retrieval remains an experimental replacement, not a prerequisite.
