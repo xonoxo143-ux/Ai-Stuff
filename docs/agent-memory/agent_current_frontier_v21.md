@@ -102,9 +102,9 @@ A new `agent_language` package now tests language machinery trained from scratch
 First local ~130k-150k-parameter byte-level comparison at 160 updates:
 
 ```text
-GRU          ~1.23 bits/byte
-Transformer  ~2.57 bits/byte
-Patch RNN    ~3.36 bits/byte
+GRU          ~1.67 bits/byte
+Transformer  ~2.62 bits/byte
+Patch RNN    ~3.31 bits/byte
 ```
 
 The Transformer trained much faster; the GRU had substantially better held-out loss at the same update budget; the first fixed-patch multiscale formulation lost.
@@ -119,3 +119,30 @@ five-seed parameter-matched language-organ replication
 ```
 
 Every candidate exposes a small external conditioning vector so future Agent cognition can drive language without requiring all internal state to be serialized as prompt text.
+
+
+### External-state language seam
+
+The language-organ conditioning contract was corrected so Agent state is available persistently during generation and zero condition is neutral.
+
+A local compositional probe held out 64 combinations of structured non-language state.
+
+After 300 tiny updates:
+
+```text
+GRU          64 / 64 exact
+Transformer  64 / 64 exact
+```
+
+This does not establish natural-language intelligence.
+
+It establishes the interface property we wanted:
+
+```text
+non-language Agent state
+→ bounded latent condition
+→ from-scratch language organ
+→ compositional English
+```
+
+The replicated workflow now tests both surface byte modeling and this external-state composition seam.

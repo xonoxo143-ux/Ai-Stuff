@@ -40,7 +40,9 @@ optional condition vector
 → byte logits
 ```
 
-The 16-dimensional condition vector is deliberately small and currently untrained semantically.
+The 16-dimensional condition vector is deliberately small.
+
+It is treated as a **persistent conditioning channel** available throughout language production, not merely as a one-time initial-state hint. A zero condition is defined to be neutral.
 
 It exists to reserve a **non-language interface** through which the future Agent workspace/capability ecology can influence language production.
 
@@ -96,9 +98,9 @@ Container, one seed, synthetic held-out micro-English corpus, 160 updates:
 
 ```text
 model          parameters   validation bits/byte   train time
-GRU            ~147k        ~1.23                  ~11.7 s
-Transformer    ~134k        ~2.57                  ~4.8 s
-Patch RNN      ~150k        ~3.36                  ~12.6 s
+GRU            ~148k        ~1.67                  ~11.1 s
+Transformer    ~134k        ~2.62                  ~4.4 s
+Patch RNN      ~152k        ~3.31                  ~12.8 s
 ```
 
 Interpretation:
@@ -126,7 +128,22 @@ Primary metrics:
 - steps/second;
 - parameter count.
 
-No architecture is promoted until this replication completes.
+The same workflow also runs a three-seed compositional conditioning probe.
+
+In that probe, an evaluator supplies a 16-dimensional structured latent state describing a novel combination of name/color/animal/place. The language organ must generate the corresponding English sentence.
+
+The local fair-interface check reached:
+
+```text
+GRU          64 / 64 held-out combinations exact
+Transformer  64 / 64 held-out combinations exact
+```
+
+after 300 tiny updates.
+
+This establishes that both candidate families can, in principle, act as a language **output organ** driven by non-language state.
+
+No architecture is promoted until the replicated surface and conditioning tests complete.
 
 ## After the synthetic gate
 

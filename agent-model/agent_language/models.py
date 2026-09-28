@@ -53,13 +53,29 @@ class ByteGRU(ConditionedByteModel):
             batch_first=True,
         )
         self.condition_to_hidden = (
-            nn.Linear(condition_dim, layers * hidden_dim)
+            nn.Linear(
+                condition_dim,
+                layers * hidden_dim,
+                bias=False,
+            )
+            if condition_dim > 0
+            else None
+        )
+        self.condition_to_input = (
+            nn.Linear(
+                condition_dim,
+                embedding_dim,
+                bias=False,
+            )
             if condition_dim > 0
             else None
         )
         self.output = nn.Linear(hidden_dim, BYTE_VOCAB)
         self.layers = layers
         self.hidden_dim = hidden_dim
+        self.initial_hidden = nn.Parameter(
+            torch.zeros(layers, 1, hidden_dim)
+        )
 
     def forward(
         self,
@@ -68,7 +84,11 @@ class ByteGRU(ConditionedByteModel):
     ) -> torch.Tensor:
         embedded = self.embedding(tokens)
         batch = tokens.shape[0]
-        initial = None
+        initial = self.initial_hidden.expand(
+            -1,
+            batch,
+            -1,
+        ).contiguous()
         cond = self._condition(
             condition,
             batch,
@@ -76,14 +96,22 @@ class ByteGRU(ConditionedByteModel):
             embedded.dtype,
         )
         if cond is not None:
-            initial = torch.tanh(
-                self.condition_to_hidden(cond)
+            embedded = (
+                embedded
+                + self.condition_to_input(cond)[:, None, :]
+            )
+            condition_hidden = self.condition_to_hidden(
+                cond
             ).view(
                 batch,
                 self.layers,
                 self.hidden_dim,
             ).transpose(0, 1).contiguous()
-        hidden, _ = self.gru(embedded, initial)
+            initial = initial + condition_hidden
+        hidden, _ = self.gru(
+            embedded,
+            torch.tanh(initial),
+        )
         return self.output(hidden)
 
 
@@ -102,7 +130,11 @@ class ByteTransformer(ConditionedByteModel):
         self.embedding = nn.Embedding(INPUT_VOCAB, model_dim)
         self.position = nn.Embedding(max_length, model_dim)
         self.condition_projection = (
-            nn.Linear(condition_dim, model_dim)
+            nn.Linear(
+                condition_dim,
+                model_dim,
+                bias=False,
+            )
             if condition_dim > 0
             else None
         )
@@ -194,6 +226,25 @@ class BytePatchRNN(ConditionedByteModel):
             nn.Linear(
                 condition_dim,
                 global_hidden_dim,
+                bias=False,
+            )
+            if condition_dim > 0
+            else None
+        )
+        self.condition_to_local = (
+            nn.Linear(
+                condition_dim,
+                embedding_dim,
+                bias=False,
+            )
+            if condition_dim > 0
+            else None
+        )
+        self.condition_to_patch = (
+            nn.Linear(
+                condition_dim,
+                global_hidden_dim,
+                bias=False,
             )
             if condition_dim > 0
             else None
@@ -214,6 +265,9 @@ class BytePatchRNN(ConditionedByteModel):
         self.bos_embedding = nn.Parameter(
             torch.zeros(embedding_dim)
         )
+        self.initial_global = nn.Parameter(
+            torch.zeros(1, global_hidden_dim)
+        )
 
     def forward(
         self,
@@ -232,16 +286,16 @@ class BytePatchRNN(ConditionedByteModel):
             embedded.device,
             embedded.dtype,
         )
-        global_state = torch.zeros(
+        global_state = self.initial_global.expand(
             batch,
-            self.global_cell.hidden_size,
-            device=embedded.device,
-            dtype=embedded.dtype,
+            -1,
         )
         if cond is not None:
-            global_state = torch.tanh(
-                self.condition_to_global(cond)
+            global_state = (
+                global_state
+                + self.condition_to_global(cond)
             )
+        global_state = torch.tanh(global_state)
 
         logits: list[torch.Tensor] = []
         patch_size = self.patch_size
@@ -264,6 +318,11 @@ class BytePatchRNN(ConditionedByteModel):
                 ],
                 dim=1,
             )
+            if cond is not None:
+                local_input = (
+                    local_input
+                    + self.condition_to_local(cond)[:, None, :]
+                )
             local_initial = torch.tanh(
                 self.global_to_local(global_state)
             ).unsqueeze(0)
@@ -277,6 +336,11 @@ class BytePatchRNN(ConditionedByteModel):
             patch_summary = self.patch_encoder(
                 patch.reshape(batch, -1)
             )
+            if cond is not None:
+                patch_summary = (
+                    patch_summary
+                    + self.condition_to_patch(cond)
+                )
             global_state = self.global_cell(
                 patch_summary,
                 global_state,

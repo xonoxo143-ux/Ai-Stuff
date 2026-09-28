@@ -2,13 +2,6 @@ name: Agent Language Spine Screen
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "experiment/agent-v1-developmental-ecology"
-    paths:
-      - "agent-model/agent_runtime/spine_benchmark.py"
-      - "docs/AGENT_LANGUAGE_SPINE_SCREEN.md"
-      - ".github/workflows/agent-language-spine-screen.yml"
 
 permissions:
   contents: read

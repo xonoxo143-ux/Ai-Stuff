@@ -93,3 +93,29 @@ def test_batch_stream_is_reproducible():
     bx, by = b.batch(3, 16)
     assert torch.equal(ax, bx)
     assert torch.equal(ay, by)
+
+
+
+def test_none_condition_is_neutral_zero_condition():
+    x = torch.randint(
+        0,
+        256,
+        (2, 16),
+    )
+    zeros = torch.zeros(2, 16)
+    for name in (
+        "gru",
+        "transformer",
+        "patch_rnn",
+    ):
+        model = build_model(name)
+        model.eval()
+        with torch.no_grad():
+            a = model(x, None)
+            b = model(x, zeros)
+        assert torch.allclose(
+            a,
+            b,
+            atol=1e-6,
+            rtol=1e-6,
+        )

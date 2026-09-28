@@ -58,8 +58,21 @@ jobs:
             --threads 4 \
             --output /tmp/agent-language-organ-v0.json
 
+      - name: Test external-state language composition
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_language.conditioning_probe \
+            --models gru,transformer \
+            --seeds 11,22,33 \
+            --steps 300 \
+            --threads 4 \
+            --output /tmp/agent-language-conditioning-v0.json
+
       - uses: actions/upload-artifact@v4
         with:
           name: Agent-Language-Organ-V0
-          path: /tmp/agent-language-organ-v0.json
+          path: |
+            /tmp/agent-language-organ-v0.json
+            /tmp/agent-language-conditioning-v0.json
           retention-days: 30
