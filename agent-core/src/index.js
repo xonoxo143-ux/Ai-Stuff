@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.7.0";
+const VERSION = "0.8.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -47,6 +47,11 @@ const basedAgentsReputationBootstrapEnabled =
   process.env.BASEDAGENTS_REPUTATION_BOOTSTRAP === "true";
 const baseWalletBootstrapEnabled = process.env.BASE_WALLET_BOOTSTRAP === "true";
 const basedAgentsSetWalletEnabled = process.env.BASEDAGENTS_SET_WALLET === "true";
+const basedAgentsCommandId = process.env.BASEDAGENTS_COMMAND_ID || "";
+const basedAgentsCommandAction = process.env.BASEDAGENTS_COMMAND_ACTION || "";
+const basedAgentsCommandTaskId = process.env.BASEDAGENTS_COMMAND_TASK_ID || "";
+const basedAgentsCommandPayloadB64 = process.env.BASEDAGENTS_COMMAND_PAYLOAD_B64 || "";
+const basedAgentsCommandNote = process.env.BASEDAGENTS_COMMAND_NOTE || "";
 const baseWalletBackupUrl =
   process.env.BASE_WALLET_BACKUP_URL ||
   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/base-wallet.enc.json";
@@ -104,6 +109,16 @@ const basedAgentsReputationBootstrap = {
   taskId: null,
   lastError: null,
   submittedAt: null,
+};
+
+const basedAgentsCommand = {
+  id: basedAgentsCommandId || null,
+  action: basedAgentsCommandAction || null,
+  taskId: basedAgentsCommandTaskId || null,
+  status: basedAgentsCommandId ? "pending" : "none",
+  lastError: null,
+  result: null,
+  processedAt: null,
 };
 
 const baseWallet = {
@@ -210,6 +225,180 @@ function decryptWalletBackup(backup) {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
 
+async function fetchBasedAgentsTask(taskId) {
+  const response = await fetch(
+    `https://api.basedagents.ai/v1/tasks/${encodeURIComponent(taskId)}`,
+    { headers: { accept: "application/json" }, signal: AbortSignal.timeout(15_000) },
+  );
+  if (!response.ok) throw new Error(`basedagents_task_http_${response.status}`);
+  const payload = await response.json();
+  return payload?.task || null;
+}
+
+async function hasOtherActivePaidBasedAgentsClaim(taskId) {
+  if (!basedAgentsIdentity.agentId) return true;
+  const response = await fetch(
+    `https://api.basedagents.ai/v1/tasks?claimer=${encodeURIComponent(
+      basedAgentsIdentity.agentId,
+    )}&limit=100`,
+    { headers: { accept: "application/json" }, signal: AbortSignal.timeout(15_000) },
+  );
+  if (!response.ok) throw new Error(`basedagents_claims_http_${response.status}`);
+  const payload = await response.json();
+  const tasks = Array.isArray(payload?.tasks) ? payload.tasks : [];
+  return tasks.some((t) =>
+    t?.task_id !== taskId &&
+    t?.bounty != null &&
+    ["claimed", "submitted"].includes(String(t?.status || "")),
+  );
+}
+
+async function processBasedAgentsCommand() {
+  if (!basedAgentsCommandId) return;
+  if (basedAgentsCommand.status === "processing" ||
+      basedAgentsCommand.status === "completed") return;
+  if (!outboundWorkEnabled) {
+    basedAgentsCommand.status = "blocked";
+    basedAgentsCommand.lastError = "outbound_work_disabled";
+    return;
+  }
+  if (basedAgentsIdentity.status !== "ready" ||
+      !basedAgentsIdentity.registered ||
+      baseWallet.status !== "ready" ||
+      baseWallet.marketplaceRegistration.status !== "verified") {
+    basedAgentsCommand.status = "waiting_dependencies";
+    return;
+  }
+
+  basedAgentsCommand.status = "processing";
+  basedAgentsCommand.lastError = null;
+  try {
+    if (!basedAgentsCommandTaskId) throw new Error("missing_command_task_id");
+    const task = await fetchBasedAgentsTask(basedAgentsCommandTaskId);
+    if (!task) throw new Error("task_not_found");
+
+    if (basedAgentsCommandAction === "claim") {
+      if (task.status !== "open" || task.claimable !== true) {
+        throw new Error("task_not_open_and_claimable");
+      }
+      const normalized = normalizeBasedAgentsTask(task);
+      const evaluation = evaluateBasedAgentsTask(normalized);
+      if (evaluation.status !== "candidate") {
+        throw new Error(`task_failed_runtime_filter:${evaluation.status}`);
+      }
+      if (await hasOtherActivePaidBasedAgentsClaim(task.task_id)) {
+        throw new Error("another_paid_task_already_active");
+      }
+
+      const result = await runBasedAgentsCli([
+        "tasks",
+        "claim",
+        task.task_id,
+        "--keypair",
+        basedAgentsKeypairPath,
+        "--json",
+      ]);
+      basedAgentsCommand.status = "completed";
+      basedAgentsCommand.result = {
+        action: "claim",
+        taskId: task.task_id,
+        status: result.json?.status || "claimed",
+      };
+      basedAgentsCommand.processedAt = new Date().toISOString();
+      rememberEvent({
+        id: randomUUID(),
+        receivedAt: basedAgentsCommand.processedAt,
+        type: "job.claimed",
+        source: "basedagents_command",
+        externalId: task.task_id,
+      });
+    } else if (basedAgentsCommandAction === "deliver") {
+      if (!["claimed"].includes(String(task.status || ""))) {
+        if (task.status === "submitted" || task.status === "verified") {
+          basedAgentsCommand.status = "completed";
+          basedAgentsCommand.result = {
+            action: "deliver",
+            taskId: task.task_id,
+            status: task.status,
+            idempotent: true,
+          };
+          basedAgentsCommand.processedAt = new Date().toISOString();
+          return;
+        }
+        throw new Error(`task_not_deliverable_from_status:${task.status}`);
+      }
+      if (task.claimed_by_agent_id !== basedAgentsIdentity.agentId) {
+        throw new Error("task_not_claimed_by_active_worker");
+      }
+      if (!basedAgentsCommandPayloadB64) throw new Error("missing_delivery_payload");
+
+      let payload;
+      try {
+        payload = Buffer.from(basedAgentsCommandPayloadB64, "base64");
+      } catch {
+        throw new Error("delivery_payload_invalid_base64");
+      }
+      if (!payload.length || payload.length > 50_000) {
+        throw new Error("delivery_payload_size_invalid");
+      }
+
+      if (task.output_format === "json") {
+        try {
+          JSON.parse(payload.toString("utf8"));
+        } catch {
+          throw new Error("delivery_payload_not_valid_json");
+        }
+      }
+
+      const reportPath = `/tmp/basedagents-delivery-${task.task_id}.txt`;
+      await writeFile(reportPath, payload, { mode: 0o600 });
+      const note = basedAgentsCommandNote.slice(0, 1000) ||
+        "Completed the requested bounded task and attached the requested deliverable.";
+
+      const result = await runBasedAgentsCli([
+        "tasks",
+        "submit",
+        task.task_id,
+        "--keypair",
+        basedAgentsKeypairPath,
+        "--file",
+        reportPath,
+        "--note",
+        note,
+        "--json",
+      ]);
+      basedAgentsCommand.status = "completed";
+      basedAgentsCommand.result = {
+        action: "deliver",
+        taskId: task.task_id,
+        status: result.json?.status || "submitted",
+      };
+      basedAgentsCommand.processedAt = new Date().toISOString();
+      rememberEvent({
+        id: randomUUID(),
+        receivedAt: basedAgentsCommand.processedAt,
+        type: "job.delivered",
+        source: "basedagents_command",
+        externalId: task.task_id,
+      });
+    } else {
+      throw new Error("unsupported_basedagents_command_action");
+    }
+  } catch (err) {
+    basedAgentsCommand.status = "error";
+    basedAgentsCommand.lastError =
+      err instanceof Error ? err.message.slice(0,300) : String(err).slice(0,300);
+    basedAgentsCommand.processedAt = new Date().toISOString();
+    console.error(JSON.stringify({
+      event: "basedagents.command_error",
+      commandId: basedAgentsCommandId,
+      action: basedAgentsCommandAction,
+      taskId: basedAgentsCommandTaskId,
+      error: basedAgentsCommand.lastError,
+    }));
+  }
+}
+
 async function maybeRegisterBasedAgentsWallet() {
   if (!basedAgentsSetWalletEnabled) return;
   if (baseWallet.marketplaceRegistration.status === "setting" ||
@@ -286,6 +475,7 @@ async function restoreBaseWallet() {
   baseWallet.source = "encrypted_git_backup";
   baseWallet.lastError = null;
   void maybeRegisterBasedAgentsWallet();
+  setTimeout(() => void processBasedAgentsCommand(), 1500).unref();
   return true;
 }
 
@@ -666,6 +856,7 @@ async function ensureBasedAgentsIdentity() {
     if (await restoreBasedAgentsIdentity()) {
       void runBasedAgentsReputationBootstrap();
       void maybeRegisterBasedAgentsWallet();
+      setTimeout(() => void processBasedAgentsCommand(), 1500).unref();
       return;
     }
 
@@ -1125,6 +1316,15 @@ function basedAgentsSummary() {
         source: baseWallet.source,
         lastError: baseWallet.lastError,
         marketplaceRegistration: { ...baseWallet.marketplaceRegistration },
+      },
+      workCommand: {
+        id: basedAgentsCommand.id,
+        action: basedAgentsCommand.action,
+        taskId: basedAgentsCommand.taskId,
+        status: basedAgentsCommand.status,
+        lastError: basedAgentsCommand.lastError,
+        result: basedAgentsCommand.result,
+        processedAt: basedAgentsCommand.processedAt,
       },
     },
     provider: basedAgentsState.provider,
