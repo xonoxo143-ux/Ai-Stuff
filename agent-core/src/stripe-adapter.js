@@ -451,22 +451,66 @@ export function createStripeAdapter({ rememberEvent }) {
         const url = page.url();
 
         if (!dashboardLooksAuthenticated(page)) {
+          const inputs = await page
+            .locator("input")
+            .evaluateAll((els) =>
+              els.slice(0, 40).map((el) => ({
+                type: el.getAttribute("type"),
+                name: el.getAttribute("name"),
+                id: el.id || null,
+                autocomplete: el.getAttribute("autocomplete"),
+                placeholder: el.getAttribute("placeholder"),
+              })),
+            )
+            .catch(() => []);
+          const hasOtpInput = inputs.some((input) => {
+            const haystack = [
+              input.type,
+              input.name,
+              input.id,
+              input.autocomplete,
+              input.placeholder,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+            return (
+              haystack.includes("one-time") ||
+              haystack.includes("otp") ||
+              haystack.includes("verification") ||
+              haystack.includes("code")
+            );
+          });
+          const stillHasPassword = inputs.some(
+            (input) =>
+              input.type === "password" ||
+              input.autocomplete === "current-password",
+          );
+          const hasCaptchaFrame = page
+            .frames()
+            .some((frame) =>
+              /captcha|hcaptcha|recaptcha|challenge/i.test(frame.url()),
+            );
+
           let reason = "login_not_completed";
           if (
+            hasCaptchaFrame ||
             bodyText.includes("captcha") ||
             bodyText.includes("verify you are human") ||
             bodyText.includes("security challenge")
           ) {
             reason = "captcha_or_security_challenge";
           } else if (
+            hasOtpInput ||
             bodyText.includes("two-step") ||
             bodyText.includes("verification code") ||
-            bodyText.includes("two-factor") ||
-            bodyText.includes("passkey")
+            bodyText.includes("two-factor")
           ) {
             reason = "second_factor_required";
           } else if (bodyText.includes("incorrect") || bodyText.includes("invalid")) {
             reason = "credentials_rejected";
+          } else if (stillHasPassword) {
+            reason = "password_form_still_present";
           }
           const headings = await page
             .locator("h1, h2, h3")
@@ -487,6 +531,7 @@ export function createStripeAdapter({ rememberEvent }) {
             headings: headings.map((x) => String(x).trim()).filter(Boolean).slice(0, 20),
             buttons: buttons.map((x) => String(x).trim()).filter(Boolean).slice(0, 30),
             links: links.map((x) => String(x).trim()).filter(Boolean).slice(0, 30),
+            inputs,
           };
         }
 
@@ -506,6 +551,7 @@ export function createStripeAdapter({ rememberEvent }) {
             headings: result.headings || [],
             buttons: result.buttons || [],
             links: result.links || [],
+            inputs: result.inputs || [],
           }),
         );
         return false;
