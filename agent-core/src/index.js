@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -113,7 +113,15 @@ function execFileAsync(command, args, options = {}) {
 function parseCliJson(stdout) {
   const text = String(stdout || "").trim();
   if (!text) throw new Error("basedagents_empty_json_output");
-  return JSON.parse(text.split(/\r?\n/).filter(Boolean).at(-1));
+  try {
+    return JSON.parse(text);
+  } catch {}
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) {
+    return JSON.parse(text.slice(first, last + 1));
+  }
+  throw new Error("basedagents_json_not_found");
 }
 
 async function runBasedAgentsCli(args) {
@@ -205,7 +213,7 @@ async function restoreBasedAgentsIdentity() {
 async function registerBasedAgentsIdentity() {
   await mkdir(`${basedAgentsHome}/.basedagents/keys`, { recursive: true });
 
-  let name = "Continuity-Worker-541";
+  let name = process.env.BASEDAGENTS_AGENT_NAME || "Continuity-Worker-541-R2";
   let result;
   try {
     result = await runBasedAgentsCli([
