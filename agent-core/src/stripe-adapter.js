@@ -380,14 +380,7 @@ export function createStripeAdapter({ rememberEvent }) {
         await password.waitFor({ state: "visible", timeout: 20_000 });
         await password.fill(stripeDashboardPasswordTemp);
 
-        const passwordForm = password.locator("xpath=ancestor::form[1]");
-        let submit = passwordForm.locator('button[type="submit"]').last();
-        if (!(await submit.isVisible().catch(() => false))) {
-          submit = page
-            .getByRole("button", { name: /^(continue|sign in|log in)$/i })
-            .last();
-        }
-        await submit.click();
+        await password.press("Enter");
         await page.waitForTimeout(6000);
 
         const bodyText = (
