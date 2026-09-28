@@ -30,3 +30,17 @@ Placeholders belong in code/config only. Stripe's live legal/business profile mu
 ## Operator seed funding
 
 Do not use a live card charge merely to convert the account owner's card balance into cash/working capital. Stripe payments should represent bona fide customer goods/services. Operator seed funding should use an appropriate capital-contribution/onramp rail instead.
+
+
+## Live setup status — 2026-09-28
+
+- Live Stripe account is activated.
+- Runtime secret key is stored only in Railway as `STRIPE_SECRET_KEY`.
+- Webhook endpoint is live and its signing secret is stored only in Railway.
+- One-time customer payments are enabled in Agent Core.
+- Billing is scaffolded but disabled until a real recurring offer/price is chosen.
+- Connect is scaffolded but disabled because the current MVP is a direct service business, not a third-party marketplace.
+- Crypto Onramp is scaffolded but disabled until Stripe approves Onramp access.
+- Public business page: `/stripe/business`.
+- Reusable Stripe product: `prod_VLRQmmSOna0BkL` (AI Task Services).
+- Stripe's own-account business profile cannot be edited through the current server API path; Dashboard profile cleanup remains a human/browser task.
