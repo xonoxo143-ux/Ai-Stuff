@@ -8,6 +8,18 @@ const stripeBillingEnabled = process.env.STRIPE_BILLING_ENABLED === "true";
 const stripeConnectEnabled = process.env.STRIPE_CONNECT_ENABLED === "true";
 const stripeCryptoOnrampEnabled = process.env.STRIPE_CRYPTO_ONRAMP_ENABLED === "true";
 const stripeBillingPriceId = process.env.STRIPE_BILLING_PRICE_ID || "";
+const stripeServiceProductId = process.env.STRIPE_SERVICE_PRODUCT_ID || "";
+const stripePriceQuickTask = process.env.STRIPE_PRICE_QUICK_TASK || "";
+const stripePriceStandardTask = process.env.STRIPE_PRICE_STANDARD_TASK || "";
+const stripePriceDeepTask = process.env.STRIPE_PRICE_DEEP_TASK || "";
+const stripePriceRetainer = process.env.STRIPE_PRICE_RETAINER || "";
+const stripePaymentLinkQuickTask = process.env.STRIPE_PAYMENT_LINK_QUICK_TASK || "";
+const stripePaymentLinkStandardTask = process.env.STRIPE_PAYMENT_LINK_STANDARD_TASK || "";
+const stripePaymentLinkDeepTask = process.env.STRIPE_PAYMENT_LINK_DEEP_TASK || "";
+const stripeBillingPortalConfigurationId =
+  process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID || "";
+const stripeBillingPortalLoginUrl =
+  process.env.STRIPE_BILLING_PORTAL_LOGIN_URL || "";
 const stripeBillingSuccessUrl = process.env.STRIPE_BILLING_SUCCESS_URL || "";
 const stripeBillingCancelUrl = process.env.STRIPE_BILLING_CANCEL_URL || "";
 const stripeConnectReturnUrl = process.env.STRIPE_CONNECT_RETURN_URL || "";
@@ -129,6 +141,33 @@ export function createStripeAdapter({ rememberEvent }) {
       connectEnabled: stripeConnectEnabled,
       cryptoOnrampEnabled: stripeCryptoOnrampEnabled,
       billingPriceConfigured: Boolean(stripeBillingPriceId),
+      serviceProductConfigured: Boolean(stripeServiceProductId),
+      pricing: {
+        quickTask: {
+          usd: 5,
+          priceId: stripePriceQuickTask || null,
+          paymentLink: stripePaymentLinkQuickTask || null,
+        },
+        standardTask: {
+          usd: 15,
+          priceId: stripePriceStandardTask || null,
+          paymentLink: stripePaymentLinkStandardTask || null,
+        },
+        deepTask: {
+          usd: 40,
+          priceId: stripePriceDeepTask || null,
+          paymentLink: stripePaymentLinkDeepTask || null,
+        },
+        retainer: {
+          usdMonthly: 29,
+          priceId: stripePriceRetainer || stripeBillingPriceId || null,
+          publicPaymentLink: null,
+        },
+      },
+      customerPortal: {
+        configurationId: stripeBillingPortalConfigurationId || null,
+        loginUrl: stripeBillingPortalLoginUrl || null,
+      },
       lastWebhookAt: state.lastWebhookAt,
       lastWebhookType: state.lastWebhookType,
       lastPaymentLinkAt: state.lastPaymentLinkAt,
@@ -269,10 +308,19 @@ export function createStripeAdapter({ rememberEvent }) {
 
         if (
           type === "checkout.session.completed" ||
+          type === "checkout.session.async_payment_succeeded" ||
+          type === "checkout.session.async_payment_failed" ||
           type === "payment_intent.succeeded" ||
+          type === "payment_intent.payment_failed" ||
+          type === "customer.subscription.created" ||
           type === "customer.subscription.updated" ||
           type === "customer.subscription.deleted" ||
-          type === "invoice.paid"
+          type === "invoice.paid" ||
+          type === "invoice.payment_failed" ||
+          type === "refund.created" ||
+          type === "refund.failed" ||
+          type === "charge.dispute.created" ||
+          type === "charge.dispute.closed"
         ) {
           rememberEvent({
             id: String(event?.id || "").slice(0, 240) || null,
