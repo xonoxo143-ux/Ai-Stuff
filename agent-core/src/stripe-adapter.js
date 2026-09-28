@@ -374,50 +374,74 @@ export function createStripeAdapter({ rememberEvent }) {
           await page.waitForTimeout(700);
         }
 
-        const password = page.locator(
-          'input[type="password"], input[name="password"], input[autocomplete="current-password"]',
-        ).first();
-        await password.waitFor({ state: "visible", timeout: 20_000 });
+        const passwordSelector =
+          'input[type="password"], input[name="password"], input[autocomplete="current-password"]';
 
-        // Stripe's React login form can expose a visible password field while
-        // Playwright's normal actionability checks still stall. Use the normal
-        // fill path first, then fall back to the native value setter so the
-        // user does not need a keyboard in the remote browser.
-        let passwordEntered = false;
-        try {
-          await password.fill(stripeDashboardPasswordTemp, { timeout: 5_000 });
-          passwordEntered = true;
-        } catch {
-          await password.evaluate((el, value) => {
-            const proto = HTMLInputElement.prototype;
-            const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+        // Stripe can replace the password node during login. Avoid carrying a
+        // Locator across that React re-render: wait for a node to exist, then
+        // query the live DOM and set/submit it in a single browser-context turn.
+        await page.waitForFunction(
+          (selector) => Boolean(document.querySelector(selector)),
+          passwordSelector,
+          { timeout: 20_000 },
+        );
+
+        const passwordResult = await page.evaluate(
+          ({ selector, value }) => {
+            const el = document.querySelector(selector);
+            if (!(el instanceof HTMLInputElement)) {
+              return { entered: false, submitted: false, reason: "password_node_missing" };
+            }
+
+            const descriptor = Object.getOwnPropertyDescriptor(
+              HTMLInputElement.prototype,
+              "value",
+            );
             if (descriptor?.set) descriptor.set.call(el, value);
             else el.value = value;
             el.dispatchEvent(new Event("input", { bubbles: true }));
             el.dispatchEvent(new Event("change", { bubbles: true }));
             el.focus();
-          }, stripeDashboardPasswordTemp);
-          passwordEntered = await password
-            .inputValue()
-            .then((value) => value.length > 0)
-            .catch(() => false);
-        }
-        if (!passwordEntered) throw new Error("stripe_password_injection_failed");
 
-        let submitted = false;
-        try {
-          submitted = await password.evaluate((el) => {
+            const entered = el.value === value && el.value.length > 0;
             const form = el.closest("form");
-            if (!form) return false;
-            if (typeof form.requestSubmit === "function") form.requestSubmit();
-            else form.submit();
-            return true;
-          });
-        } catch {}
-        if (!submitted) {
-          await password.press("Enter", { timeout: 5_000 }).catch(async () => {
-            await page.keyboard.press("Enter");
-          });
+            if (!entered) {
+              return { entered: false, submitted: false, reason: "password_value_not_set" };
+            }
+
+            if (form) {
+              if (typeof form.requestSubmit === "function") form.requestSubmit();
+              else form.submit();
+              return { entered: true, submitted: true, reason: null };
+            }
+
+            el.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+              }),
+            );
+            el.dispatchEvent(
+              new KeyboardEvent("keyup", {
+                key: "Enter",
+                code: "Enter",
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+              }),
+            );
+            return { entered: true, submitted: false, reason: "form_missing" };
+          },
+          { selector: passwordSelector, value: stripeDashboardPasswordTemp },
+        );
+
+        if (!passwordResult.entered) {
+          throw new Error(
+            `stripe_password_injection_failed:${passwordResult.reason || "unknown"}`,
+          );
         }
         await page.waitForTimeout(6000);
 
