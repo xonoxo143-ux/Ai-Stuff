@@ -257,3 +257,33 @@ The Transformer remained largely malformed at the same update budget.
 This is the first real-language evidence supporting the recurrent production path, but it is one seed only.
 
 The exact experiment is now replicating over seeds 101, 202, and 303 before any scale increase.
+
+
+## Perception refinement rejected; closed-loop gate started
+
+The semantic-slot-query BiGRU refinement failed replication:
+
+```text
+plain BiGRU       72.0% exact
+attentive BiGRU   64.6% exact
+```
+
+Plain BiGRU remains the first perception baseline.
+
+The next integration experiment now couples:
+
+```text
+English
+→ BiGRU perception
+→ bounded semantic state
+→ GRU production
+→ English
+```
+
+with three bridge controls:
+
+- oracle semantic state;
+- hard one-hot predicted state;
+- soft probability state.
+
+This is designed to localize whether closed-loop failure comes from perception, state discretization, or production rather than judging only final text.

@@ -1,0 +1,63 @@
+name: Agent Language Roundtrip V0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_language/roundtrip_probe.py"
+      - "agent-model/tests/test_agent_language_roundtrip_v0.py"
+      - "docs/AGENT_LANGUAGE_ROUNDTRIP_V0.md"
+      - ".github/workflows/agent-language-roundtrip-v0.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-language-roundtrip-v0
+  cancel-in-progress: true
+
+jobs:
+  roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run bridge contract tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_agent_language_roundtrip_v0.py
+
+      - name: Run three-seed closed-loop probe
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_language.roundtrip_probe \
+            --seeds 11,22,33 \
+            --perception-steps 200 \
+            --production-steps 300 \
+            --threads 4 \
+            --output /tmp/agent-language-roundtrip-v0.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Language-Roundtrip-V0
+          path: /tmp/agent-language-roundtrip-v0.json
+          retention-days: 30

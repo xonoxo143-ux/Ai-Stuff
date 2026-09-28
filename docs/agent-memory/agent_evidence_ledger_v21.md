@@ -290,3 +290,23 @@ Scope:
 - one seed;
 - constrained TinyStories curriculum;
 - surface language modeling only.
+
+
+---
+
+## E-LANG-005 — Slot-query attention did not improve BiGRU perception
+**Status:** REJECTED SIMPLE REFINEMENT
+
+Three-seed follow-up:
+
+```text
+plain BiGRU       72.0% exact state
+attentive BiGRU   64.6% exact state
+```
+
+The slot-query variant was also slightly worse in per-slot accuracy and slightly slower.
+
+Design consequence:
+- keep the simpler BiGRU perception baseline;
+- do not infer that attention is generally unhelpful;
+- treat the one-seed local improvement as variance rather than evidence.
