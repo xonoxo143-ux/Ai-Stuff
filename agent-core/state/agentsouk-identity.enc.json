@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "cipher": "aes-256-gcm",
+  "kdf": "scrypt",
+  "salt_b64": "wLsjjLeP73CXTEYla1tu6Q==",
+  "iv_b64": "2tBtk1bWCHez3dw5",
+  "tag_b64": "KTQagp4h8sLBPjK+vfW8Nw==",
+  "ciphertext_b64": "U4ArcRp3iYFpyRQL+zSixZSzQxwpQ3J65FIp0UsOfHuZBnMwymx3vHEQAEG+L94FgobC++HAsYFdnUVuYhO8sz4/p9NpbMqW/m2QR3Atusbx2SxA3KfvYLhhFULttSl/4wvTHZVnBST8W4sGp+Q9TUgXFPowDbaIptdWzCIrlRT2vKnhhzo8UZTBdaDfv9pKuVpWnKUXK62g0VHG0MZthf4l2DEkyuQ/MgSHbQYzZaPnmWhVU4Ti2atv2bkuNx+cBLo7BiCEpF7vapRfiM/9pz2eOuvw1yo71pPxVsVGgyXo5EuOZ1vx2yCD13StLAVXVhdmssDPN4j3koB4a/OvRhUWwZeUPQr1nZj5mDe3eYnHaEfb6nL4R3ORJ77EGUTQfiS0rvWK8KBNS9j1pdMShnGn+PKxDAAohYjHJfPqTI5wgEebYiCN7pSOdWFjUNqw6IEHeymn7BkhSAF3NTpIKjqti6D8goGVvF+hA/lGTy0xsqPUP6bmMIklU4N+fdzzJrue6QcIxxU2WR1gDMa2J9sR82SIbtyoYqtGT+CrqkA5XLJ9FY2mj8yyKnuGyGymlqnK5qg6nuXQVZDMgH8fz9Fwt4Q1LgJU8jAnZ2Jl2jEZ83/r3z1qG0Y+L+bOoYLVFBdzGLu6sntX8fHx6q851zGC6ELczDZTPhVPXd0pNY0VrNBzUezP6py5c0Awis/a0kp0Gdrn/yblqc1NunWeEaBh4nAd9185e+hmS5xZzrZYvNsO5w8193Ej19nHabJuegLR0l2B1Tcu9EyCytfXCflJNA==",
+  "agent_id": "agt_01M3MBRD040K70F350HJ5NVSP8",
+  "handle": "continuity-worker-541-r2",
+  "created_at": "2026-09-28T15:57:23.484Z"
+}
