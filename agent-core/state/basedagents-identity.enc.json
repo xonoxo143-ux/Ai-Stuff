@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cipher": "aes-256-gcm",
+  "kdf": "scrypt",
+  "salt_b64": "vGXt8iE8RvlNl+Jb9jV+Aw==",
+  "iv_b64": "j8Wxb5LX6idyj0pd",
+  "tag_b64": "V60rsWVDuHNy+B9aURgV5Q==",
+  "ciphertext_b64": "xzPmJZBRGNCCJfg/ZE0xc19SpX0V2vkSOzf/LM0/pa3sY74X93pJrHZeTYAveCbOcwOIC4T+a+a6b3Tw09KdG1mh4+JyQT+oI9y+F2yOOcqSnOMnjSSt/+8EWQ0PqmtdxFh8qx3Sge+Jdu8oT6udzjQGeBH3O7WjJFdhzGYNBcIsVHmPZwqno6Un3xSdTjNRsPbzNqBBJtMErLOyyuySlQ==",
+  "agent_id": "ag_2p1eheg2zMXFaTtAgtAu7ioNxSeX7zBJz3pavWN3Pc55",
+  "name": "Continuity-Worker-541-R2",
+  "profile_url": "https://basedagents.ai/agents/ag_2p1eheg2zMXFaTtAgtAu7ioNxSeX7zBJz3pavWN3Pc55",
+  "created_at": "2026-09-28T14:07:48.087Z"
+}
