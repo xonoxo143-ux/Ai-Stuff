@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.8.0";
+const VERSION = "0.8.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -400,15 +400,43 @@ async function processBasedAgentsCommand() {
 }
 
 async function maybeRegisterBasedAgentsWallet() {
-  if (!basedAgentsSetWalletEnabled) return;
-  if (baseWallet.marketplaceRegistration.status === "setting" ||
+  if (baseWallet.marketplaceRegistration.status === "checking" ||
+      baseWallet.marketplaceRegistration.status === "setting" ||
       baseWallet.marketplaceRegistration.status === "verified") return;
   if (baseWallet.status !== "ready" || !baseWallet.address) return;
   if (basedAgentsIdentity.status !== "ready" || !basedAgentsIdentity.registered) return;
 
-  baseWallet.marketplaceRegistration.status = "setting";
+  baseWallet.marketplaceRegistration.status = "checking";
   baseWallet.marketplaceRegistration.lastError = null;
   try {
+    const existing = await runBasedAgentsCli([
+      "wallet",
+      "--keypair",
+      basedAgentsKeypairPath,
+      "--json",
+    ]);
+    const current = existing.json || {};
+    const currentAddress = String(current.wallet_address || "");
+    const currentNetwork = current.wallet_network || null;
+
+    if (
+      currentAddress.toLowerCase() === baseWallet.address.toLowerCase() &&
+      currentNetwork === "eip155:8453"
+    ) {
+      baseWallet.marketplaceRegistration.status = "verified";
+      baseWallet.marketplaceRegistration.verifiedAddress = currentAddress;
+      baseWallet.marketplaceRegistration.verifiedNetwork = currentNetwork;
+      return;
+    }
+
+    if (!basedAgentsSetWalletEnabled) {
+      baseWallet.marketplaceRegistration.status = "missing_or_mismatched";
+      baseWallet.marketplaceRegistration.lastError =
+        "basedagents_wallet_not_registered_to_canonical_address";
+      return;
+    }
+
+    baseWallet.marketplaceRegistration.status = "setting";
     await runBasedAgentsCli([
       "wallet",
       "set",
@@ -452,6 +480,8 @@ async function maybeRegisterBasedAgentsWallet() {
       event: "basedagents.wallet_registration_error",
       error: baseWallet.marketplaceRegistration.lastError,
     }));
+  } finally {
+    setTimeout(() => void processBasedAgentsCommand(), 250).unref();
   }
 }
 
