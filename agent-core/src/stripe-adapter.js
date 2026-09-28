@@ -13,6 +13,15 @@ const stripeBillingCancelUrl = process.env.STRIPE_BILLING_CANCEL_URL || "";
 const stripeConnectReturnUrl = process.env.STRIPE_CONNECT_RETURN_URL || "";
 const stripeConnectRefreshUrl = process.env.STRIPE_CONNECT_REFRESH_URL || "";
 const stripeOnrampReturnUrl = process.env.STRIPE_CRYPTO_ONRAMP_RETURN_URL || "";
+const stripeProfileSyncEnabled = process.env.STRIPE_PROFILE_SYNC === "true";
+const stripeBusinessUrl = process.env.STRIPE_BUSINESS_URL || "";
+const stripeSupportUrl = process.env.STRIPE_SUPPORT_URL || stripeBusinessUrl;
+const stripeSupportEmail = process.env.STRIPE_SUPPORT_EMAIL || "";
+const stripeProductDescription =
+  process.env.STRIPE_PRODUCT_DESCRIPTION ||
+  "Small AI services business providing bounded coding, GitHub repository audits, web research, data analysis, and automation tasks.";
+const stripeStatementDescriptor =
+  process.env.STRIPE_STATEMENT_DESCRIPTOR || "FRESH STRONG";
 
 function encodeStripeForm(obj, prefix = "", out = new URLSearchParams()) {
   for (const [key, value] of Object.entries(obj || {})) {
@@ -106,6 +115,8 @@ export function createStripeAdapter({ rememberEvent }) {
     lastPaymentLinkAt: null,
     lastPaymentLinkId: null,
     lastBillingCheckoutAt: null,
+    profileSyncAt: null,
+    profileSyncStatus: stripeProfileSyncEnabled ? "pending" : "disabled",
   };
 
   function summary() {
@@ -123,11 +134,102 @@ export function createStripeAdapter({ rememberEvent }) {
       lastPaymentLinkAt: state.lastPaymentLinkAt,
       lastPaymentLinkId: state.lastPaymentLinkId,
       lastBillingCheckoutAt: state.lastBillingCheckoutAt,
+      profileSyncAt: state.profileSyncAt,
+      profileSyncStatus: state.profileSyncStatus,
       lastError: state.lastError,
     };
   }
 
+  async function syncProfile() {
+    if (!stripeProfileSyncEnabled) return { skipped: true, reason: "disabled" };
+    if (!stripeSecretKey) {
+      state.profileSyncStatus = "blocked_missing_secret";
+      return { skipped: true, reason: "stripe_secret_key_missing" };
+    }
+    if (!stripeBusinessUrl || !stripeSupportUrl || !stripeSupportEmail) {
+      state.profileSyncStatus = "blocked_missing_profile_values";
+      return { skipped: true, reason: "stripe_profile_values_missing" };
+    }
+    try {
+      const account = await stripeRequest("/v1/account", {
+        method: "POST",
+        body: {
+          business_profile: {
+            url: stripeBusinessUrl,
+            product_description: stripeProductDescription,
+            support_url: stripeSupportUrl,
+            support_email: stripeSupportEmail,
+          },
+          settings: {
+            payments: {
+              statement_descriptor: stripeStatementDescriptor,
+            },
+          },
+        },
+      });
+      state.profileSyncAt = new Date().toISOString();
+      state.profileSyncStatus = "completed";
+      state.lastError = null;
+      return {
+        updated: true,
+        accountId: account?.id || null,
+        businessUrl: account?.business_profile?.url || null,
+        supportUrl: account?.business_profile?.support_url || null,
+        supportEmail: account?.business_profile?.support_email || null,
+        statementDescriptor: account?.settings?.payments?.statement_descriptor || null,
+      };
+    } catch (err) {
+      state.profileSyncStatus = "error";
+      state.lastError = err instanceof Error ? err.message.slice(0, 400) : String(err);
+      return { updated: false, error: state.lastError };
+    }
+  }
+
+  function html(res, status, title, body) {
+    res.writeHead(status, {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    });
+    res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:system-ui,sans-serif;max-width:760px;margin:48px auto;padding:0 20px;line-height:1.55}h1{font-size:1.8rem}code{background:#eee;padding:.15rem .35rem;border-radius:4px}</style></head><body><h1>${title}</h1>${body}</body></html>`);
+  }
+
   async function handle(req, res, url, { json, readBody, readJson, authorized }) {
+    if (req.method === "GET" && url.pathname === "/stripe/business") {
+      html(
+        res,
+        200,
+        "Fresh and Strong — AI task services",
+        "<p>Fresh and Strong provides small, bounded AI-assisted services including coding, GitHub repository audits, web research, data analysis, and automation tasks.</p><p>Work is accepted only when scope, deliverables, and payment terms are clear. We do not request customer passwords, private keys, or unauthorized system access.</p><p>Support: <a href=\"mailto:oldcraft541@agentmail.to\">oldcraft541@agentmail.to</a></p>",
+      );
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/stripe/success") {
+      html(res, 200, "Payment received", "<p>Your payment was received. Keep your Stripe confirmation for your records.</p>");
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/stripe/cancel") {
+      html(res, 200, "Payment canceled", "<p>No payment was completed. You can return to the original task or checkout when ready.</p>");
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/stripe/connect/return") {
+      html(res, 200, "Stripe Connect return", "<p>Connect onboarding returned to the worker. Connect remains disabled unless the platform feature is intentionally enabled.</p>");
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/stripe/connect/refresh") {
+      html(res, 200, "Stripe Connect refresh", "<p>Connect onboarding can be restarted from the worker when that feature is enabled.</p>");
+      return true;
+    }
+
+    if (req.method === "GET" && url.pathname === "/stripe/onramp/return") {
+      html(res, 200, "Crypto onramp return", "<p>The Stripe Crypto Onramp flow returned to the worker. Onramp remains disabled until Stripe approves access.</p>");
+      return true;
+    }
+
     if (req.method === "GET" && url.pathname === "/integrations/stripe/status") {
       if (!authorized(req)) {
         json(res, 401, { error: "unauthorized" });
@@ -347,5 +449,5 @@ export function createStripeAdapter({ rememberEvent }) {
     return false;
   }
 
-  return { summary, handle };
+  return { summary, handle, syncProfile };
 }
