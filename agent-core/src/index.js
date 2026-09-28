@@ -14,7 +14,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.14.2";
+const VERSION = "0.14.3";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -3801,6 +3801,14 @@ server.listen(PORT, "0.0.0.0", () => {
   void ensureAgentChainIdentity();
   void ensureAgentLineIdentity();
   void ensureSwarmSpotIdentity();
+  void stripeAdapter.syncProfile().then((result) => {
+    if (result?.updated || result?.error) {
+      console.log(JSON.stringify({
+        event: "stripe.profile_sync",
+        result,
+      }));
+    }
+  });
 });
 
 function shutdown(signal) {
