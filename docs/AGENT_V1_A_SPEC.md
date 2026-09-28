@@ -1,5 +1,8 @@
 # Agent v1-A — Developmental Ecology Experiment
 
+> **DOCUMENT STATUS: HISTORICAL BASELINE SPEC.**  
+> This file preserves the original V1-A gates and experimental contract. Its embedded "current frontier" statements are historical and may be stale. For current project state, read `AGENT_CURRENT.md` and `AGENT_DOCS_INDEX.md` first.
+
 **Date:** 2026-09-26  
 **Status:** implementation started  
 **Branch:** `experiment/agent-v1-developmental-ecology`  

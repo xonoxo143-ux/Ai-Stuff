@@ -1,7 +1,8 @@
 # Agent v1 integration anchor — chatbot first
 
 **Date:** 2026-09-28  
-**Status:** standing integration priority
+**Status:** CURRENT integration priority  
+**Current architecture:** see `AGENT_CURRENT.md`
 
 ## Primary first embodiment
 
@@ -10,48 +11,102 @@ Agent v1's first integrated product target is a **chatbot**.
 Conversation is the first environment:
 
 ```text
-user input
+user message
     ↓
-input representation
+language / representation machinery
     ↓
-sparse recurrent ecology
+bounded active state + capability ecology
     ↓
-internal computation
+selective composition of useful capabilities
     ↓
 response and/or tool action
     ↓
 next conversational consequence
     ↓
-continued lifetime learning
+fast memory/relevance updates
+    +
+slower capability development when justified
 ```
 
 The first real integrated milestone is not locomotion or a sensorimotor benchmark.
 
 It is a multi-turn conversational system where:
 
-1. the ecology materially participates in choosing/computing the response;
+1. the capability ecology materially changes what computation is used;
 2. state persists across turns;
-3. experience changes later behavior;
-4. lifetime learning does not require resetting/retraining from scratch;
-5. the architecture's own organization matters causally to quality or cost.
+3. episodic/semantic memory changes later conversation without requiring every fact to become a weight update;
+4. genuine capability learning can continue over a lifetime;
+5. structural organization matters causally to quality and/or cost.
+
+## Substrate neutrality
+
+Do **not** assume:
+
+- Transformer required;
+- Transformer forbidden;
+- tokens required;
+- tokens forbidden;
+- SSM/recurrent core required;
+- a single representation must serve every capability.
+
+The target is the best conceptual and engineering hybrid.
+
+A Transformer or attention/SSM hybrid may be the strongest language spine.
+
+Recurrent/SSM components may be strongest for persistent compact state.
+
+Sparse learned memory may be strongest for large stored knowledge.
+
+Code/tools may be strongest for exact capabilities.
+
+The capability graph is allowed to contain all of them.
 
 ## Do not cheat the integration
 
-Do not attach a conventional language model that performs essentially all language reasoning while the ecology becomes decorative routing or memory.
+A strong language model is allowed and may be central to language quality.
 
-Temporary adapters are allowed for bootstrapping and measurement, but the experiment must expose whether useful computation genuinely resides in the Agent v1 substrate.
+The failure mode is different:
 
-## Language path
+> The ecology must not become decorative.
 
-Before choosing a language representation/generation scheme, research existing non-Transformer and non-token-first approaches.
+The integrated experiment should expose whether capability recruitment, memory boundaries, composition, developmental control, or promoted structure produces measurable quality/cost/continual-learning value beyond simply running the language model alone.
 
-Do not assume conventional subword tokens are the permanent interface.
+Always compare against the underlying language-system baseline.
 
-A deliberately constrained first conversational domain is acceptable if it gives the ecology real responsibility and measurable multi-turn learning.
+## Developmental role
+
+Agent v1's recurrent-cell experiments are not assumed to be the final language architecture.
+
+They are testing developmental machinery:
+
+- specialization;
+- causal accountability;
+- interference/forgetting;
+- plasticity allocation;
+- reserve capacity;
+- reusable interaction motifs;
+- promotion/pruning.
+
+The successful mechanisms may later govern heterogeneous capabilities whose internal implementations differ radically from the experimental recurrent cells.
+
+## Memory boundary
+
+Keep separate:
+
+```text
+active state
+episodic experience
+semantic/world knowledge
+capability/skill
+```
+
+Conversation should normally update episodic/semantic memory first.
+
+Parametric or structural learning is for durable capability changes that earn their developmental cost.
 
 ## Future interfaces remain valid
 
-Sensors, actuators, game control, robotics, or other environments are **not removed** from the architecture.
+Sensors, actuators, game control, robotics, and other environments are **not removed**.
 
 They are modular future interfaces:
 
@@ -60,17 +115,24 @@ chat first
     ↓
 tools / external actions
     ↓
-optional game or sensorimotor adapters
+optional game / sensor / actuator adapters
 ```
 
-A game may later be useful as a grounded developmental environment, but it is not a prerequisite for the first real Agent v1 chatbot.
+A game may later supply grounded development, but is not a prerequisite for the first real chatbot.
 
-## Current sequence
+## Parallel sequence
 
 ```text
-replicate lifelong-learning mechanism
-→ derive an online developmental rule
-→ language representation/generation research
-→ minimal conversational integration
-→ multi-turn lifetime-learning test
+TRACK A — DEVELOPMENT
+destructive-update prediction
+→ prospective plasticity control
+→ reserve / motif development
+
+TRACK B — CHATBOT
+language-spine benchmark
+→ capability contract + memory boundary
+→ minimal multi-turn hybrid chatbot
+
+A + B
+→ lifelong hybrid chatbot
 ```

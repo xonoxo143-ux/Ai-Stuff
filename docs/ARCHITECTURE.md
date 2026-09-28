@@ -1,5 +1,8 @@
 # Architecture — AI Workbench
 
+> **SCOPE:** Android AI Workbench / app-shell architecture only.  
+> This is **not** the Agent cognition architecture. For the Agent line, start at `AGENT_CURRENT.md`.
+
 ## Principle
 
 > Stable native Android kernel + mutable GitHub-delivered web workbench.
