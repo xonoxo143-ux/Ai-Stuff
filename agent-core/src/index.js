@@ -11,9 +11,10 @@ import {
 } from "node:crypto";
 import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { createStripeAdapter } from "./stripe-adapter.js";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.13.2";
+const VERSION = "0.14.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -3020,6 +3021,8 @@ function rememberEvent(evt) {
   while (recentEvents.length > 100) recentEvents.shift();
 }
 
+const stripeAdapter = createStripeAdapter({ rememberEvent });
+
 function safeHttpsUrl(value, allowedHostSuffix = null) {
   if (typeof value !== "string") return null;
   try {
@@ -3469,6 +3472,7 @@ const server = http.createServer(async (req, res) => {
       bootId,
       startedAt,
       lastTickAt,
+      stripe: stripeAdapter.summary(),
       taskFeeds: {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
@@ -3491,6 +3495,7 @@ const server = http.createServer(async (req, res) => {
       outboundWorkEnabled,
       operatingFloatTargetUsd,
       eventIngressConfigured: Boolean(eventToken),
+      stripe: stripeAdapter.summary(),
       taskFeeds: {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
@@ -3531,7 +3536,7 @@ const server = http.createServer(async (req, res) => {
         agentLine: agentLineSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
-        stripe: "external_adapter_only",
+        stripe: stripeAdapter.summary(),
         continuityJournal: "adapter_pending",
       },
       queue: Array.from(taskQueue.values()).slice(-100),
@@ -3701,6 +3706,17 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
     }
+  }
+
+  if (
+    await stripeAdapter.handle(req, res, url, {
+      json,
+      readBody,
+      readJson,
+      authorized,
+    })
+  ) {
+    return;
   }
 
   return json(res, 404, { error: "not_found" });
