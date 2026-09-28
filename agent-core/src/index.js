@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.6.1";
+const VERSION = "0.7.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -46,6 +46,7 @@ const basedAgentsKeypairPath = `${basedAgentsHome}/.basedagents/keys/continuity-
 const basedAgentsReputationBootstrapEnabled =
   process.env.BASEDAGENTS_REPUTATION_BOOTSTRAP === "true";
 const baseWalletBootstrapEnabled = process.env.BASE_WALLET_BOOTSTRAP === "true";
+const basedAgentsSetWalletEnabled = process.env.BASEDAGENTS_SET_WALLET === "true";
 const baseWalletBackupUrl =
   process.env.BASE_WALLET_BACKUP_URL ||
   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/base-wallet.enc.json";
@@ -111,6 +112,12 @@ const baseWallet = {
   network: "eip155:8453",
   source: null,
   lastError: null,
+  marketplaceRegistration: {
+    status: "not_started",
+    lastError: null,
+    verifiedAddress: null,
+    verifiedNetwork: null,
+  },
 };
 let pendingBaseWalletEncryptedBackup = null;
 
@@ -203,6 +210,62 @@ function decryptWalletBackup(backup) {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
 
+async function maybeRegisterBasedAgentsWallet() {
+  if (!basedAgentsSetWalletEnabled) return;
+  if (baseWallet.marketplaceRegistration.status === "setting" ||
+      baseWallet.marketplaceRegistration.status === "verified") return;
+  if (baseWallet.status !== "ready" || !baseWallet.address) return;
+  if (basedAgentsIdentity.status !== "ready" || !basedAgentsIdentity.registered) return;
+
+  baseWallet.marketplaceRegistration.status = "setting";
+  baseWallet.marketplaceRegistration.lastError = null;
+  try {
+    await runBasedAgentsCli([
+      "wallet",
+      "set",
+      baseWallet.address,
+      "--network",
+      "eip155:8453",
+      "--keypair",
+      basedAgentsKeypairPath,
+      "--json",
+    ]);
+
+    const check = await runBasedAgentsCli([
+      "wallet",
+      "--keypair",
+      basedAgentsKeypairPath,
+      "--json",
+    ]);
+    const info = check.json || {};
+    if (
+      String(info.wallet_address || "").toLowerCase() !==
+        baseWallet.address.toLowerCase() ||
+      info.wallet_network !== "eip155:8453"
+    ) {
+      throw new Error("basedagents_wallet_verification_mismatch");
+    }
+
+    baseWallet.marketplaceRegistration.status = "verified";
+    baseWallet.marketplaceRegistration.verifiedAddress = info.wallet_address;
+    baseWallet.marketplaceRegistration.verifiedNetwork = info.wallet_network;
+    console.log(JSON.stringify({
+      event: "basedagents.wallet_registered",
+      agentId: basedAgentsIdentity.agentId,
+      address: info.wallet_address,
+      network: info.wallet_network,
+    }));
+  } catch (err) {
+    baseWallet.marketplaceRegistration.status = "error";
+    baseWallet.marketplaceRegistration.lastError =
+      err instanceof Error ? err.message.slice(0,300) : String(err).slice(0,300);
+    console.error(JSON.stringify({
+      event: "basedagents.wallet_registration_error",
+      error: baseWallet.marketplaceRegistration.lastError,
+    }));
+  }
+}
+
 async function restoreBaseWallet() {
   const response = await fetch(baseWalletBackupUrl, {
     headers: { accept: "application/json" },
@@ -222,6 +285,7 @@ async function restoreBaseWallet() {
   baseWallet.address = backup.address;
   baseWallet.source = "encrypted_git_backup";
   baseWallet.lastError = null;
+  void maybeRegisterBasedAgentsWallet();
   return true;
 }
 
@@ -601,6 +665,7 @@ async function ensureBasedAgentsIdentity() {
 
     if (await restoreBasedAgentsIdentity()) {
       void runBasedAgentsReputationBootstrap();
+      void maybeRegisterBasedAgentsWallet();
       return;
     }
 
@@ -1059,6 +1124,7 @@ function basedAgentsSummary() {
         network: baseWallet.network,
         source: baseWallet.source,
         lastError: baseWallet.lastError,
+        marketplaceRegistration: { ...baseWallet.marketplaceRegistration },
       },
     },
     provider: basedAgentsState.provider,
@@ -1095,16 +1161,6 @@ function taskFeedSummary() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-
-  if (req.method === "GET" && url.pathname === "/bootstrap/base-wallet-backup") {
-    if (!pendingBaseWalletEncryptedBackup) {
-      return json(res, 404, { error: "no_pending_backup" });
-    }
-    return json(res, 200, {
-      warning: "encrypted_ciphertext_only",
-      backup: pendingBaseWalletEncryptedBackup,
-    });
-  }
 
   if (req.method === "GET" && url.pathname === "/health") {
     return json(res, 200, {
