@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 const PORT = Number(process.env.PORT || 3000);
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
-const eventToken = process.env.RUNTIME_EVENT_TOKEN || "";
+const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
 const financialActionsEnabled = process.env.FINANCIAL_ACTIONS_ENABLED === "true";
 const outboundWorkEnabled = process.env.OUTBOUND_WORK_ENABLED === "true";
 
