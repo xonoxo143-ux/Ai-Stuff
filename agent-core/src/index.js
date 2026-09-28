@@ -7,6 +7,7 @@ const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
 const financialActionsEnabled = process.env.FINANCIAL_ACTIONS_ENABLED === "true";
 const outboundWorkEnabled = process.env.OUTBOUND_WORK_ENABLED === "true";
+const operatingFloatTargetUsd = Number(process.env.OPERATING_FLOAT_TARGET_USD || 100);
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -68,6 +69,7 @@ const server = http.createServer(async (req, res) => {
       agentEmail,
       financialActionsEnabled,
       outboundWorkEnabled,
+      operatingFloatTargetUsd,
       eventIngressConfigured: Boolean(eventToken)
     });
   }
@@ -86,6 +88,8 @@ const server = http.createServer(async (req, res) => {
         financialActionsEnabled,
         outboundWorkEnabled,
         maxAutonomousSpendUsd: 0,
+        operatingFloatTargetUsd,
+        surplusPolicy: "settled_net_revenue_above_operating_float_to_project_funding_pool",
         speculativeTradingEnabled: false
       },
       integrations: {
