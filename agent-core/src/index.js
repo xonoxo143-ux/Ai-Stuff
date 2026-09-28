@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.12.4";
+const VERSION = "0.13.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -123,6 +123,21 @@ const clawlancerCommandId = process.env.CLAWLANCER_COMMAND_ID || "";
 const clawlancerCommandAction = process.env.CLAWLANCER_COMMAND_ACTION || "";
 const clawlancerCommandTargetId = process.env.CLAWLANCER_COMMAND_TARGET_ID || "";
 const clawlancerCommandPayloadB64 = process.env.CLAWLANCER_COMMAND_PAYLOAD_B64 || "";
+
+const agentLineApiBase =
+  process.env.AGENTLINE_API_BASE || "https://api.agentline.cloud";
+const agentLineBootstrapEnabled =
+  process.env.AGENTLINE_BOOTSTRAP === "true";
+const agentLineOtp = process.env.AGENTLINE_OTP || "";
+const agentLineBackupUrl =
+  process.env.AGENTLINE_IDENTITY_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/agentline-identity.enc.json";
+const agentLineProvisionNumber =
+  process.env.AGENTLINE_PROVISION_NUMBER === "true";
+const agentLineAreaCode = process.env.AGENTLINE_AREA_CODE || "978";
+const agentLineWebhookSecret = eventToken
+  ? createHmac("sha256", eventToken).update("agentline-webhook-v1").digest("hex")
+  : "";
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -304,6 +319,30 @@ const clawlancer = {
   },
 };
 
+const agentLine = {
+  status: "not_initialized",
+  source: null,
+  lastError: null,
+  credentials: null,
+  agentId: null,
+  phoneNumber: null,
+  areaCode: agentLineAreaCode,
+  balanceUsd: null,
+  webhook: {
+    status: "not_started",
+    lastError: null,
+  },
+  pairing: {
+    status: "unpaired",
+    operatorPhone: null,
+    lastInboundAt: null,
+    lastBodyPreview: null,
+  },
+  pendingSmsEvents: 0,
+  lastSyncAt: null,
+};
+
+
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     execFile(
@@ -396,6 +435,282 @@ function decryptWalletBackup(backup) {
 
 
 
+
+
+function encryptAgentLineBackup(value) {
+  if (!eventToken) throw new Error("agentline_encryption_key_unavailable");
+  const plaintext = Buffer.from(JSON.stringify(value), "utf8");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    email: agentEmail,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptAgentLineBackup(backup) {
+  if (!eventToken) throw new Error("agentline_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_agentline_backup");
+  }
+  const key = scryptSync(eventToken, Buffer.from(backup.salt_b64, "base64"), 32);
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(backup.iv_b64, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(backup.tag_b64, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(backup.ciphertext_b64, "base64")),
+    decipher.final(),
+  ]);
+  return JSON.parse(plaintext.toString("utf8"));
+}
+
+async function agentLineRequest(path, {
+  method = "GET",
+  body = null,
+  apiKey = null,
+} = {}) {
+  const headers = { accept: "application/json" };
+  if (body !== null) headers["content-type"] = "application/json";
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  const response = await fetch(`${agentLineApiBase}${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch { payload = { raw: raw.slice(0, 1500) }; }
+  if (!response.ok) {
+    const error = new Error(`agentline_http_${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function restoreAgentLineIdentity() {
+  const response = await fetch(agentLineBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`agentline_backup_http_${response.status}`);
+  const backup = await response.json();
+  const restored = decryptAgentLineBackup(backup);
+  if (!restored?.apiKey) throw new Error("agentline_backup_api_key_missing");
+  await agentLineRequest("/v1/billing/balance", { apiKey: restored.apiKey });
+  agentLine.status = "ready";
+  agentLine.source = "encrypted_git_backup";
+  agentLine.credentials = restored;
+  agentLine.lastError = null;
+  return true;
+}
+
+async function bootstrapAgentLineIdentity() {
+  if (!agentLineOtp) {
+    throw new Error("agentline_otp_missing");
+  }
+  const verified = await agentLineRequest("/v1/auth/verify", {
+    method: "POST",
+    body: { email: agentEmail, otp: agentLineOtp },
+  });
+  const apiKey = verified?.api_key || verified?.apiKey;
+  if (!apiKey || !String(apiKey).startsWith("al_live_")) {
+    throw new Error("agentline_verify_missing_api_key");
+  }
+  const secretBundle = { apiKey, email: agentEmail };
+  const backup = encryptAgentLineBackup(secretBundle);
+  console.log(JSON.stringify({
+    event: "agentline.identity_backup",
+    note: "Encrypted ciphertext only; AgentLine API key never leaves runtime plaintext.",
+    backup,
+  }));
+  agentLine.status = "backup_pending";
+  agentLine.source = "new_otp_identity_encrypted_backup_emitted";
+  agentLine.credentials = secretBundle;
+  agentLine.lastError = null;
+}
+
+function verifyAgentLineWebhook(rawBody, signature) {
+  if (!agentLineWebhookSecret || typeof signature !== "string") return false;
+  const digest = createHmac("sha256", agentLineWebhookSecret)
+    .update(rawBody)
+    .digest("hex");
+  const candidates = [digest, `sha256=${digest}`];
+  return candidates.some((candidate) => {
+    const a = Buffer.from(candidate);
+    const b = Buffer.from(signature);
+    return a.length === b.length && timingSafeEqual(a, b);
+  });
+}
+
+async function syncAgentLine() {
+  if (agentLine.status !== "ready" || !agentLine.credentials?.apiKey) return;
+  try {
+    const [balance, agents, numbers] = await Promise.all([
+      agentLineRequest("/v1/billing/balance", { apiKey: agentLine.credentials.apiKey }),
+      agentLineRequest("/v1/agents", { apiKey: agentLine.credentials.apiKey }),
+      agentLineRequest("/v1/numbers", { apiKey: agentLine.credentials.apiKey }),
+    ]);
+    const agentRows = Array.isArray(agents) ? agents : Array.isArray(agents?.agents) ? agents.agents : [];
+    const numberRows = Array.isArray(numbers) ? numbers : Array.isArray(numbers?.numbers) ? numbers.numbers : [];
+    const ours = agentRows.find((a) =>
+      String(a?.name || "").toLowerCase().includes("continuity worker")
+    ) || agentRows[0] || null;
+    if (ours?.id) agentLine.agentId = ours.id;
+    const number = numberRows.find((n) =>
+      !agentLine.agentId || n?.agent_id === agentLine.agentId || n?.agent?.id === agentLine.agentId
+    ) || numberRows[0] || null;
+    agentLine.phoneNumber =
+      number?.phone_number || number?.number || number?.e164 || agentLine.phoneNumber;
+    const rawBal =
+      balance?.balance_usd ?? balance?.balance ?? balance?.usd ?? balance?.credit_balance ?? null;
+    const parsed = Number(rawBal);
+    agentLine.balanceUsd = Number.isFinite(parsed) ? parsed : rawBal;
+    agentLine.lastSyncAt = new Date().toISOString();
+    agentLine.lastError = null;
+  } catch (err) {
+    agentLine.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function ensureAgentLineAgent() {
+  if (agentLine.status !== "ready" || !agentLine.credentials?.apiKey) return;
+  await syncAgentLine();
+  if (!agentLine.agentId) {
+    const created = await agentLineRequest("/v1/agents", {
+      method: "POST",
+      apiKey: agentLine.credentials.apiKey,
+      body: {
+        name: "Continuity Worker 541 R2",
+        system_prompt:
+          "You are the phone interface for a persistent AI worker. Be concise. For the owner, confirm task requests and emit them for execution. Never claim a task is complete unless the runtime confirms it.",
+        initial_greeting: "Continuity worker here. What do you need?",
+        voice_id: "male-2",
+      },
+    });
+    agentLine.agentId = created?.id || created?.agent_id || created?.agent?.id || null;
+    if (!agentLine.agentId) throw new Error("agentline_agent_creation_missing_id");
+  }
+
+  try {
+    await agentLineRequest("/v1/webhooks", {
+      method: "POST",
+      apiKey: agentLine.credentials.apiKey,
+      body: {
+        agent_id: agentLine.agentId,
+        url: `${publicRuntimeBaseUrl}/integrations/agentline`,
+        secret: agentLineWebhookSecret,
+        signature_header: "X-Hub-Signature-256",
+      },
+    });
+    agentLine.webhook.status = "ready";
+    agentLine.webhook.lastError = null;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (err?.status === 409) {
+      agentLine.webhook.status = "ready";
+      agentLine.webhook.lastError = null;
+    } else {
+      agentLine.webhook.status = "error";
+      agentLine.webhook.lastError = msg.slice(0, 300);
+    }
+  }
+
+  await syncAgentLine();
+
+  if (agentLineProvisionNumber && !agentLine.phoneNumber) {
+    const balanceNumber = Number(agentLine.balanceUsd);
+    if (!Number.isFinite(balanceNumber) || balanceNumber < 2) {
+      agentLine.lastError = "number_purchase_requires_2_usd_balance";
+      return;
+    }
+    const createdNumber = await agentLineRequest("/v1/numbers", {
+      method: "POST",
+      apiKey: agentLine.credentials.apiKey,
+      body: {
+        agent_id: agentLine.agentId,
+        country: "US",
+        area_code: agentLineAreaCode,
+        number_type: "local",
+      },
+    });
+    agentLine.phoneNumber =
+      createdNumber?.phone_number ||
+      createdNumber?.number ||
+      createdNumber?.e164 ||
+      createdNumber?.data?.phone_number ||
+      null;
+  }
+
+  await syncAgentLine();
+}
+
+async function ensureAgentLineIdentity() {
+  agentLine.status = "initializing";
+  try {
+    if (await restoreAgentLineIdentity()) {
+      await ensureAgentLineAgent();
+      return;
+    }
+    if (!agentLineBootstrapEnabled) {
+      agentLine.status = "backup_missing";
+      agentLine.lastError = "encrypted_agentline_backup_not_found";
+      return;
+    }
+    await bootstrapAgentLineIdentity();
+  } catch (err) {
+    const payloadError =
+      err?.payload && typeof err.payload === "object"
+        ? [err.payload.error, err.payload.message, err.payload.detail]
+            .filter(Boolean)
+            .map(String)
+            .join(" | ")
+        : "";
+    agentLine.status = "error";
+    agentLine.lastError =
+      ((err instanceof Error ? err.message : String(err)) +
+        (payloadError ? ` | ${payloadError}` : "")).slice(0, 500);
+    console.error(JSON.stringify({
+      event: "agentline.identity_error",
+      error: agentLine.lastError,
+    }));
+  }
+}
+
+function agentLineSummary() {
+  return {
+    status: agentLine.status,
+    source: agentLine.source,
+    lastError: agentLine.lastError,
+    agentId: agentLine.agentId,
+    phoneNumber: agentLine.phoneNumber,
+    areaCode: agentLine.areaCode,
+    balanceUsd: agentLine.balanceUsd,
+    webhook: { ...agentLine.webhook },
+    pairing: { ...agentLine.pairing },
+    pendingSmsEvents: agentLine.pendingSmsEvents,
+    lastSyncAt: agentLine.lastSyncAt,
+    smsCapability: "inbound_only_current_provider",
+  };
+}
 
 function encryptClawlancerBackup(value) {
   if (!eventToken) throw new Error("clawlancer_encryption_key_unavailable");
@@ -3154,6 +3469,7 @@ const server = http.createServer(async (req, res) => {
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
         clawlancer: clawlancerSummary(),
+        agentLine: agentLineSummary(),
       },
     });
   }
@@ -3175,6 +3491,7 @@ const server = http.createServer(async (req, res) => {
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
         clawlancer: clawlancerSummary(),
+        agentLine: agentLineSummary(),
       },
     });
   }
@@ -3204,6 +3521,7 @@ const server = http.createServer(async (req, res) => {
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
         clawlancer: clawlancerSummary(),
+        agentLine: agentLineSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
         stripe: "external_adapter_only",
@@ -3212,6 +3530,50 @@ const server = http.createServer(async (req, res) => {
       queue: Array.from(taskQueue.values()).slice(-100),
       recentEvents,
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/integrations/agentline") {
+    try {
+      const rawBody = await readBody(req);
+      const signature =
+        req.headers["x-hub-signature-256"] ||
+        req.headers["x-webhook-signature"] ||
+        "";
+      if (!verifyAgentLineWebhook(rawBody, String(signature))) {
+        return json(res, 401, { error: "invalid_signature" });
+      }
+      const body = JSON.parse(rawBody.toString("utf8"));
+      const eventType = String(body?.event_type || body?.type || "event").slice(0, 80);
+      const payload = body?.payload && typeof body.payload === "object" ? body.payload : body;
+      const from =
+        payload?.from_number || payload?.from || payload?.sender || payload?.phone_number || null;
+      const textBody =
+        payload?.body || payload?.text || payload?.message || payload?.content || null;
+
+      if (eventType === "sms.received") {
+        agentLine.pendingSmsEvents += 1;
+        agentLine.pairing.lastInboundAt = new Date().toISOString();
+        agentLine.pairing.lastBodyPreview =
+          typeof textBody === "string" ? textBody.slice(0, 160) : null;
+        if (!agentLine.pairing.operatorPhone && typeof from === "string") {
+          agentLine.pairing.operatorPhone = from.slice(0, 40);
+          agentLine.pairing.status = "paired_from_first_signed_sms";
+        }
+      }
+
+      rememberEvent({
+        id: randomUUID(),
+        receivedAt: new Date().toISOString(),
+        type: `agentline.${eventType}`,
+        source: "agentline_webhook",
+        externalId: String(body?.event_id || payload?.message_id || payload?.call_id || "").slice(0, 240) || null,
+        from: typeof from === "string" ? from.slice(0, 40) : null,
+        bodyPreview: typeof textBody === "string" ? textBody.slice(0, 500) : null,
+      });
+      return json(res, 202, { accepted: true });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/integrations/swarmspot") {
@@ -3386,6 +3748,7 @@ server.listen(PORT, "0.0.0.0", () => {
     ]);
   })();
   void ensureAgentChainIdentity();
+  void ensureAgentLineIdentity();
   void ensureSwarmSpotIdentity();
 });
 
