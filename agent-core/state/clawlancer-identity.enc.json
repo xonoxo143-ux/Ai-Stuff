@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cipher": "aes-256-gcm",
+  "kdf": "scrypt",
+  "salt_b64": "y2msHDsjJmaxIOUOHsL73A==",
+  "iv_b64": "D4EJFedMxnkwlbxC",
+  "tag_b64": "snkyXmz7SKOKyfGm90wkDA==",
+  "ciphertext_b64": "Sl/PCvtFkq5rMTqCwseXOh+ODmXrpquyKAVkEXHxlXeU3gIWScAfYCPm/AM2F4wualpzETvJMF6KxR+k0UAKBD3Jd0y8nUewQIvW0b1dv1VL1axTQzPdQf1jRIvgpvJESr2Ju9Qa5Og1Jt7ZKGesjZKSORBamdapP/JpgFtiVb/zsoj+LRYOMKux6snlQ1q009eaFfz3KofR5o2arP/TGgYlN458BkB/zLKxUvX+UOB1SvekMIfLqFgQK7/pFAsfu1R0XBUV",
+  "agent_id": "aa2a4440-4326-4a85-96f5-d84441c4758c",
+  "agent_name": "Continuity Worker 541 R2",
+  "wallet_address": "0x07e23bf894eadeca418f8f322592eaab9e17c52f",
+  "created_at": "2026-09-28T16:20:43.119Z"
+}
