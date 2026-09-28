@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.13.0";
+const VERSION = "0.13.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -129,6 +129,8 @@ const agentLineApiBase =
 const agentLineBootstrapEnabled =
   process.env.AGENTLINE_BOOTSTRAP === "true";
 const agentLineOtp = process.env.AGENTLINE_OTP || "";
+const agentLineBootstrapCommandId =
+  process.env.AGENTLINE_BOOTSTRAP_COMMAND_ID || "";
 const agentLineBackupUrl =
   process.env.AGENTLINE_IDENTITY_BACKUP_URL ||
   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/agentline-identity.enc.json";
@@ -522,13 +524,16 @@ async function restoreAgentLineIdentity() {
   return true;
 }
 
-async function bootstrapAgentLineIdentity() {
-  if (!agentLineOtp) {
-    throw new Error("agentline_otp_missing");
+async function bootstrapAgentLineIdentity(otpOverride = null) {
+  const otp = otpOverride || agentLineOtp;
+  if (!otp) {
+    agentLine.status = "awaiting_otp_handoff";
+    agentLine.lastError = null;
+    return;
   }
   const verified = await agentLineRequest("/v1/auth/verify", {
     method: "POST",
-    body: { email: agentEmail, otp: agentLineOtp },
+    body: { email: agentEmail, otp },
   });
   const apiKey = verified?.api_key || verified?.apiKey;
   if (!apiKey || !String(apiKey).startsWith("al_live_")) {
@@ -3530,6 +3535,31 @@ const server = http.createServer(async (req, res) => {
       queue: Array.from(taskQueue.values()).slice(-100),
       recentEvents,
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/integrations/agentline/bootstrap") {
+    if (
+      !agentLineBootstrapEnabled ||
+      !agentLineBootstrapCommandId ||
+      url.searchParams.get("command_id") !== agentLineBootstrapCommandId
+    ) {
+      return json(res, 404, { error: "not_found" });
+    }
+    try {
+      const body = await readJson(req, 2048);
+      const otp = String(body?.otp || "").trim();
+      if (!/^\d{6}$/.test(otp)) {
+        return json(res, 400, { error: "invalid_otp_format" });
+      }
+      await bootstrapAgentLineIdentity(otp);
+      return json(res, agentLine.status === "backup_pending" ? 202 : 400, {
+        accepted: agentLine.status === "backup_pending",
+        status: agentLine.status,
+        lastError: agentLine.lastError,
+      });
+    } catch (err) {
+      return json(res, 400, { error: "bootstrap_failed" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/integrations/agentline") {
