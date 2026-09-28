@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -45,6 +45,11 @@ const basedAgentsHome = "/tmp/agent-home";
 const basedAgentsKeypairPath = `${basedAgentsHome}/.basedagents/keys/continuity-agent-keypair.json`;
 const basedAgentsReputationBootstrapEnabled =
   process.env.BASEDAGENTS_REPUTATION_BOOTSTRAP === "true";
+const baseWalletBootstrapEnabled = process.env.BASE_WALLET_BOOTSTRAP === "true";
+const baseWalletBackupUrl =
+  process.env.BASE_WALLET_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/base-wallet.enc.json";
+const baseWalletPkgDir = "/tmp/base-wallet-node";
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -100,6 +105,14 @@ const basedAgentsReputationBootstrap = {
   submittedAt: null,
 };
 
+const baseWallet = {
+  status: "not_initialized",
+  address: null,
+  network: "eip155:8453",
+  source: null,
+  lastError: null,
+};
+
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     execFile(
@@ -146,6 +159,138 @@ async function runBasedAgentsCli(args) {
     stdout: result.stdout,
     stderr: result.stderr,
   };
+}
+
+function encryptWalletBackup(privateKey, address) {
+  if (!eventToken) throw new Error("wallet_encryption_key_unavailable");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([
+    cipher.update(Buffer.from(privateKey, "utf8")),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    address,
+    network: "eip155:8453",
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptWalletBackup(backup) {
+  if (!eventToken) throw new Error("wallet_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_wallet_backup");
+  }
+  const salt = Buffer.from(backup.salt_b64, "base64");
+  const iv = Buffer.from(backup.iv_b64, "base64");
+  const tag = Buffer.from(backup.tag_b64, "base64");
+  const ciphertext = Buffer.from(backup.ciphertext_b64, "base64");
+  const key = scryptSync(eventToken, salt, 32);
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+}
+
+async function restoreBaseWallet() {
+  const response = await fetch(baseWalletBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`wallet_backup_http_${response.status}`);
+  const backup = await response.json();
+  const privateKey = decryptWalletBackup(backup);
+  if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+    throw new Error("wallet_backup_private_key_invalid");
+  }
+  if (!/^0x[a-fA-F0-9]{40}$/.test(String(backup.address || ""))) {
+    throw new Error("wallet_backup_address_invalid");
+  }
+  baseWallet.status = "ready";
+  baseWallet.address = backup.address;
+  baseWallet.source = "encrypted_git_backup";
+  baseWallet.lastError = null;
+  return true;
+}
+
+async function generateBaseWallet() {
+  await mkdir(baseWalletPkgDir, { recursive: true });
+  await execFileAsync(
+    "npm",
+    [
+      "install",
+      "--prefix",
+      baseWalletPkgDir,
+      "ethers@6.15.0",
+      "--no-audit",
+      "--no-fund",
+    ],
+    { timeout: 120_000 },
+  );
+
+  const generated = await execFileAsync(
+    "node",
+    [
+      "-e",
+      "const {Wallet}=require('ethers');const w=Wallet.createRandom();process.stdout.write(JSON.stringify({address:w.address,privateKey:w.privateKey}));",
+    ],
+    { cwd: baseWalletPkgDir },
+  );
+  const wallet = JSON.parse(String(generated.stdout || ""));
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet.address || "")) {
+    throw new Error("generated_wallet_address_invalid");
+  }
+  if (!/^0x[a-fA-F0-9]{64}$/.test(wallet.privateKey || "")) {
+    throw new Error("generated_wallet_private_key_invalid");
+  }
+
+  const backup = encryptWalletBackup(wallet.privateKey, wallet.address);
+  console.log(
+    JSON.stringify({
+      event: "base_wallet.encrypted_backup",
+      note: "Encrypted ciphertext only; private key never leaves runtime plaintext.",
+      backup,
+    }),
+  );
+
+  baseWallet.status = "backup_pending";
+  baseWallet.address = wallet.address;
+  baseWallet.source = "new_wallet_encrypted_backup_emitted";
+  baseWallet.lastError = null;
+}
+
+async function ensureBaseWallet() {
+  baseWallet.status = "initializing";
+  try {
+    if (await restoreBaseWallet()) return;
+    if (!baseWalletBootstrapEnabled) {
+      baseWallet.status = "backup_missing";
+      baseWallet.lastError = "encrypted_wallet_backup_not_found";
+      return;
+    }
+    await generateBaseWallet();
+  } catch (err) {
+    baseWallet.status = "error";
+    baseWallet.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    console.error(
+      JSON.stringify({
+        event: "base_wallet.error",
+        error: baseWallet.lastError,
+      }),
+    );
+  }
 }
 
 function encryptIdentityBackup(plaintext, agentMeta) {
@@ -906,6 +1051,13 @@ function basedAgentsSummary() {
       lastError: basedAgentsIdentity.lastError,
       cliVersion: basedAgentsIdentity.cliVersion,
       reputationBootstrap: { ...basedAgentsReputationBootstrap },
+      payoutWallet: {
+        status: baseWallet.status,
+        address: baseWallet.address,
+        network: baseWallet.network,
+        source: baseWallet.source,
+        lastError: baseWallet.lastError,
+      },
     },
     provider: basedAgentsState.provider,
     mode: basedAgentsState.mode,
@@ -1106,6 +1258,7 @@ server.listen(PORT, "0.0.0.0", () => {
   void syncTaskBounty();
   void syncBasedAgents();
   void ensureBasedAgentsIdentity();
+  void ensureBaseWallet();
 });
 
 function shutdown(signal) {
