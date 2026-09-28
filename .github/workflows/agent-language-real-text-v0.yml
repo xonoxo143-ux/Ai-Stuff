@@ -1,0 +1,114 @@
+name: Agent Language Real Text V0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_language/models.py"
+      - "agent-model/agent_language/real_text.py"
+      - "agent-model/tests/test_agent_language_real_text_v0.py"
+      - "docs/AGENT_LANGUAGE_REAL_TEXT_V0.md"
+      - ".github/workflows/agent-language-real-text-v0.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-language-real-text-v0
+  cancel-in-progress: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.4,<3"
+          python -m pip install \
+            "numpy>=1.26,<3" \
+            "pytest>=8" \
+            "datasets>=3,<5"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run real-text contract tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_agent_language_real_text_v0.py
+
+      - name: Stream a bounded TinyStories slice
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/agent-language-real
+          python - <<'PY'
+          from datasets import load_dataset
+          from itertools import islice
+          from pathlib import Path
+
+          def write(split, count, path):
+              data = load_dataset(
+                  "roneneldan/TinyStories",
+                  split=split,
+                  streaming=True,
+              )
+              with Path(path).open(
+                  "w",
+                  encoding="utf-8",
+              ) as handle:
+                  for row in islice(
+                      data,
+                      count,
+                  ):
+                      handle.write(
+                          row["text"].strip()
+                          + "\n\n"
+                      )
+
+          write(
+              "train",
+              4000,
+              "/tmp/agent-language-real/train.txt",
+          )
+          write(
+              "validation",
+              400,
+              "/tmp/agent-language-real/valid.txt",
+          )
+          PY
+
+      - name: Train from random initialization
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_language.real_text \
+            --train-file /tmp/agent-language-real/train.txt \
+            --valid-file /tmp/agent-language-real/valid.txt \
+            --models gru,transformer \
+            --seed 101 \
+            --steps 800 \
+            --batch-size 8 \
+            --sequence-length 256 \
+            --threads 4 \
+            --checkpoint-dir /tmp/agent-language-real/checkpoints \
+            --output /tmp/agent-language-real/result.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Language-Real-Text-V0
+          path: |
+            /tmp/agent-language-real/result.json
+            /tmp/agent-language-real/checkpoints/
+          retention-days: 30

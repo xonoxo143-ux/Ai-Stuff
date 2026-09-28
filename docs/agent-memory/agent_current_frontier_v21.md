@@ -182,3 +182,23 @@ English bytes
 The perception probe deliberately holds out both sentence forms and semantic combinations. It compares unidirectional GRU, bidirectional GRU, and Transformer encoders.
 
 This begins testing whether language perception and language production should specialize into different architectures.
+
+
+## First real-language production screen
+
+The replicated synthetic production gate is complete, so the next stage has started.
+
+Two surviving from-scratch production organs are scaled modestly:
+
+```text
+GRU          ~0.8M parameters
+Transformer  ~0.93M parameters
+```
+
+Both remain raw-byte models with random initialization and the persistent external Agent-state conditioning seam.
+
+A bounded TinyStories slice is used as training text only.
+
+The first real-text workflow trains both on the same data for 800 updates, records held-out bits/byte, saves our checkpoints, and emits short greedy samples.
+
+This is intentionally small enough to remain a screening experiment rather than a large training project.

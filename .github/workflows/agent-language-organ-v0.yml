@@ -6,7 +6,10 @@ on:
     branches:
       - "experiment/agent-v1-developmental-ecology"
     paths:
-      - "agent-model/agent_language/**"
+      - "agent-model/agent_language/data.py"
+      - "agent-model/agent_language/models.py"
+      - "agent-model/agent_language/compare.py"
+      - "agent-model/agent_language/conditioning_probe.py"
       - "agent-model/tests/test_agent_language_v0.py"
       - "docs/AGENT_LANGUAGE_ORGAN_V0.md"
       - ".github/workflows/agent-language-organ-v0.yml"

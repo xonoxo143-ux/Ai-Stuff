@@ -351,20 +351,45 @@ class BytePatchRNN(ConditionedByteModel):
 def build_model(
     name: str,
     condition_dim: int = 16,
+    scale: str = "micro",
 ) -> ConditionedByteModel:
-    if name == "gru":
-        return ByteGRU(
-            condition_dim=condition_dim
+    if scale == "micro":
+        if name == "gru":
+            return ByteGRU(
+                condition_dim=condition_dim
+            )
+        if name == "transformer":
+            return ByteTransformer(
+                condition_dim=condition_dim
+            )
+        if name == "patch_rnn":
+            return BytePatchRNN(
+                condition_dim=condition_dim
+            )
+    elif scale == "small":
+        if name == "gru":
+            return ByteGRU(
+                embedding_dim=128,
+                hidden_dim=256,
+                layers=2,
+                condition_dim=condition_dim,
+            )
+        if name == "transformer":
+            return ByteTransformer(
+                model_dim=128,
+                layers=5,
+                heads=4,
+                feedforward_dim=384,
+                max_length=256,
+                condition_dim=condition_dim,
+            )
+    else:
+        raise ValueError(
+            f"unknown scale: {scale}"
         )
-    if name == "transformer":
-        return ByteTransformer(
-            condition_dim=condition_dim
-        )
-    if name == "patch_rnn":
-        return BytePatchRNN(
-            condition_dim=condition_dim
-        )
-    raise ValueError(f"unknown model: {name}")
+    raise ValueError(
+        f"unsupported model/scale: {name}/{scale}"
+    )
 
 
 def parameter_count(model: nn.Module) -> int:
