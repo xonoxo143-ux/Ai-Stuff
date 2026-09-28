@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.13.1";
+const VERSION = "0.13.2";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -131,6 +131,8 @@ const agentLineBootstrapEnabled =
 const agentLineOtp = process.env.AGENTLINE_OTP || "";
 const agentLineBootstrapCommandId =
   process.env.AGENTLINE_BOOTSTRAP_COMMAND_ID || "";
+const agentLineInboundToken =
+  process.env.AGENTLINE_INBOUND_TOKEN || "";
 const agentLineBackupUrl =
   process.env.AGENTLINE_IDENTITY_BACKUP_URL ||
   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/agentline-identity.enc.json";
@@ -3569,7 +3571,10 @@ const server = http.createServer(async (req, res) => {
         req.headers["x-hub-signature-256"] ||
         req.headers["x-webhook-signature"] ||
         "";
-      if (!verifyAgentLineWebhook(rawBody, String(signature))) {
+      const tokenAuthorized =
+        agentLineInboundToken &&
+        url.searchParams.get("token") === agentLineInboundToken;
+      if (!tokenAuthorized && !verifyAgentLineWebhook(rawBody, String(signature))) {
         return json(res, 401, { error: "invalid_signature" });
       }
       const body = JSON.parse(rawBody.toString("utf8"));
