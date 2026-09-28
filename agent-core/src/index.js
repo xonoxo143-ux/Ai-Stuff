@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.12.2";
+const VERSION = "0.12.3";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -279,6 +279,13 @@ const clawlancer = {
   lastSyncAt: null,
   openBounties: [],
   activeTransactions: [],
+  wallet: {
+    status: "unknown",
+    balanceUsdc: null,
+    balanceEth: null,
+    raw: null,
+    lastError: null,
+  },
   command: {
     id: clawlancerCommandId || null,
     action: clawlancerCommandAction || null,
@@ -550,10 +557,16 @@ async function syncClawlancer() {
     );
     clawlancer.openBounties = normalizeClawlancerListings(listings);
     if (clawlancer.status === "ready" && clawlancer.credentials?.apiKey && clawlancer.agentId) {
-      const tx = await clawlancerRequest(
-        `/transactions?agent_id=${encodeURIComponent(clawlancer.agentId)}`,
-        { apiKey: clawlancer.credentials.apiKey },
-      );
+      const [tx, wallet] = await Promise.all([
+        clawlancerRequest(
+          `/transactions?agent_id=${encodeURIComponent(clawlancer.agentId)}`,
+          { apiKey: clawlancer.credentials.apiKey },
+        ),
+        clawlancerRequest(
+          `/wallet/balance?agent_id=${encodeURIComponent(clawlancer.agentId)}`,
+          { apiKey: clawlancer.credentials.apiKey },
+        ),
+      ]);
       const rows = Array.isArray(tx?.transactions) ? tx.transactions : Array.isArray(tx) ? tx : [];
       clawlancer.activeTransactions = rows.slice(0, 25).map((x) => ({
         id: x.id || x.transaction_id || null,
@@ -561,6 +574,17 @@ async function syncClawlancer() {
         state: x.state || x.status || null,
         amountWei: Number(x.amount_wei || x.price_wei || 0),
       }));
+      clawlancer.wallet.status = "ready";
+      clawlancer.wallet.balanceUsdc =
+        wallet?.usdc ?? wallet?.usdc_balance ?? wallet?.balance_usdc ?? wallet?.balance ?? null;
+      clawlancer.wallet.balanceEth =
+        wallet?.eth ?? wallet?.eth_balance ?? wallet?.balance_eth ?? null;
+      clawlancer.wallet.raw = {
+        wallet_address: wallet?.wallet_address || wallet?.address || null,
+        wallet_provider: wallet?.wallet_provider || null,
+        needs_funding: wallet?.needs_funding ?? null,
+      };
+      clawlancer.wallet.lastError = null;
     }
     clawlancer.lastSyncAt = new Date().toISOString();
     clawlancer.lastError = null;
@@ -628,8 +652,16 @@ async function processClawlancerCommand() {
     setTimeout(() => void syncClawlancer(), 250).unref();
   } catch (err) {
     clawlancer.command.status = "error";
+    const payloadError =
+      err?.payload && typeof err.payload === "object"
+        ? [err.payload.error, err.payload.code, err.payload.hint]
+            .filter(Boolean)
+            .map((x) => String(x))
+            .join(" | ")
+        : "";
     clawlancer.command.lastError =
-      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+      ((err instanceof Error ? err.message : String(err)) +
+        (payloadError ? ` | ${payloadError}` : "")).slice(0, 500);
     clawlancer.command.processedAt = new Date().toISOString();
   }
 }
@@ -672,6 +704,7 @@ function clawlancerSummary() {
     openBountyCount: clawlancer.openBounties.length,
     openBounties: clawlancer.openBounties.slice(0, 12),
     activeTransactions: clawlancer.activeTransactions.slice(0, 12),
+    wallet: { ...clawlancer.wallet },
     command: { ...clawlancer.command },
     pollMs: clawlancerPollMs,
   };
