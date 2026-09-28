@@ -1,0 +1,65 @@
+name: Agent Language Organ V0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_language/**"
+      - "agent-model/tests/test_agent_language_v0.py"
+      - "docs/AGENT_LANGUAGE_ORGAN_V0.md"
+      - ".github/workflows/agent-language-organ-v0.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-language-organ-v0
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run language-organ contract tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_agent_language_v0.py
+
+      - name: Run five-seed architecture comparison
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_language.compare \
+            --models gru,transformer,patch_rnn \
+            --seeds 11,22,33,44,55 \
+            --steps 160 \
+            --batch-size 16 \
+            --sequence-length 128 \
+            --threads 4 \
+            --output /tmp/agent-language-organ-v0.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Language-Organ-V0
+          path: /tmp/agent-language-organ-v0.json
+          retention-days: 30

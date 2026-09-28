@@ -55,6 +55,18 @@ Training can over-compute if it produces cheaper reliable runtime pathways.
 ### D-009 — Periodic whole-system integration is mandatory
 Synthetic experiments may guide components, but surviving mechanisms must periodically be assembled into the actual chatbot.
 
+### D-010 — Build the primary language organ ourselves
+The main Agent construction path trains its own language machinery rather than importing a pretrained LLM as the presumed cognitive core.
+
+Pretrained LLMs remain allowed as:
+- controls;
+- reference quality/runtime baselines;
+- temporary diagnostic instruments.
+
+The goal is not architectural purity. The goal is to prevent an imported model from silently supplying most cognition while the Agent architecture becomes decorative.
+
+The language organ must expose a bounded non-language conditioning interface so cognition can live outside language machinery.
+
 ---
 
 ## Current strong hypotheses
@@ -114,8 +126,8 @@ Rejected. Utility/probation is required.
 
 ## Open decisions
 
-- exact language spine;
-- Transformer/SSM/recurrent mix;
+- exact from-scratch language-organ architecture;
+- Transformer/SSM/recurrent mix inside that organ;
 - token/byte/patch representation;
 - memory implementation;
 - capability granularity;

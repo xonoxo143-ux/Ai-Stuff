@@ -38,14 +38,14 @@ Do not add a complex online plasticity controller before one of these earns supp
 Goal:
 Build the first hybrid chatbot bottom-up without waiting for every developmental mechanism to be finished.
 
-Next steps:
-1. choose/benchmark compact language-spine candidates;
-2. define the capability contract;
-3. define active/episodic/semantic/capability memory boundaries;
-4. build a minimal multi-turn shell;
-5. add one non-language capability;
-6. compare against the language-only baseline;
-7. then integrate developmental machinery where it has a clear job.
+Current direction:
+1. build the Agent's own trainable language organ from scratch;
+2. keep compact pretrained LLMs as controls/reference systems;
+3. compare byte-recurrent, byte-attention, and multiscale candidates cheaply;
+4. move survivors to a small real-language curriculum;
+5. train the language organ to accept a bounded non-language conditioning state;
+6. integrate it with the existing capability/memory runtime;
+7. then bring developmental machinery in where it has a clear job.
 
 ## Development loop
 
@@ -89,3 +89,33 @@ Implemented:
 The first same-runner Qwen3-1.7B vs Falcon-H1-1.5B model screen is automated in GitHub Actions.
 
 This does not change the developmental Track A result: simple one-shot destructive-update predictors remain weak.
+
+
+## Language-path correction — 2026-09-28
+
+The main build path no longer assumes an imported pretrained LLM as the language spine.
+
+Existing Qwen/Falcon screens are retained as **controls**.
+
+A new `agent_language` package now tests language machinery trained from scratch.
+
+First local ~130k-150k-parameter byte-level comparison at 160 updates:
+
+```text
+GRU          ~1.23 bits/byte
+Transformer  ~2.57 bits/byte
+Patch RNN    ~3.36 bits/byte
+```
+
+The Transformer trained much faster; the GRU had substantially better held-out loss at the same update budget; the first fixed-patch multiscale formulation lost.
+
+This is only a one-seed synthetic result.
+
+Current rigorous gate:
+
+```text
+five-seed parameter-matched language-organ replication
+→ then small real-language training for survivors
+```
+
+Every candidate exposes a small external conditioning vector so future Agent cognition can drive language without requiring all internal state to be serialized as prompt text.

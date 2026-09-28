@@ -1,7 +1,7 @@
 # Agent language-spine screen
 
 **Date:** 2026-09-28  
-**Status:** active integration screen  
+**Status:** control/reference screen  
 **Runtime contract:** `agent_runtime.LanguageBackend`
 
 ## Goal
@@ -175,3 +175,18 @@ Screen 02 fixes the design:
 - load/RSS metadata is printed to logs as well as preserved in the artifact.
 
 The model choice remains **open** until the corrected run completes.
+
+
+## Main-path correction
+
+This screen no longer chooses the primary Agent language implementation.
+
+The project now builds its own trainable language organ under `agent_language/`.
+
+Qwen, Falcon-H1, and other imported models remain useful controls that answer:
+
+> What quality/cost/integration behavior does a compact existing LLM provide for free?
+
+They do **not** answer:
+
+> What should the Agent's own language organ be?
