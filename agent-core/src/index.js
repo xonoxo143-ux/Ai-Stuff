@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.11.0";
+const VERSION = "0.12.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -103,6 +103,22 @@ const agentChainPollMs = Math.max(
 const agentChainWebhookToken = eventToken
   ? createHmac("sha256", eventToken).update("agentchain-webhook-v1").digest("hex")
   : "";
+
+const clawlancerApiBase =
+  process.env.CLAWLANCER_API_BASE || "https://clawlancer.ai/api";
+const clawlancerBootstrapEnabled =
+  process.env.CLAWLANCER_BOOTSTRAP === "true";
+const clawlancerBackupUrl =
+  process.env.CLAWLANCER_IDENTITY_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/clawlancer-identity.enc.json";
+const clawlancerPollMs = Math.max(
+  300_000,
+  Number(process.env.CLAWLANCER_POLL_MS || 1_800_000),
+);
+const clawlancerCommandId = process.env.CLAWLANCER_COMMAND_ID || "";
+const clawlancerCommandAction = process.env.CLAWLANCER_COMMAND_ACTION || "";
+const clawlancerCommandTargetId = process.env.CLAWLANCER_COMMAND_TARGET_ID || "";
+const clawlancerCommandPayloadB64 = process.env.CLAWLANCER_COMMAND_PAYLOAD_B64 || "";
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -250,6 +266,28 @@ const agentChain = {
   pendingWebhookEvents: 0,
 };
 
+const clawlancer = {
+  status: "not_initialized",
+  agentId: null,
+  agentName: null,
+  walletAddress: null,
+  source: null,
+  lastError: null,
+  credentials: null,
+  lastSyncAt: null,
+  openBounties: [],
+  activeTransactions: [],
+  command: {
+    id: clawlancerCommandId || null,
+    action: clawlancerCommandAction || null,
+    targetId: clawlancerCommandTargetId || null,
+    status: clawlancerCommandId ? "pending" : "none",
+    lastError: null,
+    result: null,
+    processedAt: null,
+  },
+};
+
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     execFile(
@@ -341,6 +379,301 @@ function decryptWalletBackup(backup) {
 
 
 
+
+
+function encryptClawlancerBackup(value) {
+  if (!eventToken) throw new Error("clawlancer_encryption_key_unavailable");
+  const plaintext = Buffer.from(JSON.stringify(value), "utf8");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    agent_id: value.agentId || null,
+    agent_name: value.agentName || null,
+    wallet_address: value.walletAddress || null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptClawlancerBackup(backup) {
+  if (!eventToken) throw new Error("clawlancer_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_clawlancer_backup");
+  }
+  const key = scryptSync(eventToken, Buffer.from(backup.salt_b64, "base64"), 32);
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(backup.iv_b64, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(backup.tag_b64, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(backup.ciphertext_b64, "base64")),
+    decipher.final(),
+  ]);
+  return JSON.parse(plaintext.toString("utf8"));
+}
+
+async function clawlancerRequest(path, {
+  method = "GET",
+  body = null,
+  apiKey = null,
+} = {}) {
+  const headers = { accept: "application/json" };
+  if (body !== null) headers["content-type"] = "application/json";
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  const response = await fetch(`${clawlancerApiBase}${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch { payload = { raw: raw.slice(0, 1200) }; }
+  if (!response.ok) {
+    const error = new Error(`clawlancer_http_${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function restoreClawlancerIdentity() {
+  const response = await fetch(clawlancerBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`clawlancer_backup_http_${response.status}`);
+  const backup = await response.json();
+  const restored = decryptClawlancerBackup(backup);
+  if (!restored?.apiKey || !restored?.agentId) {
+    throw new Error("clawlancer_backup_fields_missing");
+  }
+  const profile = await clawlancerRequest(`/agents/${encodeURIComponent(restored.agentId)}`);
+  clawlancer.status = "ready";
+  clawlancer.agentId = profile?.id || profile?.agent?.id || restored.agentId;
+  clawlancer.agentName =
+    profile?.name || profile?.agent_name || profile?.agent?.name || restored.agentName || null;
+  clawlancer.walletAddress =
+    profile?.wallet_address || profile?.agent?.wallet_address || restored.walletAddress || null;
+  clawlancer.source = "encrypted_git_backup";
+  clawlancer.credentials = restored;
+  clawlancer.lastError = null;
+  return true;
+}
+
+async function registerClawlancerIdentity() {
+  if (baseWallet.status !== "ready" || !baseWallet.address) {
+    throw new Error("clawlancer_requires_ready_base_wallet");
+  }
+  const created = await clawlancerRequest("/agents/register", {
+    method: "POST",
+    body: {
+      agent_name: "Continuity Worker 541 R2",
+      description:
+        "Transparent persistent AI worker for bounded coding, research, data analysis, repo audits, and automation.",
+      skills: ["coding", "research", "data", "automation", "repo-audit"],
+      wallet_address: baseWallet.address,
+      referral_source: "direct-api",
+    },
+  });
+  const apiKey = created?.api_key || created?.apiKey;
+  const agentId =
+    created?.agent_id || created?.id || created?.agent?.id;
+  const agentName =
+    created?.agent_name || created?.name || created?.agent?.name || "Continuity Worker 541 R2";
+  const walletAddress =
+    created?.wallet_address || created?.agent?.wallet_address || baseWallet.address;
+  if (!apiKey || !agentId) throw new Error("clawlancer_registration_missing_fields");
+
+  const secretBundle = { apiKey, agentId, agentName, walletAddress };
+  const backup = encryptClawlancerBackup(secretBundle);
+  console.log(JSON.stringify({
+    event: "clawlancer.identity_backup",
+    note: "Encrypted ciphertext only; API key never leaves runtime plaintext.",
+    backup,
+  }));
+  clawlancer.status = "backup_pending";
+  clawlancer.agentId = agentId;
+  clawlancer.agentName = agentName;
+  clawlancer.walletAddress = walletAddress;
+  clawlancer.source = "new_registration_encrypted_backup_emitted";
+  clawlancer.credentials = secretBundle;
+  clawlancer.lastError = null;
+}
+
+function normalizeClawlancerListings(payload) {
+  const rows = Array.isArray(payload?.listings)
+    ? payload.listings
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  return rows
+    .filter((x) => x?.listing_type === "BOUNTY" && x?.is_active !== false)
+    .slice(0, 50)
+    .map((x) => ({
+      id: x.id || null,
+      title: String(x.title || "").slice(0, 220),
+      description: String(x.description || "").slice(0, 700),
+      category: x.category || null,
+      priceWei: Number(x.price_wei || 0),
+      priceUsdc: Number(x.price_wei || 0) / 1_000_000,
+      currency: x.currency || null,
+      status: x.status || null,
+      poster: x.agent?.name || null,
+      posterTier: x.agent?.reputation_tier || null,
+      posterTransactions: x.agent?.transaction_count ?? null,
+      buyerPaymentRate: x.buyer_reputation?.payment_rate ?? null,
+      buyerReleased: x.buyer_reputation?.released ?? null,
+    }));
+}
+
+async function syncClawlancer() {
+  try {
+    const listings = await clawlancerRequest(
+      "/listings?listing_type=BOUNTY&sort=newest&limit=50",
+    );
+    clawlancer.openBounties = normalizeClawlancerListings(listings);
+    if (clawlancer.status === "ready" && clawlancer.credentials?.apiKey && clawlancer.agentId) {
+      const tx = await clawlancerRequest(
+        `/transactions?agent_id=${encodeURIComponent(clawlancer.agentId)}`,
+        { apiKey: clawlancer.credentials.apiKey },
+      );
+      const rows = Array.isArray(tx?.transactions) ? tx.transactions : Array.isArray(tx) ? tx : [];
+      clawlancer.activeTransactions = rows.slice(0, 25).map((x) => ({
+        id: x.id || x.transaction_id || null,
+        listingId: x.listing_id || x.listing?.id || null,
+        state: x.state || x.status || null,
+        amountWei: Number(x.amount_wei || x.price_wei || 0),
+      }));
+    }
+    clawlancer.lastSyncAt = new Date().toISOString();
+    clawlancer.lastError = null;
+  } catch (err) {
+    clawlancer.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function processClawlancerCommand() {
+  if (!clawlancerCommandId || clawlancer.command.status !== "pending") return;
+  if (!outboundWorkEnabled) {
+    clawlancer.command.status = "blocked";
+    clawlancer.command.lastError = "outbound_work_disabled";
+    return;
+  }
+  if (clawlancer.status !== "ready" || !clawlancer.credentials?.apiKey) return;
+
+  try {
+    if (clawlancerCommandAction === "claim") {
+      const result = await clawlancerRequest(
+        `/listings/${encodeURIComponent(clawlancerCommandTargetId)}/claim`,
+        {
+          method: "POST",
+          apiKey: clawlancer.credentials.apiKey,
+          body: { agent_id: clawlancer.agentId },
+        },
+      );
+      clawlancer.command.status = "completed";
+      clawlancer.command.result = {
+        action: "claim",
+        listingId: clawlancerCommandTargetId,
+        transactionId:
+          result?.transaction_id || result?.transaction?.id || result?.id || null,
+        state: result?.state || result?.transaction?.state || result?.status || null,
+      };
+    } else if (clawlancerCommandAction === "deliver") {
+      const payload = Buffer.from(clawlancerCommandPayloadB64, "base64").toString("utf8");
+      if (!payload || payload.length > 50_000) throw new Error("clawlancer_delivery_payload_invalid");
+      const result = await clawlancerRequest(
+        `/transactions/${encodeURIComponent(clawlancerCommandTargetId)}/deliver`,
+        {
+          method: "POST",
+          apiKey: clawlancer.credentials.apiKey,
+          body: { deliverable: payload },
+        },
+      );
+      clawlancer.command.status = "completed";
+      clawlancer.command.result = {
+        action: "deliver",
+        transactionId: clawlancerCommandTargetId,
+        state: result?.state || result?.transaction?.state || result?.status || "DELIVERED",
+      };
+    } else {
+      throw new Error("unsupported_clawlancer_command_action");
+    }
+    clawlancer.command.processedAt = new Date().toISOString();
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: clawlancer.command.processedAt,
+      type: `clawlancer.${clawlancerCommandAction}`,
+      source: "clawlancer_command",
+      externalId: clawlancerCommandTargetId,
+    });
+    setTimeout(() => void syncClawlancer(), 250).unref();
+  } catch (err) {
+    clawlancer.command.status = "error";
+    clawlancer.command.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    clawlancer.command.processedAt = new Date().toISOString();
+  }
+}
+
+async function ensureClawlancerIdentity() {
+  clawlancer.status = "initializing";
+  try {
+    if (await restoreClawlancerIdentity()) {
+      await syncClawlancer();
+      await processClawlancerCommand();
+      return;
+    }
+    if (!clawlancerBootstrapEnabled) {
+      clawlancer.status = "backup_missing";
+      clawlancer.lastError = "encrypted_clawlancer_backup_not_found";
+      await syncClawlancer();
+      return;
+    }
+    await registerClawlancerIdentity();
+  } catch (err) {
+    clawlancer.status = "error";
+    clawlancer.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    console.error(JSON.stringify({
+      event: "clawlancer.identity_error",
+      error: clawlancer.lastError,
+    }));
+  }
+}
+
+function clawlancerSummary() {
+  return {
+    status: clawlancer.status,
+    agentId: clawlancer.agentId,
+    agentName: clawlancer.agentName,
+    walletAddress: clawlancer.walletAddress,
+    source: clawlancer.source,
+    lastError: clawlancer.lastError,
+    lastSyncAt: clawlancer.lastSyncAt,
+    openBountyCount: clawlancer.openBounties.length,
+    openBounties: clawlancer.openBounties.slice(0, 12),
+    activeTransactions: clawlancer.activeTransactions.slice(0, 12),
+    command: { ...clawlancer.command },
+    pollMs: clawlancerPollMs,
+  };
+}
 
 function encryptAgentChainBackup(value) {
   if (!eventToken) throw new Error("agentchain_encryption_key_unavailable");
@@ -2723,6 +3056,7 @@ const server = http.createServer(async (req, res) => {
         swarmSpot: swarmSpotSummary(),
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
+        clawlancer: clawlancerSummary(),
       },
     });
   }
@@ -2743,6 +3077,7 @@ const server = http.createServer(async (req, res) => {
         swarmSpot: swarmSpotSummary(),
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
+        clawlancer: clawlancerSummary(),
       },
     });
   }
@@ -2771,6 +3106,7 @@ const server = http.createServer(async (req, res) => {
         swarmSpot: swarmSpotSummary(),
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
+        clawlancer: clawlancerSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
         stripe: "external_adapter_only",
@@ -2907,6 +3243,11 @@ const agentChainTimer = setInterval(() => {
 }, agentChainPollMs);
 agentChainTimer.unref();
 
+const clawlancerTimer = setInterval(() => {
+  void syncClawlancer();
+}, clawlancerPollMs);
+clawlancerTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -2942,7 +3283,10 @@ server.listen(PORT, "0.0.0.0", () => {
   void ensureBasedAgentsIdentity();
   void (async () => {
     await ensureBaseWallet();
-    await ensureAgentSoukIdentity();
+    await Promise.all([
+      ensureAgentSoukIdentity(),
+      ensureClawlancerIdentity(),
+    ]);
   })();
   void ensureAgentChainIdentity();
   void ensureSwarmSpotIdentity();
@@ -2955,6 +3299,7 @@ function shutdown(signal) {
   clearInterval(swarmSpotTimer);
   clearInterval(agentSoukTimer);
   clearInterval(agentChainTimer);
+  clearInterval(clawlancerTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
