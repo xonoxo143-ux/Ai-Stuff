@@ -71,3 +71,21 @@ After each cycle:
 - update Decision Ledger only if architecture changed;
 - save exact experiment/result separately;
 - never append another competing "current" section to the archive.
+
+## Integration progress — 2026-09-28
+
+The bottom-up chatbot runtime has now started.
+
+Implemented:
+
+- lightweight standalone `agent_runtime` package, separate from the PyTorch developmental ecology;
+- bounded capability offer/run contract;
+- active/episodic/semantic/capability-memory separation;
+- turn provenance and latency/error tracing;
+- swappable OpenAI-compatible / llama.cpp language backend;
+- reproducible language-spine benchmark harness;
+- first durable SQLite memory backend with restart continuity.
+
+The first same-runner Qwen3-1.7B vs Falcon-H1-1.5B model screen is automated in GitHub Actions.
+
+This does not change the developmental Track A result: simple one-shot destructive-update predictors remain weak.

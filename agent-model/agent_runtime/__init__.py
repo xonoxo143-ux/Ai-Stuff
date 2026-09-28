@@ -15,6 +15,7 @@ from .language import (
     OpenAICompatibleBackend,
 )
 from .memory import AgentMemory, MemoryConfig
+from .sqlite_memory import SQLiteAgentMemory
 from .runtime import (
     AgentRuntime,
     RuntimeConfig,
@@ -36,6 +37,7 @@ __all__ = [
     "OpenAICompatibleBackend",
     "AgentMemory",
     "MemoryConfig",
+    "SQLiteAgentMemory",
     "AgentRuntime",
     "RuntimeConfig",
     "TurnTrace",

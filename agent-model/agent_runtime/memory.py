@@ -20,6 +20,13 @@ class AgentMemory:
     semantic: dict[str, Any] = field(default_factory=dict)
     capability_stats: dict[str, dict[str, float]] = field(default_factory=dict)
 
+    def last_turn_id(self) -> int:
+        turns = [
+            int(event.get("turn", 0) or 0)
+            for event in self.episodes
+        ]
+        return max(turns, default=0)
+
     def recent_episodes(self) -> list[Mapping[str, Any]]:
         n = self.config.max_recent_episodes
         return list(self.episodes[-n:])

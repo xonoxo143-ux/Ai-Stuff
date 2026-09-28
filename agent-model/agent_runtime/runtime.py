@@ -72,7 +72,7 @@ class AgentRuntime:
         self.contributors = list(contributors)
         self.memory = memory or AgentMemory()
         self.config = config or RuntimeConfig()
-        self.turn_id = 0
+        self.turn_id = self.memory.last_turn_id()
 
     def _context(self, user_text: str, contributions=()) -> CapabilityContext:
         return CapabilityContext(

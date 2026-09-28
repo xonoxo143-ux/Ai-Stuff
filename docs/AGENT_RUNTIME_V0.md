@@ -128,3 +128,25 @@ After the language boundary is real:
 2. add one external capability;
 3. test whether recruitment changes quality/cost;
 4. integrate developmental mechanisms only where they have an earned job.
+
+
+## First durable memory backend
+
+`SQLiteAgentMemory` provides a stdlib-only persistent backend for:
+
+- active state;
+- episodic events;
+- semantic/world memory;
+- capability call/success/cost history.
+
+The backend resumes the runtime turn counter from durable episodes, so a process restart does not reset conversational chronology.
+
+Values are currently required to be JSON-serializable. That is an explicit v0 boundary, not a claim that the final memory representation must be JSON.
+
+The backend exists to enforce a key architectural distinction in executable form:
+
+```text
+remembering conversational information
+!=
+changing model weights
+```

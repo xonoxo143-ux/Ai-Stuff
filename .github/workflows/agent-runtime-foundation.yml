@@ -10,6 +10,7 @@ on:
       - "agent-model/tests/test_agent_runtime_foundation.py"
       - "agent-model/tests/test_agent_runtime_language.py"
       - "agent-model/tests/test_agent_runtime_spine_benchmark.py"
+      - "agent-model/tests/test_agent_runtime_sqlite_memory.py"
       - "agent-model/tools/benchmark_runtime_shell.py"
       - "agent-model/pyproject.toml"
       - "docs/AGENT_RUNTIME_V0.md"
@@ -52,7 +53,8 @@ jobs:
           pytest \
             agent-model/tests/test_agent_runtime_foundation.py \
             agent-model/tests/test_agent_runtime_language.py \
-            agent-model/tests/test_agent_runtime_spine_benchmark.py
+            agent-model/tests/test_agent_runtime_spine_benchmark.py \
+            agent-model/tests/test_agent_runtime_sqlite_memory.py
 
       - name: Run orchestration soak benchmark
         run: |
