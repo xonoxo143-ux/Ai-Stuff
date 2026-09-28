@@ -380,7 +380,7 @@ export function createStripeAdapter({ rememberEvent }) {
         await password.waitFor({ state: "visible", timeout: 20_000 });
         await password.fill(stripeDashboardPasswordTemp);
 
-        await password.press("Enter");
+        await page.keyboard.press("Enter");
         await page.waitForTimeout(6000);
 
         const bodyText = (
