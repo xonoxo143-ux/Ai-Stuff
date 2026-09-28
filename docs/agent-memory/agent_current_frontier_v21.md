@@ -233,3 +233,27 @@ perception:
   Transformer speed lead
   attentive-BiGRU under test
 ```
+
+
+## First real-English language-organ result
+
+Workflow `36436244279` completed.
+
+Seed 101, random initialization, ~3.4 MB bounded TinyStories training slice, 800 updates:
+
+```text
+GRU          800,640 params   1.659 bits/byte   133 s
+Transformer  927,872 params   2.610 bits/byte    83 s
+```
+
+The GRU already generated recognizable but repetitive English:
+
+```text
+"Once upon a time there was a little girl named Lily..."
+```
+
+The Transformer remained largely malformed at the same update budget.
+
+This is the first real-language evidence supporting the recurrent production path, but it is one seed only.
+
+The exact experiment is now replicating over seeds 101, 202, and 303 before any scale increase.

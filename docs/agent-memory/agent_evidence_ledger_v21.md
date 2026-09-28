@@ -263,3 +263,30 @@ Design consequence:
 Scope:
 - human-defined four-slot synthetic semantics;
 - does not establish open-domain understanding.
+
+
+---
+
+## E-LANG-004 — A sub-million-parameter raw-byte GRU learned recognizable real English cheaply
+**Status:** PROMISING / SINGLE REAL-TEXT SEED
+
+First TinyStories screen, random initialization, 800 updates:
+
+```text
+GRU          800,640 params   1.659 bits/byte
+Transformer  927,872 params   2.610 bits/byte
+```
+
+The GRU produced a recognizably grammatical, though repetitive, story continuation after about 133 seconds of CPU training on the GitHub runner.
+
+The Transformer trained faster but remained largely malformed at the same update budget.
+
+Design consequence:
+- use the GRU as the first production-organ integration baseline if the result replicates;
+- retain the Transformer as the training-speed/control candidate;
+- do not increase model scale before repeating the result.
+
+Scope:
+- one seed;
+- constrained TinyStories curriculum;
+- surface language modeling only.

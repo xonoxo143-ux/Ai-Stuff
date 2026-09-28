@@ -79,3 +79,40 @@ It asks whether either surviving synthetic candidate still learns usefully when 
 If both produce only byte-level mush at this scale/budget, increase training/curriculum before increasing architectural complexity.
 
 If one clearly dominates quality/cost, carry it forward while retaining the other only when it offers a distinct architectural advantage.
+
+
+## First completed run
+
+Workflow `36436244279`, seed 101:
+
+```text
+GRU
+  parameters: 800,640
+  validation: 1.659 bits/byte
+  train time: 133.1 s
+
+Transformer
+  parameters: 927,872
+  validation: 2.610 bits/byte
+  train time: 82.8 s
+```
+
+Greedy GRU sample after only 800 updates:
+
+```text
+Once upon a time there was a little girl named Lily.
+She was so happy and said the bird was so happy.
+The bird was so happy and said the...
+```
+
+The sample is repetitive and shallow but already recognizably grammatical English.
+
+The Transformer sample remained mostly malformed at this update budget.
+
+Interpretation:
+
+- the synthetic GRU quality advantage survived the first real-text screen;
+- the Transformer retained a substantial training-throughput advantage;
+- one seed is not enough to treat the gap as settled.
+
+The workflow now repeats the exact screen on seeds 101, 202, and 303 before either model is scaled further.

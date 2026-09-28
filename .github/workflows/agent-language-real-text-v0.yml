@@ -89,26 +89,100 @@ jobs:
           )
           PY
 
-      - name: Train from random initialization
+      - name: Train three seeds from random initialization
         working-directory: agent-model
         run: |
           set -euo pipefail
-          python -m agent_language.real_text \
-            --train-file /tmp/agent-language-real/train.txt \
-            --valid-file /tmp/agent-language-real/valid.txt \
-            --models gru,transformer \
-            --seed 101 \
-            --steps 800 \
-            --batch-size 8 \
-            --sequence-length 256 \
-            --threads 4 \
-            --checkpoint-dir /tmp/agent-language-real/checkpoints \
-            --output /tmp/agent-language-real/result.json
+          for seed in 101 202 303; do
+            python -m agent_language.real_text \
+              --train-file /tmp/agent-language-real/train.txt \
+              --valid-file /tmp/agent-language-real/valid.txt \
+              --models gru,transformer \
+              --seed "${seed}" \
+              --steps 800 \
+              --batch-size 8 \
+              --sequence-length 256 \
+              --threads 4 \
+              --checkpoint-dir /tmp/agent-language-real/checkpoints \
+              --output "/tmp/agent-language-real/result-${seed}.json"
+          done
+
+      - name: Summarize replication
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import glob
+          import json
+          from pathlib import Path
+          from statistics import mean
+
+          rows = []
+          for path in sorted(
+              glob.glob(
+                  "/tmp/agent-language-real/result-*.json"
+              )
+          ):
+              payload = json.loads(
+                  Path(path).read_text()
+              )
+              rows.extend(
+                  payload["rows"]
+              )
+
+          models = sorted({
+              row["model"]
+              for row in rows
+          })
+          summary = {}
+          for model in models:
+              selected = [
+                  row
+                  for row in rows
+                  if row["model"] == model
+              ]
+              summary[model] = {
+                  "runs": len(selected),
+                  "mean_valid_bits_per_byte": mean(
+                      row["valid_bits_per_byte"]
+                      for row in selected
+                  ),
+                  "mean_train_seconds": mean(
+                      row["train_seconds"]
+                      for row in selected
+                  ),
+                  "samples": [
+                      row["sample"]
+                      for row in selected
+                  ],
+              }
+
+          Path(
+              "/tmp/agent-language-real/replication-summary.json"
+          ).write_text(
+              json.dumps(
+                  {
+                      "summary": summary,
+                      "rows": rows,
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+              + "\n"
+          )
+          print(
+              json.dumps(
+                  summary,
+                  indent=2,
+                  sort_keys=True,
+              )
+          )
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
           name: Agent-Language-Real-Text-V0
           path: |
-            /tmp/agent-language-real/result.json
+            /tmp/agent-language-real/result-*.json
+            /tmp/agent-language-real/replication-summary.json
             /tmp/agent-language-real/checkpoints/
           retention-days: 30
