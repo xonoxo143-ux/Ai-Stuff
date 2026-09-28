@@ -1,0 +1,63 @@
+name: Agent Runtime Foundation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_runtime/**"
+      - "agent-model/tests/test_agent_runtime_foundation.py"
+      - "agent-model/tools/benchmark_runtime_shell.py"
+      - "agent-model/pyproject.toml"
+      - "docs/AGENT_RUNTIME_V0.md"
+      - ".github/workflows/agent-runtime-foundation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-runtime-foundation
+  cancel-in-progress: true
+
+jobs:
+  foundation:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install lightweight runtime test dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run runtime foundation tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_agent_runtime_foundation.py
+
+      - name: Run orchestration soak benchmark
+        run: |
+          set -euo pipefail
+          python agent-model/tools/benchmark_runtime_shell.py \
+            --turns 10000 \
+            --repeats 5 \
+            --output "/tmp/runtime-shell-${{ matrix.python }}.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "Agent-Runtime-Foundation-${{ matrix.python }}"
+          path: "/tmp/runtime-shell-${{ matrix.python }}.json"
+          retention-days: 30
