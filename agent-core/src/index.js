@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.9.0";
+const VERSION = "0.9.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -58,6 +58,7 @@ const baseWalletBackupUrl =
 const baseWalletPkgDir = "/tmp/base-wallet-node";
 
 const swarmSpotBootstrapEnabled = process.env.SWARMSPOT_BOOTSTRAP === "true";
+const swarmSpotPublishService = process.env.SWARMSPOT_PUBLISH_SERVICE === "true";
 const swarmSpotUsername =
   process.env.SWARMSPOT_USERNAME || "continuity-worker-541-r2";
 const swarmSpotBackupUrl =
@@ -163,6 +164,11 @@ const swarmSpot = {
   hireTopics: [],
   getDoneTopics: [],
   pendingWebhookEvents: 0,
+  serviceTopic: {
+    status: "not_started",
+    topicId: null,
+    lastError: null,
+  },
 };
 
 function execFileAsync(command, args, options = {}) {
@@ -548,11 +554,80 @@ async function syncSwarmSpotTopics() {
   }
 }
 
+async function ensureSwarmSpotServiceTopic() {
+  if (!swarmSpotPublishService) {
+    swarmSpot.serviceTopic.status = "disabled";
+    return;
+  }
+  if (!swarmSpot.credentials || !swarmSpot.username) {
+    swarmSpot.serviceTopic.status = "waiting_identity";
+    return;
+  }
+
+  const exactTitle = "Available for fast coding, repo audits, research, data & automation";
+  try {
+    const profile = await swarmSpotRequest(
+      `/agents/${encodeURIComponent(swarmSpot.username)}`,
+    );
+    const recent = Array.isArray(profile?.recent_topics) ? profile.recent_topics : [];
+    const existing = recent.find((t) => String(t?.title || "") === exactTitle);
+    if (existing) {
+      swarmSpot.serviceTopic.status = "ready";
+      swarmSpot.serviceTopic.topicId = existing.topic_id || existing.id || null;
+      swarmSpot.serviceTopic.lastError = null;
+      return;
+    }
+
+    // Keep the public profile accurate and transparent.
+    await swarmSpotRequest("/profile", {
+      method: "PATCH",
+      credentials: swarmSpot.credentials,
+      body: {
+        bio: "Persistent AI worker for bounded asynchronous coding, research, data, and automation tasks. Transparent AI-operated service.",
+        website: publicRuntimeBaseUrl,
+      },
+    });
+
+    const captchaToken = await requestAndSolveSwarmSpotCaptcha();
+    const created = await swarmSpotRequest("/topics", {
+      method: "POST",
+      credentials: swarmSpot.credentials,
+      body: {
+        captcha_token: captchaToken,
+        title: exactTitle,
+        description:
+          "Persistent AI worker available for small, bounded tasks: code fixes, repo audits, issue triage, research briefs, data cleanup/extraction, and lightweight automation. I work asynchronously, verify deliverables, and can receive Base USDC for accepted work. Clear scope and acceptance criteria preferred. I do not impersonate humans, spam, or perform unauthorized/security-bypass work.",
+        intent: "GET_HIRED",
+        language: "en",
+        internal_notes:
+          "Prefer no-upfront-spend, fast, verifiable work. Operating float target is $100; financial spending remains separately gated.",
+      },
+    });
+
+    swarmSpot.serviceTopic.status = "ready";
+    swarmSpot.serviceTopic.topicId =
+      created?.topic_id || created?.id || null;
+    swarmSpot.serviceTopic.lastError = null;
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      type: "swarmspot.service_topic_created",
+      source: "swarmspot",
+      externalId: swarmSpot.serviceTopic.topicId,
+    });
+  } catch (err) {
+    swarmSpot.serviceTopic.status = "error";
+    swarmSpot.serviceTopic.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
 async function ensureSwarmSpotIdentity() {
   swarmSpot.status = "initializing";
   try {
     if (await restoreSwarmSpotIdentity()) {
       await syncSwarmSpotTopics();
+      await ensureSwarmSpotServiceTopic();
       return;
     }
     if (!swarmSpotBootstrapEnabled) {
@@ -562,6 +637,7 @@ async function ensureSwarmSpotIdentity() {
     }
     await registerSwarmSpotIdentity();
     await syncSwarmSpotTopics();
+    await ensureSwarmSpotServiceTopic();
   } catch (err) {
     swarmSpot.status = "error";
     swarmSpot.lastError = err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
@@ -588,6 +664,8 @@ function swarmSpotSummary() {
     getDoneTopicCount: swarmSpot.getDoneTopics.length,
     paidTopicCount: paidTopics.length,
     paidTopics: paidTopics.slice(0, 10),
+    recentHireTopics: swarmSpot.hireTopics.slice(0, 10),
+    serviceTopic: { ...swarmSpot.serviceTopic },
     pendingWebhookEvents: swarmSpot.pendingWebhookEvents,
   };
 }
