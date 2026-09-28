@@ -14,7 +14,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.14.10";
+const VERSION = "0.14.11";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -1086,7 +1086,7 @@ function clawlancerSummary() {
     lastError: clawlancer.lastError,
     lastSyncAt: clawlancer.lastSyncAt,
     openBountyCount: clawlancer.openBounties.length,
-    openBounties: clawlancer.openBounties.slice(0, 12),
+    openBounties: clawlancer.openBounties.slice().sort((a, b) => Number(b.priceUsdc || 0) - Number(a.priceUsdc || 0)).slice(0, 20),
     activeTransactions: clawlancer.activeTransactions.slice(0, 12),
     serviceListing: { ...clawlancer.serviceListing },
     wallet: { ...clawlancer.wallet },
