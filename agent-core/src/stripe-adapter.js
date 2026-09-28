@@ -362,20 +362,33 @@ export function createStripeAdapter({ rememberEvent }) {
         const email = page.locator(
           'input[type="email"], input[name="email"], input[autocomplete="username"]',
         ).first();
-        const password = page.locator(
-          'input[type="password"], input[name="password"], input[autocomplete="current-password"]',
-        ).first();
 
         await email.waitFor({ state: "visible", timeout: 20_000 });
         await email.fill(stripeDashboardEmail);
+
+        const passwordMethod = page
+          .getByRole("button", { name: /^password$/i })
+          .first();
+        if (await passwordMethod.isVisible().catch(() => false)) {
+          await passwordMethod.click();
+          await page.waitForTimeout(700);
+        }
+
+        const password = page.locator(
+          'input[type="password"], input[name="password"], input[autocomplete="current-password"]',
+        ).first();
         await password.waitFor({ state: "visible", timeout: 20_000 });
         await password.fill(stripeDashboardPasswordTemp);
 
-        const submit = page.locator(
-          'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in")',
-        ).first();
+        const passwordForm = password.locator("xpath=ancestor::form[1]");
+        let submit = passwordForm.locator('button[type="submit"]').last();
+        if (!(await submit.isVisible().catch(() => false))) {
+          submit = page
+            .getByRole("button", { name: /^(continue|sign in|log in)$/i })
+            .last();
+        }
         await submit.click();
-        await page.waitForTimeout(5000);
+        await page.waitForTimeout(6000);
 
         const bodyText = (
           await page.locator("body").innerText({ timeout: 10_000 }).catch(() => "")
