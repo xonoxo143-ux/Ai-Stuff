@@ -1,0 +1,120 @@
+# Agent language-spine screen
+
+**Date:** 2026-09-28  
+**Status:** active integration screen  
+**Runtime contract:** `agent_runtime.LanguageBackend`
+
+## Goal
+
+Choose the first practical language spine by experiment, not architecture preference.
+
+Every candidate must run behind the same Agent runtime contract and be compared both:
+
+1. alone as a language baseline;
+2. inside the hybrid runtime with memory/capability contributions.
+
+## First comparison set
+
+### A — dense Transformer baseline
+
+**Qwen3-1.7B**
+
+Why:
+- compact enough for early local work;
+- mature dense Transformer baseline;
+- Apache-2.0 model license;
+- supported by common local inference stacks.
+
+Purpose:
+- establish what the hybrid must beat or extend.
+
+### B — attention + SSM hybrid
+
+**Falcon-H1-1.5B-Instruct**
+
+Why:
+- similar scale to the dense baseline;
+- explicitly combines Transformer attention with Mamba/SSM machinery;
+- official model card documents llama.cpp support.
+
+Purpose:
+- test whether hybrid sequence machinery has an intrinsic advantage for our persistent conversational use case before our outer architecture adds anything.
+
+### C — newer recurrent/attention hybrid, exploratory
+
+**Qwen3.5-2B**
+
+Why:
+- uses recurrent/linear-attention-style layers with periodic full attention;
+- architecturally close to the project's interest in fixed-size persistent state.
+
+Caution:
+- current llama.cpp reports include stateful/prefix-cache issues for some Qwen3.5 variants.
+- do not make this the first production spine until multi-turn state reuse is verified.
+
+Purpose:
+- research candidate, not default.
+
+## Runtime choice
+
+Use an OpenAI-compatible local-server boundary first.
+
+This gives one stable Agent interface while allowing the backend to be:
+
+- llama.cpp;
+- another compatible local server;
+- a test fake;
+- later, a direct in-process backend.
+
+The HTTP boundary is for rapid comparison.
+
+It is not assumed to be the final lowest-latency deployment boundary.
+
+## Metrics
+
+For the same prompt/conversation suite record:
+
+### Quality
+- instruction following;
+- ordinary conversation;
+- multi-topic switching;
+- reasoning;
+- coding;
+- long-turn continuity;
+- robustness when external capability facts are injected.
+
+### Runtime
+- load time;
+- prompt processing;
+- time to first token;
+- decode tokens/s;
+- total latency;
+- peak RAM;
+- context/state memory;
+- second-turn reuse behavior.
+
+### Hybrid compatibility
+- ability to consume bounded capability reports;
+- ability to use semantic memory without raw transcript replay;
+- whether external exact capabilities improve output;
+- whether model-only baseline already solves the case;
+- integration complexity.
+
+## Decision rule
+
+Do not select a winner from architecture labels.
+
+Select the smallest/cheapest spine that gives enough language quality for the rest of the Agent architecture to matter.
+
+If a denser conventional model dominates quality and real latency, keep it.
+
+If a hybrid model gives materially better state reuse, memory behavior, or quality/cost at similar scale, that is evidence for using hybrid sequence machinery.
+
+## Next implementation step
+
+The runtime now has a generic OpenAI-compatible language backend.
+
+Next:
+1. run the same small conversation suite against A and B;
+2. add C only after its state-reuse path is verified;
+3. keep all prompts/results as comparable artifacts.

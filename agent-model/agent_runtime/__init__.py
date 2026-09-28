@@ -6,8 +6,20 @@ from .contracts import (
     CapabilityRole,
     PublicMessage,
 )
+from .language import (
+    ChatMessage,
+    LanguageBackend,
+    LanguageComposer,
+    LanguageGeneration,
+    LanguageRequest,
+    OpenAICompatibleBackend,
+)
 from .memory import AgentMemory, MemoryConfig
-from .runtime import AgentRuntime, RuntimeConfig, TurnTrace
+from .runtime import (
+    AgentRuntime,
+    RuntimeConfig,
+    TurnTrace,
+)
 
 __all__ = [
     "Capability",
@@ -16,6 +28,12 @@ __all__ = [
     "CapabilityResult",
     "CapabilityRole",
     "PublicMessage",
+    "ChatMessage",
+    "LanguageBackend",
+    "LanguageComposer",
+    "LanguageGeneration",
+    "LanguageRequest",
+    "OpenAICompatibleBackend",
     "AgentMemory",
     "MemoryConfig",
     "AgentRuntime",

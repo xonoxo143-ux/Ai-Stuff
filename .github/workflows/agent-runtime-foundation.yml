@@ -8,9 +8,11 @@ on:
     paths:
       - "agent-model/agent_runtime/**"
       - "agent-model/tests/test_agent_runtime_foundation.py"
+      - "agent-model/tests/test_agent_runtime_language.py"
       - "agent-model/tools/benchmark_runtime_shell.py"
       - "agent-model/pyproject.toml"
       - "docs/AGENT_RUNTIME_V0.md"
+      - "docs/AGENT_LANGUAGE_SPINE_SCREEN.md"
       - ".github/workflows/agent-runtime-foundation.yml"
 
 permissions:
@@ -46,7 +48,9 @@ jobs:
       - name: Run runtime foundation tests
         run: |
           set -euo pipefail
-          pytest agent-model/tests/test_agent_runtime_foundation.py
+          pytest \
+            agent-model/tests/test_agent_runtime_foundation.py \
+            agent-model/tests/test_agent_runtime_language.py
 
       - name: Run orchestration soak benchmark
         run: |
