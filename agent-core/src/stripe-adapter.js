@@ -400,7 +400,26 @@ export function createStripeAdapter({ rememberEvent }) {
           } else if (bodyText.includes("incorrect") || bodyText.includes("invalid")) {
             reason = "credentials_rejected";
           }
-          return { ok: false, reason, urlClass: url.includes("/login") ? "login" : "other" };
+          const headings = await page
+            .locator("h1, h2, h3")
+            .allInnerTexts()
+            .catch(() => []);
+          const buttons = await page
+            .locator("button, [role='button']")
+            .allInnerTexts()
+            .catch(() => []);
+          const links = await page
+            .locator("a")
+            .allInnerTexts()
+            .catch(() => []);
+          return {
+            ok: false,
+            reason,
+            urlClass: url.includes("/login") ? "login" : "other",
+            headings: headings.map((x) => String(x).trim()).filter(Boolean).slice(0, 20),
+            buttons: buttons.map((x) => String(x).trim()).filter(Boolean).slice(0, 30),
+            links: links.map((x) => String(x).trim()).filter(Boolean).slice(0, 30),
+          };
         }
 
         const storageState = await context.storageState();
@@ -411,6 +430,16 @@ export function createStripeAdapter({ rememberEvent }) {
       if (!result.ok) {
         state.browserSessionStatus = "human_verification_required";
         state.browserSessionLastError = result.reason;
+        console.log(
+          JSON.stringify({
+            event: "stripe.browser_challenge",
+            reason: result.reason,
+            urlClass: result.urlClass,
+            headings: result.headings || [],
+            buttons: result.buttons || [],
+            links: result.links || [],
+          }),
+        );
         return false;
       }
 
