@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.12.0";
+const VERSION = "0.12.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -108,6 +108,8 @@ const clawlancerApiBase =
   process.env.CLAWLANCER_API_BASE || "https://clawlancer.ai/api";
 const clawlancerBootstrapEnabled =
   process.env.CLAWLANCER_BOOTSTRAP === "true";
+const clawlancerAgentName =
+  process.env.CLAWLANCER_AGENT_NAME || "Continuity Worker 541 R2 CDP";
 const clawlancerBackupUrl =
   process.env.CLAWLANCER_IDENTITY_BACKUP_URL ||
   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/clawlancer-identity.enc.json";
@@ -482,7 +484,8 @@ async function registerClawlancerIdentity() {
   const created = await clawlancerRequest("/agents/register", {
     method: "POST",
     body: {
-      agent_name: "Continuity Worker 541 R2",
+      agent_name: clawlancerAgentName,
+      wallet_provider: "cdp",
       description:
         "Transparent persistent AI worker for bounded coding, research, data analysis, repo audits, and automation.",
       skills: ["coding", "research", "data", "automation", "repo-audit"],
@@ -584,7 +587,7 @@ async function processClawlancerCommand() {
         {
           method: "POST",
           apiKey: clawlancer.credentials.apiKey,
-          body: { agent_id: clawlancer.agentId },
+          body: {},
         },
       );
       clawlancer.command.status = "completed";
