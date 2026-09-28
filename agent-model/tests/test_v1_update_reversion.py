@@ -6,6 +6,7 @@ from agent_ecology.capacity_world import CapacityWorldConfig
 from agent_ecology.interference_world import BlockedFamilyWorld
 from agent_ecology.model import EcologyConfig, SparseRecurrentEcology
 from agent_ecology.v1_update_reversion import (
+    _effective_widths,
     _private_snapshot,
     _set_private_rows,
     _rank,
@@ -58,3 +59,12 @@ def test_rank_direction_is_stable():
 
     assert _rank(scores, 2, True) == [2, 3]
     assert _rank(scores, 2, False) == [1, 4]
+
+
+def test_effective_widths_deduplicate_clipped_conditions():
+    assert _effective_widths([1, 2, 4, 8, 16, 32], 16) == [
+        1, 2, 4, 8, 16
+    ]
+    assert _effective_widths([1, 2, 4, 8, 16, 32], 64) == [
+        1, 2, 4, 8, 16, 32
+    ]

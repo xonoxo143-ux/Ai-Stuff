@@ -169,6 +169,19 @@ def _rank(
     )[:width].tolist()
 
 
+def _effective_widths(
+    widths: Sequence[int],
+    num_cells: int,
+) -> List[int]:
+    return sorted(
+        {
+            min(int(requested_width), num_cells)
+            for requested_width in widths
+            if int(requested_width) > 0
+        }
+    )
+
+
 def run_one(
     *,
     control: str,
@@ -354,10 +367,7 @@ def run_one(
             positive_mass = sum(max(score, 0.0) for score in scores)
             width_rows = []
 
-            for requested_width in widths:
-                width = min(int(requested_width), num_cells)
-                if width <= 0:
-                    continue
+            for width in _effective_widths(widths, num_cells):
 
                 top = _rank(scores, width, True)
                 bottom = _rank(scores, width, False)
