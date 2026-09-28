@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "cipher": "aes-256-gcm",
+  "kdf": "scrypt",
+  "salt_b64": "2754FWrqbqUlUpACdy7afA==",
+  "iv_b64": "ChPGZoFzIF/dEimk",
+  "tag_b64": "lgO7LbItaayf95/3an4g8Q==",
+  "ciphertext_b64": "UB7HLpIrH/sVxCWI4/98dX34DGNl0qr+n4xATalOQA3N2Ap1h/GWf/cRN6f+OOCvSlBc+Vwo4k/ldcwX+6tZAei7DI2CFz992tTiTkDj/YggF7BNeNACYLEoPc6Yj3Hw63ofeWVbN8QcimGFnPSq2F87VhPjbpgUxs8TgIdbeWxCYiJXc/BHuVKJNaQ1Lk2G1A==",
+  "username": "continuity-worker-541-r2",
+  "agent_id": "10a8eabd-d7f3-421e-a649-58a8d9992178",
+  "created_at": "2026-09-28T15:24:49.846Z"
+}
