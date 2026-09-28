@@ -1,0 +1,30 @@
+{
+  "version": "2.1",
+  "date": "2026-09-28",
+  "authority_order": [
+    "agent_current_frontier_v21.md",
+    "agent_decision_ledger_v21.md",
+    "agent_evidence_ledger_v21.md",
+    "agent_architecture_handbook_v20.md",
+    "GitHub exact experiment specs/results",
+    "chatbot_architecture_notebook_v19.md",
+    "agent_historical_archive_index_v21.md"
+  ],
+  "stable_tags": {
+    "E-V0": "Agent v0 evidence",
+    "E-V1": "Agent v1 evidence",
+    "E-ARCH": "architecture evidence/synthesis",
+    "D": "current commitments",
+    "H": "strong hypotheses",
+    "R": "rejected/demoted claims"
+  },
+  "current_tracks": {
+    "A": "developmental mechanism: trajectory/interactions/spare-capacity after weak one-shot predictors",
+    "B": "chatbot integration: language spine -> capability contract -> memory boundaries -> multi-turn prototype"
+  },
+  "archive": {
+    "file": "chatbot_architecture_notebook_v19.md",
+    "lines": 8292,
+    "headings": 449
+  }
+}
