@@ -1,4 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 const STRIPE_API_BASE = process.env.STRIPE_API_BASE || "https://api.stripe.com";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
@@ -34,6 +37,23 @@ const stripeProductDescription =
   "Small AI services business providing bounded coding, GitHub repository audits, web research, data analysis, and automation tasks.";
 const stripeStatementDescriptor =
   process.env.STRIPE_STATEMENT_DESCRIPTOR || "FRESH STRONG";
+
+const runtimeSecret =
+  process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
+const stripeDashboardEmail =
+  process.env.STRIPE_DASHBOARD_EMAIL || process.env.AGENT_EMAIL || "";
+const stripeDashboardPasswordTemp =
+  process.env.STRIPE_DASHBOARD_PASSWORD_TEMP || "";
+const stripeBrowserBootstrapEnabled =
+  process.env.STRIPE_BROWSER_BOOTSTRAP_ENABLED === "true";
+const stripeBrowserProfileSyncEnabled =
+  process.env.STRIPE_BROWSER_PROFILE_SYNC_ENABLED === "true";
+const stripeBrowserBackupUrl =
+  process.env.STRIPE_BROWSER_SESSION_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/stripe-browser-session.enc.json";
+const playwrightModulePath =
+  process.env.PLAYWRIGHT_MODULE_PATH ||
+  "/tmp/stripe-browser/node_modules/playwright";
 
 function encodeStripeForm(obj, prefix = "", out = new URLSearchParams()) {
   for (const [key, value] of Object.entries(obj || {})) {
@@ -129,7 +149,13 @@ export function createStripeAdapter({ rememberEvent }) {
     lastBillingCheckoutAt: null,
     profileSyncAt: null,
     profileSyncStatus: stripeProfileSyncEnabled ? "pending" : "disabled",
+    browserSessionStatus: "not_started",
+    browserSessionSource: null,
+    browserSessionLastCheckedAt: null,
+    browserSessionLastError: null,
+    browserProfileSyncStatus: stripeBrowserProfileSyncEnabled ? "pending" : "disabled",
   };
+  let browserStorageState = null;
 
   function summary() {
     return {
@@ -175,8 +201,305 @@ export function createStripeAdapter({ rememberEvent }) {
       lastBillingCheckoutAt: state.lastBillingCheckoutAt,
       profileSyncAt: state.profileSyncAt,
       profileSyncStatus: state.profileSyncStatus,
+      browserSession: {
+        status: state.browserSessionStatus,
+        source: state.browserSessionSource,
+        lastCheckedAt: state.browserSessionLastCheckedAt,
+        lastError: state.browserSessionLastError,
+        backupConfigured: Boolean(stripeBrowserBackupUrl),
+        bootstrapEnabled: stripeBrowserBootstrapEnabled,
+        temporaryPasswordPresent: Boolean(stripeDashboardPasswordTemp),
+        profileSyncStatus: state.browserProfileSyncStatus,
+      },
       lastError: state.lastError,
     };
+  }
+
+  function encryptBrowserSession(value) {
+    if (!runtimeSecret) throw new Error("stripe_browser_encryption_key_unavailable");
+    const plaintext = Buffer.from(JSON.stringify(value), "utf8");
+    const salt = randomBytes(16);
+    const iv = randomBytes(12);
+    const key = scryptSync(runtimeSecret, salt, 32);
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return {
+      version: 1,
+      cipher: "aes-256-gcm",
+      kdf: "scrypt",
+      salt_b64: salt.toString("base64"),
+      iv_b64: iv.toString("base64"),
+      tag_b64: tag.toString("base64"),
+      ciphertext_b64: ciphertext.toString("base64"),
+      email: stripeDashboardEmail || null,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  function decryptBrowserSession(backup) {
+    if (!runtimeSecret) throw new Error("stripe_browser_decryption_key_unavailable");
+    if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+      throw new Error("unsupported_stripe_browser_backup");
+    }
+    const key = scryptSync(
+      runtimeSecret,
+      Buffer.from(backup.salt_b64, "base64"),
+      32,
+    );
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      key,
+      Buffer.from(backup.iv_b64, "base64"),
+    );
+    decipher.setAuthTag(Buffer.from(backup.tag_b64, "base64"));
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(backup.ciphertext_b64, "base64")),
+      decipher.final(),
+    ]);
+    return JSON.parse(plaintext.toString("utf8"));
+  }
+
+  function loadPlaywright() {
+    try {
+      return require(playwrightModulePath);
+    } catch (err) {
+      throw new Error(
+        `stripe_browser_playwright_unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  async function withStripeBrowser(storageState, work) {
+    const { chromium } = loadPlaywright();
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    });
+    try {
+      const context = await browser.newContext(
+        storageState ? { storageState } : {},
+      );
+      const page = await context.newPage();
+      return await work({ browser, context, page });
+    } finally {
+      await browser.close().catch(() => {});
+    }
+  }
+
+  function dashboardLooksAuthenticated(page) {
+    const u = page.url();
+    return (
+      u.startsWith("https://dashboard.stripe.com/") &&
+      !u.includes("/login") &&
+      !u.includes("/register")
+    );
+  }
+
+  async function restoreBrowserSession() {
+    state.browserSessionStatus = "restoring";
+    state.browserSessionLastError = null;
+    try {
+      const response = await fetch(stripeBrowserBackupUrl, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (response.status === 404) {
+        state.browserSessionStatus = "backup_missing";
+        return false;
+      }
+      if (!response.ok) {
+        throw new Error(`stripe_browser_backup_http_${response.status}`);
+      }
+      const backup = await response.json();
+      const restored = decryptBrowserSession(backup);
+      const storageState = restored?.storageState || restored;
+      const valid = await withStripeBrowser(storageState, async ({ page }) => {
+        await page.goto("https://dashboard.stripe.com/settings/public", {
+          waitUntil: "domcontentloaded",
+          timeout: 45_000,
+        });
+        await page.waitForTimeout(1500);
+        return dashboardLooksAuthenticated(page);
+      });
+      state.browserSessionLastCheckedAt = new Date().toISOString();
+      if (!valid) {
+        state.browserSessionStatus = "expired";
+        state.browserSessionSource = "encrypted_git_backup";
+        return false;
+      }
+      browserStorageState = storageState;
+      state.browserSessionStatus = "ready";
+      state.browserSessionSource = "encrypted_git_backup";
+      return true;
+    } catch (err) {
+      state.browserSessionStatus = "restore_error";
+      state.browserSessionLastError =
+        err instanceof Error ? err.message.slice(0, 500) : String(err);
+      return false;
+    }
+  }
+
+  async function bootstrapBrowserSession() {
+    if (!stripeBrowserBootstrapEnabled) {
+      state.browserSessionStatus = "bootstrap_disabled";
+      return false;
+    }
+    if (!stripeDashboardEmail || !stripeDashboardPasswordTemp) {
+      state.browserSessionStatus = "awaiting_credentials";
+      return false;
+    }
+
+    state.browserSessionStatus = "logging_in";
+    state.browserSessionLastError = null;
+    try {
+      const result = await withStripeBrowser(null, async ({ context, page }) => {
+        await page.goto("https://dashboard.stripe.com/login", {
+          waitUntil: "domcontentloaded",
+          timeout: 45_000,
+        });
+
+        const email = page.locator(
+          'input[type="email"], input[name="email"], input[autocomplete="username"]',
+        ).first();
+        const password = page.locator(
+          'input[type="password"], input[name="password"], input[autocomplete="current-password"]',
+        ).first();
+
+        await email.waitFor({ state: "visible", timeout: 20_000 });
+        await email.fill(stripeDashboardEmail);
+        await password.waitFor({ state: "visible", timeout: 20_000 });
+        await password.fill(stripeDashboardPasswordTemp);
+
+        const submit = page.locator(
+          'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in")',
+        ).first();
+        await submit.click();
+        await page.waitForTimeout(5000);
+
+        const bodyText = (
+          await page.locator("body").innerText({ timeout: 10_000 }).catch(() => "")
+        ).toLowerCase();
+        const url = page.url();
+
+        if (!dashboardLooksAuthenticated(page)) {
+          let reason = "login_not_completed";
+          if (
+            bodyText.includes("captcha") ||
+            bodyText.includes("verify you are human") ||
+            bodyText.includes("security challenge")
+          ) {
+            reason = "captcha_or_security_challenge";
+          } else if (
+            bodyText.includes("two-step") ||
+            bodyText.includes("verification code") ||
+            bodyText.includes("two-factor") ||
+            bodyText.includes("passkey")
+          ) {
+            reason = "second_factor_required";
+          } else if (bodyText.includes("incorrect") || bodyText.includes("invalid")) {
+            reason = "credentials_rejected";
+          }
+          return { ok: false, reason, urlClass: url.includes("/login") ? "login" : "other" };
+        }
+
+        const storageState = await context.storageState();
+        return { ok: true, storageState };
+      });
+
+      state.browserSessionLastCheckedAt = new Date().toISOString();
+      if (!result.ok) {
+        state.browserSessionStatus = "human_verification_required";
+        state.browserSessionLastError = result.reason;
+        return false;
+      }
+
+      browserStorageState = result.storageState;
+      state.browserSessionStatus = "ready";
+      state.browserSessionSource = "fresh_login";
+      const encrypted = encryptBrowserSession({
+        storageState: result.storageState,
+        email: stripeDashboardEmail,
+        createdAt: new Date().toISOString(),
+      });
+      console.log(
+        JSON.stringify({
+          event: "stripe.browser_session_backup",
+          note: "Encrypted browser session only; plaintext password is not emitted.",
+          backup: encrypted,
+        }),
+      );
+      return true;
+    } catch (err) {
+      state.browserSessionStatus = "bootstrap_error";
+      state.browserSessionLastError =
+        err instanceof Error ? err.message.slice(0, 500) : String(err);
+      return false;
+    }
+  }
+
+  async function inspectPublicProfileFields() {
+    if (!browserStorageState) {
+      return { ok: false, error: "stripe_browser_session_not_ready" };
+    }
+    try {
+      const result = await withStripeBrowser(
+        browserStorageState,
+        async ({ page }) => {
+          await page.goto("https://dashboard.stripe.com/settings/public", {
+            waitUntil: "domcontentloaded",
+            timeout: 45_000,
+          });
+          await page.waitForTimeout(2000);
+          if (!dashboardLooksAuthenticated(page)) {
+            return { ok: false, error: "stripe_browser_session_expired" };
+          }
+          const fields = await page.locator("input, textarea, select").evaluateAll((els) =>
+            els.slice(0, 100).map((el) => ({
+              tag: el.tagName.toLowerCase(),
+              type: el.getAttribute("type"),
+              name: el.getAttribute("name"),
+              id: el.id || null,
+              ariaLabel: el.getAttribute("aria-label"),
+              placeholder: el.getAttribute("placeholder"),
+            })),
+          );
+          const labels = await page.locator("label").evaluateAll((els) =>
+            els.slice(0, 100).map((el) => (el.textContent || "").trim()).filter(Boolean),
+          );
+          return { ok: true, fields, labels };
+        },
+      );
+      if (result.ok) {
+        console.log(
+          JSON.stringify({
+            event: "stripe.public_profile_fields",
+            fields: result.fields,
+            labels: result.labels,
+          }),
+        );
+      }
+      return result;
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message.slice(0, 500) : String(err),
+      };
+    }
+  }
+
+  async function ensureBrowserSession() {
+    const restored = await restoreBrowserSession();
+    if (!restored) {
+      await bootstrapBrowserSession();
+    }
+    if (state.browserSessionStatus === "ready" && stripeBrowserProfileSyncEnabled) {
+      state.browserProfileSyncStatus = "inspecting";
+      const inspected = await inspectPublicProfileFields();
+      state.browserProfileSyncStatus = inspected.ok ? "inspection_emitted" : "inspection_error";
+      if (!inspected.ok) state.browserSessionLastError = inspected.error || null;
+    }
+    return state.browserSessionStatus === "ready";
   }
 
   async function syncProfile() {
@@ -497,5 +820,13 @@ export function createStripeAdapter({ rememberEvent }) {
     return false;
   }
 
-  return { summary, handle, syncProfile };
+  return {
+    summary,
+    handle,
+    syncProfile,
+    ensureBrowserSession,
+    restoreBrowserSession,
+    bootstrapBrowserSession,
+    inspectPublicProfileFields,
+  };
 }
