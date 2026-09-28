@@ -1,0 +1,72 @@
+name: Agent V1 Update Predictor Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_ecology/v1_update_predictors.py"
+      - "agent-model/tests/test_v1_update_predictors.py"
+      - "docs/AGENT_V1_A1_UPDATE_PREDICTORS.md"
+      - "docs/AGENT_V1_CHATBOT_ANCHOR.md"
+      - ".github/workflows/agent-v1-update-predictors.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-v1-update-predictors
+  cancel-in-progress: true
+
+jobs:
+  predictors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Run focused tests
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_v1_update_predictors.py
+
+      - name: Compare prospective update-risk predictors
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          python -m agent_ecology.v1_update_predictors \
+            --family-count 64 \
+            --seeds 1701,1702,1703,1704,1705,1706 \
+            --model-seed-base 18000 \
+            --checkpoints-after 15,31,47,55 \
+            --train-examples 20 \
+            --eval-examples 16 \
+            --predictor-examples 8 \
+            --ground-truth-examples 8 \
+            --sequence-length 4 \
+            --state-dim 24 \
+            --workspace-slots 3 \
+            --signature-dim 12 \
+            --message-dim 12 \
+            --thought-steps 2 \
+            --output /tmp/v1-update-predictors.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-V1-Update-Predictors
+          path: /tmp/v1-update-predictors.json
+          retention-days: 30
