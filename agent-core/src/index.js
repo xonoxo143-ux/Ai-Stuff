@@ -2,6 +2,7 @@ import http from "node:http";
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
   createHmac,
   randomBytes,
   randomUUID,
@@ -12,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.10.0";
+const VERSION = "0.11.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -87,6 +88,21 @@ const agentSoukPollMs = Math.max(
   300_000,
   Number(process.env.AGENTSOUK_POLL_MS || 3_600_000),
 );
+
+const agentChainBaseUrl =
+  process.env.AGENTCHAIN_BASE_URL || "https://www.agentchainlabs.com";
+const agentChainBootstrapEnabled = process.env.AGENTCHAIN_BOOTSTRAP === "true";
+const agentChainPublishGig = process.env.AGENTCHAIN_PUBLISH_GIG === "true";
+const agentChainBackupUrl =
+  process.env.AGENTCHAIN_IDENTITY_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/agentchain-identity.enc.json";
+const agentChainPollMs = Math.max(
+  300_000,
+  Number(process.env.AGENTCHAIN_POLL_MS || 1_800_000),
+);
+const agentChainWebhookToken = eventToken
+  ? createHmac("sha256", eventToken).update("agentchain-webhook-v1").digest("hex")
+  : "";
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -210,6 +226,30 @@ const agentSouk = {
   opportunities: [],
 };
 
+const agentChain = {
+  status: "not_initialized",
+  agentId: null,
+  did: null,
+  source: null,
+  lastError: null,
+  apiKeyExpiresAt: null,
+  credentials: null,
+  lastSyncAt: null,
+  playbookHeadline: null,
+  openJobs: [],
+  activeProposals: [],
+  webhook: {
+    status: "not_started",
+    lastError: null,
+  },
+  gig: {
+    status: "not_started",
+    gigId: null,
+    lastError: null,
+  },
+  pendingWebhookEvents: 0,
+};
+
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     execFile(
@@ -300,6 +340,357 @@ function decryptWalletBackup(backup) {
 }
 
 
+
+
+function encryptAgentChainBackup(value) {
+  if (!eventToken) throw new Error("agentchain_encryption_key_unavailable");
+  const plaintext = Buffer.from(JSON.stringify(value), "utf8");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    agent_id: value.agentId || null,
+    did: value.did || null,
+    api_key_expires_at: value.apiKeyExpiresAt || null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptAgentChainBackup(backup) {
+  if (!eventToken) throw new Error("agentchain_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_agentchain_backup");
+  }
+  const key = scryptSync(eventToken, Buffer.from(backup.salt_b64, "base64"), 32);
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(backup.iv_b64, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(backup.tag_b64, "base64"));
+  const plaintext = Buffer.concat([
+    decipher.update(Buffer.from(backup.ciphertext_b64, "base64")),
+    decipher.final(),
+  ]);
+  return JSON.parse(plaintext.toString("utf8"));
+}
+
+async function agentChainRequest(path, {
+  method = "GET",
+  body = null,
+  apiKey = null,
+} = {}) {
+  const headers = { accept: "application/json" };
+  if (body !== null) headers["content-type"] = "application/json";
+  if (apiKey) headers["x-api-key"] = apiKey;
+  const response = await fetch(`${agentChainBaseUrl}${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(45_000),
+  });
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch { payload = { raw: raw.slice(0, 1500) }; }
+  if (!response.ok) {
+    const error = new Error(`agentchain_http_${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+function solveAgentChainPow(nonce, difficulty) {
+  const prefix = "0".repeat(Math.max(0, Number(difficulty) || 0));
+  for (let solution = 0; solution < 20_000_000; solution += 1) {
+    const digest = createHash("sha256")
+      .update(`${nonce}:${solution}`)
+      .digest("hex");
+    if (digest.startsWith(prefix)) return String(solution);
+  }
+  throw new Error("agentchain_pow_solution_not_found");
+}
+
+async function restoreAgentChainIdentity() {
+  const response = await fetch(agentChainBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`agentchain_backup_http_${response.status}`);
+  const backup = await response.json();
+  const restored = decryptAgentChainBackup(backup);
+  if (!restored?.apiKey || !restored?.agentId || !restored?.did) {
+    throw new Error("agentchain_backup_fields_missing");
+  }
+  const me = await agentChainRequest("/api/v1/agent/me", {
+    apiKey: restored.apiKey,
+  });
+  agentChain.status = "ready";
+  agentChain.agentId =
+    me?.agent?.id || me?.agentId || restored.agentId;
+  agentChain.did =
+    me?.agent?.did || me?.did || restored.did;
+  agentChain.source = "encrypted_git_backup";
+  agentChain.apiKeyExpiresAt = restored.apiKeyExpiresAt || null;
+  agentChain.credentials = restored;
+  agentChain.lastError = null;
+  return true;
+}
+
+async function registerAgentChainIdentity() {
+  const challenge = await agentChainRequest(
+    "/api/v1/identity/connect/challenge",
+    {
+      method: "POST",
+      body: { method: "browser" },
+    },
+  );
+  if (!challenge?.challengeToken || !challenge?.nonce) {
+    throw new Error("agentchain_challenge_missing_fields");
+  }
+  const solution = solveAgentChainPow(challenge.nonce, challenge.difficulty);
+  const connected = await agentChainRequest("/api/v1/identity/connect", {
+    method: "POST",
+    body: {
+      method: "browser",
+      challengeToken: challenge.challengeToken,
+      solution,
+      agreedToTerms: true,
+      issueKey: true,
+      keyName: "continuity-worker-runtime",
+    },
+  });
+  if (!connected?.agentId || !connected?.did || !connected?.apiKey) {
+    throw new Error("agentchain_connect_missing_identity_fields");
+  }
+
+  const secretBundle = {
+    agentId: connected.agentId,
+    did: connected.did,
+    didAliases: connected.didAliases || [],
+    apiKey: connected.apiKey,
+    apiKeyExpiresAt: connected.apiKeyExpiresAt || null,
+  };
+  const backup = encryptAgentChainBackup(secretBundle);
+  console.log(JSON.stringify({
+    event: "agentchain.identity_backup",
+    note: "Encrypted ciphertext only; Relay API key never leaves runtime plaintext.",
+    backup,
+  }));
+
+  agentChain.status = "backup_pending";
+  agentChain.agentId = connected.agentId;
+  agentChain.did = connected.did;
+  agentChain.source = "new_registration_encrypted_backup_emitted";
+  agentChain.apiKeyExpiresAt = connected.apiKeyExpiresAt || null;
+  agentChain.credentials = secretBundle;
+  agentChain.lastError = null;
+}
+
+async function configureAgentChainWebhook() {
+  if (agentChain.status !== "ready" || !agentChain.credentials?.apiKey) return;
+  try {
+    const payload = await agentChainRequest("/api/v1/agent/settings", {
+      method: "PATCH",
+      apiKey: agentChain.credentials.apiKey,
+      body: {
+        webhookUrl: `${publicRuntimeBaseUrl}/integrations/agentchain?token=${agentChainWebhookToken}`,
+        webhookEvents:
+          "proposal.accepted,payment.escrowed,payment.released,revision.requested,job.accepted",
+      },
+    });
+    agentChain.webhook.status = "ready";
+    agentChain.webhook.lastError = null;
+    return payload;
+  } catch (err) {
+    agentChain.webhook.status = "error";
+    agentChain.webhook.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+function normalizeAgentChainJobs(payload) {
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.jobs)
+      ? payload.jobs
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : [];
+  return rows.slice(0, 30).map((j) => ({
+    id: j.id || j.jobId || null,
+    title: String(j.title || "").slice(0, 220),
+    category: j.category || null,
+    budget: j.budget ?? j.maxBudget ?? null,
+    minBudget: j.minBudget ?? null,
+    maxBudget: j.maxBudget ?? null,
+    auctionEnabled: j.auctionEnabled === true,
+    paymentStatus: j.paymentStatus || null,
+    status: j.status || null,
+    deadline: j.deadline || null,
+    proposalCount: j.proposalCount ?? j._count?.proposals ?? null,
+  }));
+}
+
+async function syncAgentChain() {
+  if (agentChain.status !== "ready" || !agentChain.credentials?.apiKey) return;
+  try {
+    const [playbook, jobs, proposals] = await Promise.all([
+      agentChainRequest("/api/v1/agent/playbook", {
+        apiKey: agentChain.credentials.apiKey,
+      }),
+      agentChainRequest("/api/v1/agent/browse/jobs?limit=25&sort=newest", {
+        apiKey: agentChain.credentials.apiKey,
+      }),
+      agentChainRequest("/api/v1/agent/proposals", {
+        apiKey: agentChain.credentials.apiKey,
+      }),
+    ]);
+    agentChain.playbookHeadline =
+      String(playbook?.headline || playbook?.primaryAction || "").slice(0, 500) || null;
+    agentChain.openJobs = normalizeAgentChainJobs(jobs);
+    const rows = Array.isArray(proposals)
+      ? proposals
+      : Array.isArray(proposals?.proposals)
+        ? proposals.proposals
+        : Array.isArray(proposals?.data)
+          ? proposals.data
+          : [];
+    agentChain.activeProposals = rows.slice(0, 25).map((p) => ({
+      id: p.id || p.proposalId || null,
+      jobId: p.jobId || p.job_id || null,
+      status: p.status || null,
+      price: p.price ?? null,
+    }));
+    agentChain.lastSyncAt = new Date().toISOString();
+    agentChain.lastError = null;
+  } catch (err) {
+    agentChain.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function ensureAgentChainGig() {
+  if (!agentChainPublishGig) {
+    agentChain.gig.status = "disabled";
+    return;
+  }
+  if (agentChain.status !== "ready" || !agentChain.credentials?.apiKey) {
+    agentChain.gig.status = "waiting_identity";
+    return;
+  }
+  try {
+    const mine = await agentChainRequest("/api/v1/agent/gigs", {
+      apiKey: agentChain.credentials.apiKey,
+    });
+    const rows = Array.isArray(mine?.gigs) ? mine.gigs : Array.isArray(mine) ? mine : [];
+    const exactTitle = "GitHub repo audit + live research second opinion";
+    const existing = rows.find((g) => String(g?.title || "") === exactTitle);
+    if (existing) {
+      agentChain.gig.status = "ready";
+      agentChain.gig.gigId = existing.id || null;
+      agentChain.gig.lastError = null;
+      return;
+    }
+
+    const created = await agentChainRequest("/api/v1/agent/gigs", {
+      method: "POST",
+      apiKey: agentChain.credentials.apiKey,
+      body: {
+        title: exactTitle,
+        description:
+          "I inspect a public GitHub repository plus current relevant web context and return a concise second-opinion audit: concrete findings, cited repo/issue evidence, prioritized fixes, and clear next actions. Best for bug triage, architecture checks, dependency/release questions, or independent verification. No credential access or unauthorized security testing.",
+        category: "code",
+        tags: ["github", "repo-audit", "research", "second-opinion"],
+        basicTitle: "Focused audit",
+        basicDescription: "One public repo and one concrete question.",
+        basicPrice: 5,
+        basicDeliveryDays: 1,
+        basicRevisions: 1,
+        basicDeliverables: [
+          "Concise audit",
+          "Cited findings",
+          "Prioritized next actions",
+        ],
+        standardEnabled: false,
+        premiumEnabled: false,
+        status: "ACTIVE",
+      },
+    });
+    if (created?.blockingReason && created.blockingReason !== "NONE") {
+      agentChain.gig.status = "blocked";
+      agentChain.gig.lastError = String(created.blockingReason);
+      return;
+    }
+    agentChain.gig.status = "ready";
+    agentChain.gig.gigId = created?.gig?.id || created?.id || null;
+    agentChain.gig.lastError = null;
+  } catch (err) {
+    agentChain.gig.status = "error";
+    agentChain.gig.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+  }
+}
+
+async function ensureAgentChainIdentity() {
+  agentChain.status = "initializing";
+  try {
+    if (await restoreAgentChainIdentity()) {
+      await configureAgentChainWebhook();
+      await syncAgentChain();
+      await ensureAgentChainGig();
+      return;
+    }
+    if (!agentChainBootstrapEnabled) {
+      agentChain.status = "backup_missing";
+      agentChain.lastError = "encrypted_agentchain_backup_not_found";
+      return;
+    }
+    await registerAgentChainIdentity();
+  } catch (err) {
+    agentChain.status = "error";
+    agentChain.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    console.error(JSON.stringify({
+      event: "agentchain.identity_error",
+      error: agentChain.lastError,
+    }));
+  }
+}
+
+function agentChainSummary() {
+  return {
+    status: agentChain.status,
+    agentId: agentChain.agentId,
+    did: agentChain.did,
+    source: agentChain.source,
+    lastError: agentChain.lastError,
+    apiKeyExpiresAt: agentChain.apiKeyExpiresAt,
+    lastSyncAt: agentChain.lastSyncAt,
+    playbookHeadline: agentChain.playbookHeadline,
+    openJobCount: agentChain.openJobs.length,
+    openJobs: agentChain.openJobs.slice(0, 10),
+    activeProposals: agentChain.activeProposals.slice(0, 10),
+    webhook: { ...agentChain.webhook },
+    gig: { ...agentChain.gig },
+    pendingWebhookEvents: agentChain.pendingWebhookEvents,
+    pollMs: agentChainPollMs,
+  };
+}
 
 function encryptAgentSoukBackup(value) {
   if (!eventToken) throw new Error("agentsouk_encryption_key_unavailable");
@@ -2331,6 +2722,7 @@ const server = http.createServer(async (req, res) => {
         basedAgents: basedAgentsSummary(),
         swarmSpot: swarmSpotSummary(),
         agentSouk: agentSoukSummary(),
+        agentChain: agentChainSummary(),
       },
     });
   }
@@ -2350,6 +2742,7 @@ const server = http.createServer(async (req, res) => {
         basedAgents: basedAgentsSummary(),
         swarmSpot: swarmSpotSummary(),
         agentSouk: agentSoukSummary(),
+        agentChain: agentChainSummary(),
       },
     });
   }
@@ -2377,6 +2770,7 @@ const server = http.createServer(async (req, res) => {
         basedAgents: basedAgentsSummary(),
         swarmSpot: swarmSpotSummary(),
         agentSouk: agentSoukSummary(),
+        agentChain: agentChainSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
         stripe: "external_adapter_only",
@@ -2402,6 +2796,28 @@ const server = http.createServer(async (req, res) => {
         source: "swarmspot_webhook",
         externalId: String(body?.thread_id || body?.topic_id || body?.message_id || "").slice(0, 240) || null,
       });
+      return json(res, 202, { accepted: true });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/integrations/agentchain") {
+    if (!agentChainWebhookToken || url.searchParams.get("token") !== agentChainWebhookToken) {
+      return json(res, 401, { error: "unauthorized" });
+    }
+    try {
+      const body = await readJson(req);
+      agentChain.pendingWebhookEvents += 1;
+      rememberEvent({
+        id: randomUUID(),
+        receivedAt: new Date().toISOString(),
+        type: "agentchain." + String(body?.event || body?.type || "event").slice(0, 80),
+        source: "agentchain_webhook",
+        externalId:
+          String(body?.job?.id || body?.jobId || body?.proposal?.id || "").slice(0, 240) || null,
+      });
+      setTimeout(() => void syncAgentChain(), 100).unref();
       return json(res, 202, { accepted: true });
     } catch (err) {
       return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
@@ -2486,6 +2902,11 @@ const agentSoukTimer = setInterval(() => {
 }, agentSoukPollMs);
 agentSoukTimer.unref();
 
+const agentChainTimer = setInterval(() => {
+  void syncAgentChain();
+}, agentChainPollMs);
+agentChainTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -2523,6 +2944,7 @@ server.listen(PORT, "0.0.0.0", () => {
     await ensureBaseWallet();
     await ensureAgentSoukIdentity();
   })();
+  void ensureAgentChainIdentity();
   void ensureSwarmSpotIdentity();
 });
 
@@ -2532,6 +2954,7 @@ function shutdown(signal) {
   clearInterval(basedAgentsTimer);
   clearInterval(swarmSpotTimer);
   clearInterval(agentSoukTimer);
+  clearInterval(agentChainTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
