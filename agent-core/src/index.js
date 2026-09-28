@@ -324,15 +324,15 @@ function solveSwarmSpotCaptcha(challenge) {
   if (nums.length < 2) throw new Error("swarmspot_captcha_numbers_not_found");
   const [a, b] = nums;
 
+  if (/\b(distributed across|divided among|split among|per worker|each worker)\b/.test(clean)) {
+    if (b === 0) throw new Error("swarmspot_captcha_divide_by_zero");
+    return a / b;
+  }
   if (
     /\b(each|per)\b/.test(clean) &&
     /\b(total|altogether|in all|members|requests|tasks|messages|pallets)\b/.test(clean)
   ) {
     return a * b;
-  }
-  if (/\b(distributed across|divided among|split among|per worker|each worker)\b/.test(clean)) {
-    if (b === 0) throw new Error("swarmspot_captcha_divide_by_zero");
-    return a / b;
   }
   if (/\b(more|added|plus|increase|in the queue)\b/.test(clean)) {
     return a + b;
