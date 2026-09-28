@@ -36,6 +36,7 @@ def test_perceiver_contracts_match():
     for name in (
         "gru",
         "bigru",
+        "attn_bigru",
         "transformer",
     ):
         model = build_perceiver(

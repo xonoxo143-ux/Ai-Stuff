@@ -206,6 +206,98 @@ class ByteBiGRUPerceiver(nn.Module):
         ).view(-1, 4, 4)
 
 
+class ByteAttentiveBiGRUPerceiver(nn.Module):
+    """BiGRU sequence encoder with one learned query per semantic slot."""
+
+    def __init__(
+        self,
+        embedding_dim: int = 48,
+        hidden_dim: int = 64,
+        layers: int = 2,
+    ) -> None:
+        super().__init__()
+        self.embedding = nn.Embedding(
+            256,
+            embedding_dim,
+        )
+        self.gru = nn.GRU(
+            embedding_dim,
+            hidden_dim,
+            layers,
+            batch_first=True,
+            bidirectional=True,
+        )
+        width = hidden_dim * 2
+        self.queries = nn.Parameter(
+            torch.randn(
+                4,
+                width,
+            )
+            * 0.02
+        )
+        self.heads = nn.ModuleList(
+            [
+                nn.Linear(
+                    width,
+                    4,
+                )
+                for _ in range(4)
+            ]
+        )
+
+    def forward(
+        self,
+        tokens: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        embedded = self.embedding(tokens)
+        lengths = mask.sum(1).cpu()
+        packed = nn.utils.rnn.pack_padded_sequence(
+            embedded,
+            lengths,
+            batch_first=True,
+            enforce_sorted=False,
+        )
+        packed_hidden, _ = self.gru(
+            packed
+        )
+        hidden, _ = nn.utils.rnn.pad_packed_sequence(
+            packed_hidden,
+            batch_first=True,
+            total_length=tokens.shape[1],
+        )
+
+        scores = torch.einsum(
+            "bld,sd->bsl",
+            hidden,
+            self.queries,
+        ) / (hidden.shape[-1] ** 0.5)
+        scores = scores.masked_fill(
+            ~mask[:, None, :],
+            -1e9,
+        )
+        weights = scores.softmax(
+            dim=-1
+        )
+        pooled = torch.einsum(
+            "bsl,bld->bsd",
+            weights,
+            hidden,
+        )
+        return torch.stack(
+            [
+                head(
+                    pooled[:, slot]
+                )
+                for slot, head
+                in enumerate(
+                    self.heads
+                )
+            ],
+            dim=1,
+        )
+
+
 class ByteTransformerPerceiver(nn.Module):
     def __init__(
         self,
@@ -307,6 +399,8 @@ def build_perceiver(name: str) -> nn.Module:
         return ByteGRUPerceiver()
     if name == "bigru":
         return ByteBiGRUPerceiver()
+    if name == "attn_bigru":
+        return ByteAttentiveBiGRUPerceiver()
     if name == "transformer":
         return ByteTransformerPerceiver()
     raise ValueError(
@@ -488,7 +582,7 @@ def main() -> None:
     parser.add_argument(
         "--models",
         default=(
-            "gru,bigru,transformer"
+            "gru,bigru,attn_bigru,transformer"
         ),
     )
     parser.add_argument(

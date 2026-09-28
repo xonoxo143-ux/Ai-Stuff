@@ -113,3 +113,53 @@ If the perception boundary survives replication:
 2. test round-trip paraphrases;
 3. replace some human-defined slots with learned continuous state;
 4. test whether memory/capabilities can consume that state without translating it back to English first.
+
+
+## First replicated gate
+
+Workflow `36435692995` completed successfully.
+
+Three-seed means at 200 updates:
+
+```text
+BiGRU          72.0% exact state   91.6% slot accuracy
+GRU            36.3% exact state   75.9% slot accuracy
+Transformer    36.3% exact state   77.9% slot accuracy
+```
+
+The Transformer was the fastest by a large margin:
+
+```text
+Transformer    ~46.5 steps/s
+GRU            ~21.8 steps/s
+BiGRU          ~14.8 steps/s
+```
+
+The strongest current quality result is therefore bidirectional recurrence, not the scratch-run Transformer result.
+
+### Candidate D — attentive BiGRU
+
+The first BiGRU compresses the whole utterance into its final forward/backward states.
+
+A new candidate keeps the same bidirectional recurrent sequence representation but gives each semantic slot its own learned query over byte positions:
+
+```text
+raw bytes
+→ BiGRU sequence
+→ person query
+→ color query
+→ animal query
+→ place query
+→ bounded semantic state
+```
+
+Local 100-update seed-1 screen:
+
+```text
+plain BiGRU       ~38% exact
+attentive BiGRU   ~62% exact
+```
+
+This is now being replicated.
+
+The interpretation is intentionally narrow: semantic-slot-specific readout may improve compositional perception. It does not imply global attention should replace recurrence.

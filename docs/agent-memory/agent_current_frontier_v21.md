@@ -202,3 +202,34 @@ A bounded TinyStories slice is used as training text only.
 The first real-text workflow trains both on the same data for 800 updates, records held-out bits/byte, saves our checkpoints, and emits short greedy samples.
 
 This is intentionally small enough to remain a screening experiment rather than a large training project.
+
+
+## Replicated language-perception gate
+
+Workflow `36435692995` completed successfully.
+
+Three-seed controlled semantic-extraction result:
+
+```text
+BiGRU          72.0% exact   91.6% slot accuracy
+GRU            36.3% exact   75.9% slot accuracy
+Transformer    36.3% exact   77.9% slot accuracy
+```
+
+Transformer perception remained much faster to train, but BiGRU generalized substantially better.
+
+The next cheap refinement keeps the BiGRU sequence encoder and replaces the single whole-sentence summary with **four learned semantic-slot queries**.
+
+A local 100-update check improved exact-state recovery from roughly 38% to 62% on the same held-out split, so the attentive-BiGRU variant has entered replicated testing.
+
+Current language specialization picture:
+
+```text
+production surface modeling:
+  GRU quality lead / Transformer speed lead
+
+perception:
+  BiGRU quality lead
+  Transformer speed lead
+  attentive-BiGRU under test
+```

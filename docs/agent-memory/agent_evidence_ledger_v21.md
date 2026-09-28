@@ -235,3 +235,31 @@ Design consequence:
 Scope:
 - synthetic 4-slot semantic state;
 - does not prove open-domain language or that the final Agent state should use these human-defined slots.
+
+
+---
+
+## E-LANG-003 — Bidirectional recurrence currently leads controlled language perception
+**Status:** PROMISING / REPLICATED SYNTHETIC RESULT
+
+In the first three-seed English-bytes→structured-state probe, validation held out both semantic combinations and sentence templates.
+
+Mean results:
+
+```text
+BiGRU          72.0% exact state   91.6% slot accuracy
+GRU            36.3% exact state   75.9% slot accuracy
+Transformer    36.3% exact state   77.9% slot accuracy
+```
+
+The Transformer trained about 3.1× faster than the BiGRU.
+
+Design consequence:
+- language perception and production should remain separately selectable;
+- bidirectional recurrence is the current quality baseline for perception;
+- faster Transformer perception remains economically relevant;
+- test slot-specific readout before increasing model size.
+
+Scope:
+- human-defined four-slot synthetic semantics;
+- does not establish open-domain understanding.

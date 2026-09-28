@@ -50,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m agent_language.perception_probe \
-            --models gru,bigru,transformer \
+            --models gru,bigru,attn_bigru,transformer \
             --seeds 11,22,33 \
             --steps 200 \
             --batch-size 64 \
