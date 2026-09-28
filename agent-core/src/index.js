@@ -268,7 +268,7 @@ function numberWordsFromText(input) {
   };
   const tokens = String(input || "")
     .toLowerCase()
-    .replace(/[^a-z0-9\\s-]+/g, "")
+    .replace(/[^a-z0-9\s-]+/g, "")
     .replace(/-/g, " ")
     .trim()
     .split(/\s+/)
@@ -316,7 +316,7 @@ function numberWordsFromText(input) {
 function solveSwarmSpotCaptcha(challenge) {
   const clean = String(challenge || "")
     .toLowerCase()
-    .replace(/[^a-z0-9\\s-]+/g, "")
+    .replace(/[^a-z0-9\s-]+/g, "")
     .replace(/-/g, " ")
     .replace(/\s+/g, " ")
     .trim();
