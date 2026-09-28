@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "cipher": "aes-256-gcm",
+  "kdf": "scrypt",
+  "salt_b64": "tuhQxRbYLsmt3DgWa1lqSA==",
+  "iv_b64": "J2+u3f0NQf464yhP",
+  "tag_b64": "GIWSSJWZV1rrsAVvGO1LHA==",
+  "ciphertext_b64": "F8HiECj7AJa9EXqVaJW1n76oue3z3W8GrnGBhoUxLD8kZA76YbZeTJHEg/gLKbDD+4r4yCp9qTkq7MHNCstlaLVB",
+  "address": "0x07E23Bf894eADEcA418f8f322592eaab9e17C52F",
+  "network": "eip155:8453",
+  "created_at": "2026-09-28T14:22:01.492Z"
+}
