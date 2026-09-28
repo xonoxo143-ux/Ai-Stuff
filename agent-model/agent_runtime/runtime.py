@@ -42,6 +42,7 @@ class TurnTrace:
     offers: list[dict] = field(default_factory=list)
     executions: list[ExecutionRecord] = field(default_factory=list)
     response: str = ""
+    response_metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -50,6 +51,7 @@ class TurnTrace:
             "offers": self.offers,
             "executions": [asdict(x) for x in self.executions],
             "response": self.response,
+            "response_metadata": dict(self.response_metadata),
         }
 
 
@@ -205,6 +207,7 @@ class AgentRuntime:
         for message in composed.messages:
             if message.kind == "assistant_text":
                 response = str(message.content)
+                trace.response_metadata = dict(message.metadata)
                 break
         if not response and composed.error:
             response = "I could not compose a response."

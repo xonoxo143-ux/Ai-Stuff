@@ -1,0 +1,165 @@
+name: Agent Language Spine Screen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight Agent runtime
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e agent-model --no-deps
+
+      - name: Build pinned llama.cpp
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libcurl4-openssl-dev
+          git clone --depth 1 --branch v0.5.0 \
+            https://github.com/ggml-org/llama.cpp.git \
+            /tmp/llama.cpp
+          cmake \
+            -S /tmp/llama.cpp \
+            -B /tmp/llama.cpp/build \
+            -G Ninja \
+            -DGGML_NATIVE=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/llama.cpp/build \
+            --target llama-server \
+            -j 2
+
+      - name: Record runner environment
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/spine-results
+          {
+            echo "llama.cpp tag: v0.5.0"
+            echo "llama.cpp commit: $(git -C /tmp/llama.cpp rev-parse HEAD)"
+            echo "nproc: $(nproc)"
+            uname -a
+            lscpu
+            free -h
+          } > /tmp/spine-results/runner.txt
+
+      - name: Run same-runner model comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          run_candidate() {
+            local name="$1"
+            local hf_model="$2"
+            local reasoning="$3"
+            local port=8080
+            local log="/tmp/spine-results/${name}-server.log"
+            local start_ns
+            local ready_ns
+            local pid
+            local ready=0
+            local -a reasoning_args=()
+
+            if [[ "${reasoning}" == "off" ]]; then
+              reasoning_args=(--reasoning off)
+            fi
+
+            start_ns="$(date +%s%N)"
+
+            /tmp/llama.cpp/build/bin/llama-server \
+              -hf "${hf_model}" \
+              --alias candidate \
+              --host 127.0.0.1 \
+              --port "${port}" \
+              -c 2048 \
+              -np 1 \
+              --threads "$(nproc)" \
+              --threads-batch "$(nproc)" \
+              --jinja \
+              "${reasoning_args[@]}" \
+              >"${log}" 2>&1 &
+            pid=$!
+
+            for _ in $(seq 1 180); do
+              if curl -fsS \
+                "http://127.0.0.1:${port}/health" \
+                >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              if ! kill -0 "${pid}" 2>/dev/null; then
+                echo "llama-server exited for ${name}"
+                cat "${log}"
+                exit 1
+              fi
+              sleep 2
+            done
+
+            if [[ "${ready}" != "1" ]]; then
+              echo "llama-server never became ready for ${name}"
+              cat "${log}"
+              kill "${pid}" || true
+              exit 1
+            fi
+
+            ready_ns="$(date +%s%N)"
+            rss_before="$(ps -o rss= -p "${pid}" | tr -d ' ')"
+
+            PYTHONPATH=agent-model \
+              python -m agent_runtime.spine_benchmark \
+                --base-url "http://127.0.0.1:${port}" \
+                --model candidate \
+                --repeats 2 \
+                --max-tokens 96 \
+                --output "/tmp/spine-results/${name}.json"
+
+            rss_after="$(ps -o rss= -p "${pid}" | tr -d ' ')"
+
+            python - <<PY
+          import json
+          from pathlib import Path
+          meta = {
+              "candidate": "${name}",
+              "hf_model": "${hf_model}",
+              "server_load_seconds": (int("${ready_ns}") - int("${start_ns}")) / 1e9,
+              "rss_kb_before_suite": int("${rss_before}" or 0),
+              "rss_kb_after_suite": int("${rss_after}" or 0),
+          }
+          Path("/tmp/spine-results/${name}-meta.json").write_text(
+              json.dumps(meta, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+            kill "${pid}" || true
+            wait "${pid}" || true
+            sleep 2
+          }
+
+          run_candidate \
+            qwen3-1.7b \
+            ggml-org/Qwen3-1.7B-GGUF:Q4_K_M \
+            off
+
+          run_candidate \
+            falcon-h1-1.5b \
+            tiiuae/Falcon-H1-1.5B-Instruct-GGUF:Q4_K_M \
+            none
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Language-Spine-Screen
+          path: /tmp/spine-results/
+          retention-days: 30

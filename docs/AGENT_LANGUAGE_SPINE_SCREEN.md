@@ -118,3 +118,36 @@ Next:
 1. run the same small conversation suite against A and B;
 2. add C only after its state-reuse path is verified;
 3. keep all prompts/results as comparable artifacts.
+
+
+## Automated first screen
+
+Workflow:
+
+```text
+.github/workflows/agent-language-spine-screen.yml
+```
+
+The first rigorous screen runs both candidates sequentially on the **same GitHub Actions runner** using the same pinned llama.cpp release and Q4_K_M quantization.
+
+Initial pair:
+
+```text
+ggml-org/Qwen3-1.7B-GGUF:Q4_K_M
+tiiuae/Falcon-H1-1.5B-Instruct-GGUF:Q4_K_M
+```
+
+Qwen reasoning is disabled for this first small-model latency/quality comparison.
+
+The suite records:
+
+- automatic exact/factual/logic/recall checks;
+- raw explanation/code/flexibility responses for manual inspection;
+- model-only versus hybrid Agent mode;
+- per-turn latency;
+- completion-token throughput when the server reports token counts;
+- model-server load time;
+- process RSS before/after the suite;
+- complete server logs and runner information.
+
+This first screen is deliberately small. It chooses what deserves a deeper benchmark; it is not a final language-model ranking.
