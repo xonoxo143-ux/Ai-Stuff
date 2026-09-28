@@ -1,8 +1,18 @@
 import http from "node:http";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  randomUUID,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
+import { execFile } from "node:child_process";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -27,6 +37,12 @@ const basedAgentsPollMs = Math.max(
   300_000,
   Number(process.env.BASEDAGENTS_POLL_MS || 3_600_000),
 );
+const basedAgentsBootstrapEnabled = process.env.BASEDAGENTS_BOOTSTRAP === "true";
+const basedAgentsBackupUrl =
+  process.env.BASEDAGENTS_IDENTITY_BACKUP_URL ||
+  "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/state/basedagents-identity.enc.json";
+const basedAgentsHome = "/tmp/agent-home";
+const basedAgentsKeypairPath = `${basedAgentsHome}/.basedagents/keys/continuity-agent-keypair.json`;
 
 const bootId = randomUUID();
 const startedAt = new Date().toISOString();
@@ -64,6 +80,217 @@ const basedAgentsState = {
   rejectedCount: 0,
   pollMs: basedAgentsPollMs,
 };
+
+const basedAgentsIdentity = {
+  status: "not_initialized",
+  registered: false,
+  agentId: null,
+  profileUrl: null,
+  source: null,
+  lastError: null,
+  cliVersion: null,
+};
+
+function execFileAsync(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      command,
+      args,
+      { maxBuffer: 2 * 1024 * 1024, timeout: 120_000, ...options },
+      (error, stdout, stderr) => {
+        if (error) {
+          error.stdout = stdout;
+          error.stderr = stderr;
+          reject(error);
+          return;
+        }
+        resolve({ stdout, stderr });
+      },
+    );
+  });
+}
+
+function parseCliJson(stdout) {
+  const text = String(stdout || "").trim();
+  if (!text) throw new Error("basedagents_empty_json_output");
+  return JSON.parse(text.split(/\r?\n/).filter(Boolean).at(-1));
+}
+
+async function runBasedAgentsCli(args) {
+  const result = await execFileAsync(
+    "npx",
+    ["--yes", "basedagents@latest", ...args],
+    {
+      env: { ...process.env, HOME: basedAgentsHome },
+    },
+  );
+  return {
+    json: args.includes("--json") ? parseCliJson(result.stdout) : null,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+function encryptIdentityBackup(plaintext, agentMeta) {
+  if (!eventToken) throw new Error("identity_encryption_key_unavailable");
+  const salt = randomBytes(16);
+  const iv = randomBytes(12);
+  const key = scryptSync(eventToken, salt, 32);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return {
+    version: 1,
+    cipher: "aes-256-gcm",
+    kdf: "scrypt",
+    salt_b64: salt.toString("base64"),
+    iv_b64: iv.toString("base64"),
+    tag_b64: tag.toString("base64"),
+    ciphertext_b64: ciphertext.toString("base64"),
+    agent_id: agentMeta.agent_id || null,
+    name: agentMeta.name || null,
+    profile_url: agentMeta.profile_url || null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function decryptIdentityBackup(backup) {
+  if (!eventToken) throw new Error("identity_decryption_key_unavailable");
+  if (!backup || backup.version !== 1 || backup.cipher !== "aes-256-gcm") {
+    throw new Error("unsupported_identity_backup");
+  }
+
+  const salt = Buffer.from(backup.salt_b64, "base64");
+  const iv = Buffer.from(backup.iv_b64, "base64");
+  const tag = Buffer.from(backup.tag_b64, "base64");
+  const ciphertext = Buffer.from(backup.ciphertext_b64, "base64");
+  const key = scryptSync(eventToken, salt, 32);
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
+
+async function restoreBasedAgentsIdentity() {
+  const response = await fetch(basedAgentsBackupUrl, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`identity_backup_http_${response.status}`);
+
+  const backup = await response.json();
+  const plaintext = decryptIdentityBackup(backup);
+  await mkdir(`${basedAgentsHome}/.basedagents/keys`, { recursive: true });
+  await writeFile(basedAgentsKeypairPath, plaintext, { mode: 0o600 });
+  await chmod(basedAgentsKeypairPath, 0o600);
+
+  const idResult = await runBasedAgentsCli([
+    "id",
+    "--keypair",
+    basedAgentsKeypairPath,
+    "--json",
+  ]);
+  if (!idResult.json?.registered) throw new Error("restored_identity_not_registered");
+
+  basedAgentsIdentity.status = "ready";
+  basedAgentsIdentity.registered = true;
+  basedAgentsIdentity.agentId = idResult.json.agent_id || backup.agent_id || null;
+  basedAgentsIdentity.profileUrl = idResult.json.profile_url || backup.profile_url || null;
+  basedAgentsIdentity.source = "encrypted_git_backup";
+  basedAgentsIdentity.lastError = null;
+  return true;
+}
+
+async function registerBasedAgentsIdentity() {
+  await mkdir(`${basedAgentsHome}/.basedagents/keys`, { recursive: true });
+
+  let name = "Continuity-Worker-541";
+  let result;
+  try {
+    result = await runBasedAgentsCli([
+      "register",
+      "--name",
+      name,
+      "--description",
+      "Transparent autonomous software and research worker for bounded paid tasks.",
+      "--capabilities",
+      "research,code,data,automation",
+      "--json",
+    ]);
+  } catch (err) {
+    const combined = `${err?.stdout || ""}\n${err?.stderr || ""}`;
+    if (!combined.includes("409") && !combined.toLowerCase().includes("taken")) throw err;
+    name = `Continuity-Worker-541-${bootId.slice(0, 6)}`;
+    result = await runBasedAgentsCli([
+      "register",
+      "--name",
+      name,
+      "--description",
+      "Transparent autonomous software and research worker for bounded paid tasks.",
+      "--capabilities",
+      "research,code,data,automation",
+      "--json",
+    ]);
+  }
+
+  const registeredPath = result.json?.keypair_path;
+  if (!registeredPath || !result.json?.agent_id) {
+    throw new Error("registration_missing_identity_fields");
+  }
+
+  const keypairBytes = await readFile(registeredPath);
+  await writeFile(basedAgentsKeypairPath, keypairBytes, { mode: 0o600 });
+  await chmod(basedAgentsKeypairPath, 0o600);
+
+  const backup = encryptIdentityBackup(keypairBytes, result.json);
+  console.log(
+    JSON.stringify({
+      event: "basedagents.identity_backup",
+      note: "Encrypted ciphertext only; private key never leaves runtime plaintext.",
+      backup,
+    }),
+  );
+
+  basedAgentsIdentity.status = "backup_pending";
+  basedAgentsIdentity.registered = true;
+  basedAgentsIdentity.agentId = result.json.agent_id;
+  basedAgentsIdentity.profileUrl = result.json.profile_url || null;
+  basedAgentsIdentity.source = "new_registration_encrypted_backup_emitted";
+  basedAgentsIdentity.lastError = null;
+}
+
+async function ensureBasedAgentsIdentity() {
+  basedAgentsIdentity.status = "initializing";
+  try {
+    const versionResult = await execFileAsync(
+      "npx",
+      ["--yes", "basedagents@latest", "--version"],
+      { env: { ...process.env, HOME: basedAgentsHome } },
+    );
+    basedAgentsIdentity.cliVersion = String(versionResult.stdout || "").trim().slice(0, 80) || null;
+
+    if (await restoreBasedAgentsIdentity()) return;
+
+    if (!basedAgentsBootstrapEnabled) {
+      basedAgentsIdentity.status = "backup_missing";
+      basedAgentsIdentity.lastError = "encrypted_identity_backup_not_found";
+      return;
+    }
+
+    await registerBasedAgentsIdentity();
+  } catch (err) {
+    basedAgentsIdentity.status = "error";
+    basedAgentsIdentity.lastError =
+      err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300);
+    console.error(
+      JSON.stringify({
+        event: "basedagents.identity_error",
+        error: basedAgentsIdentity.lastError,
+      }),
+    );
+  }
+}
 
 function json(res, status, body) {
   const data = JSON.stringify(body);
@@ -482,6 +709,15 @@ function verifyTaskBountySignature(rawBody, provided) {
 
 function basedAgentsSummary() {
   return {
+    identity: {
+      status: basedAgentsIdentity.status,
+      registered: basedAgentsIdentity.registered,
+      agentId: basedAgentsIdentity.agentId,
+      profileUrl: basedAgentsIdentity.profileUrl,
+      source: basedAgentsIdentity.source,
+      lastError: basedAgentsIdentity.lastError,
+      cliVersion: basedAgentsIdentity.cliVersion,
+    },
     provider: basedAgentsState.provider,
     mode: basedAgentsState.mode,
     lastAttemptAt: basedAgentsState.lastAttemptAt,
@@ -680,6 +916,7 @@ server.listen(PORT, "0.0.0.0", () => {
   );
   void syncTaskBounty();
   void syncBasedAgents();
+  void ensureBasedAgentsIdentity();
 });
 
 function shutdown(signal) {
