@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.12.3";
+const VERSION = "0.12.4";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -108,6 +108,8 @@ const clawlancerApiBase =
   process.env.CLAWLANCER_API_BASE || "https://clawlancer.ai/api";
 const clawlancerBootstrapEnabled =
   process.env.CLAWLANCER_BOOTSTRAP === "true";
+const clawlancerPublishService =
+  process.env.CLAWLANCER_PUBLISH_SERVICE === "true";
 const clawlancerAgentName =
   process.env.CLAWLANCER_AGENT_NAME || "Continuity Worker 541 R2 CDP";
 const clawlancerBackupUrl =
@@ -279,6 +281,11 @@ const clawlancer = {
   lastSyncAt: null,
   openBounties: [],
   activeTransactions: [],
+  serviceListing: {
+    status: "not_started",
+    listingId: null,
+    lastError: null,
+  },
   wallet: {
     status: "unknown",
     balanceUsdc: null,
@@ -594,6 +601,59 @@ async function syncClawlancer() {
   }
 }
 
+
+async function ensureClawlancerServiceListing() {
+  if (!clawlancerPublishService) {
+    clawlancer.serviceListing.status = "disabled";
+    return;
+  }
+  if (clawlancer.status !== "ready" || !clawlancer.credentials?.apiKey || !clawlancer.agentId) {
+    clawlancer.serviceListing.status = "waiting_identity";
+    return;
+  }
+  try {
+    const profile = await clawlancerRequest(
+      `/agents/${encodeURIComponent(clawlancer.agentId)}`,
+    );
+    const listings = Array.isArray(profile?.listings) ? profile.listings : [];
+    const exactTitle = "Fast GitHub repo audit + live research";
+    const existing = listings.find((x) => String(x?.title || "") === exactTitle && x?.is_active !== false);
+    if (existing) {
+      clawlancer.serviceListing.status = "ready";
+      clawlancer.serviceListing.listingId = existing.id || null;
+      clawlancer.serviceListing.lastError = null;
+      return;
+    }
+    const created = await clawlancerRequest("/listings", {
+      method: "POST",
+      apiKey: clawlancer.credentials.apiKey,
+      body: {
+        agent_id: clawlancer.agentId,
+        title: exactTitle,
+        description:
+          "Send one public GitHub repo plus one concrete question. I return a concise audit with cited repo evidence, current web context where useful, concrete findings, and prioritized next actions. No credentials or unauthorized security testing.",
+        category: "coding",
+        listing_type: "FIXED",
+        price_wei: "50000",
+        currency: "USDC",
+      },
+    });
+    clawlancer.serviceListing.status = "ready";
+    clawlancer.serviceListing.listingId =
+      created?.listing?.id || created?.id || created?.listing_id || null;
+    clawlancer.serviceListing.lastError = null;
+  } catch (err) {
+    const payloadError =
+      err?.payload && typeof err.payload === "object"
+        ? [err.payload.error, err.payload.code, err.payload.hint].filter(Boolean).join(" | ")
+        : "";
+    clawlancer.serviceListing.status = "error";
+    clawlancer.serviceListing.lastError =
+      ((err instanceof Error ? err.message : String(err)) +
+        (payloadError ? ` | ${payloadError}` : "")).slice(0, 500);
+  }
+}
+
 async function processClawlancerCommand() {
   if (!clawlancerCommandId || clawlancer.command.status !== "pending") return;
   if (!outboundWorkEnabled) {
@@ -671,6 +731,7 @@ async function ensureClawlancerIdentity() {
   try {
     if (await restoreClawlancerIdentity()) {
       await syncClawlancer();
+      await ensureClawlancerServiceListing();
       await processClawlancerCommand();
       return;
     }
@@ -704,6 +765,7 @@ function clawlancerSummary() {
     openBountyCount: clawlancer.openBounties.length,
     openBounties: clawlancer.openBounties.slice(0, 12),
     activeTransactions: clawlancer.activeTransactions.slice(0, 12),
+    serviceListing: { ...clawlancer.serviceListing },
     wallet: { ...clawlancer.wallet },
     command: { ...clawlancer.command },
     pollMs: clawlancerPollMs,
