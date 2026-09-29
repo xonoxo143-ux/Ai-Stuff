@@ -244,40 +244,59 @@ Important current mappings include:
 - "facts/entities connected by shared identity" → factor graphs, graph networks, message passing, relational inductive bias;
 - "same processor across problem families" → neural algorithmic reasoning, shared processors, systematic/generalization benchmarks.
 
-## 9. Next high-information gate: transfer
+## 9. Transfer gate — completed
 
-Do **not** spend the next cycle tuning Cognitive Core v0.
+Cognitive Transfer v0 tested a genuinely new sixth family:
 
-The next question is:
+```text
+relation traversal
+→ associative memory lookup
+→ inferred rule transformation
+```
 
-> Did the shared core learn reusable machinery for thinking, or merely learn five tasks simultaneously?
+Three-seed result after 1024 task-6 updates:
 
-Compare on a genuinely held-out sixth task family:
+```text
+arm                    final IID   final OOD
+fresh                     55.5%       28.0%
+ordinary transfer          96.0%       40.5%
+frozen-how adapter         23.3%       21.0%
+```
 
-\`\`\`text
-A. fresh core
-   learn task 6 from scratch
+Zero-shot task-6 OOD from the pretrained core was only **8.7%**.
 
-B. current shared core
-   pretrained on existing families
-   → adapt to task 6
+Ordinary full fine-tuning improved task-6 OOD by **12.5 points** over fresh training, but this is below the project's high-leverage threshold and did not produce strong compositional extrapolation.
 
-C. explicit reusable-computation baseline
-   separate/recompose WHAT computation is required
-   from HOW the computation is performed
-\`\`\`
+More importantly, old-family OOD fell from **69.7% to about 7.1%** after ordinary task-6 fine-tuning: a **62.6-point loss**.
 
-Measure zero-shot behavior and the learning curve at small data/update budgets.
+The frozen-how adapter used only **1,095 trainable parameters**, but finished below the fresh baseline.
 
-Primary metric:
+Interpretation:
 
-> examples or updates required to reach the same OOD target.
+- some ordinary transfer exists;
+- it is not large enough to justify another tuning cycle;
+- the current frozen reusable-"how" hypothesis failed this test;
+- full fine-tuning catastrophically forgets old capabilities;
+- 96.0% IID versus 40.5% OOD for ordinary transfer points to a compositional/algorithmic generalization failure rather than simple inability to fit task 6.
 
-A small improvement such as 2000 → 1700 examples is not enough to justify a new architecture branch.
+### Next high-information gate
 
-A reduction such as 2000 → 500 is interesting.
+Do **not** localize or optimize the small transfer effect yet.
 
-A reduction such as 2000 → 100, or strong zero-/few-shot composition, is a major result.
+Research first:
+
+> What mechanism gives strong compositional OOD generalization when familiar operations must be chained in a genuinely new way?
+
+Primary neighboring terms:
+
+- systematic compositional generalization;
+- neural algorithmic reasoning / processor transfer;
+- modular neural networks and modular meta-learning;
+- program induction / learned execution;
+- variable binding / role-filler representations;
+- task/operator graphs and learned operator sequencing.
+
+The next build must compare a materially stronger compositional mechanism against the current factor-core baseline.
 
 ## 10. Current demotions / stopped branches
 
@@ -289,7 +308,9 @@ Do not keep rescuing these without new evidence:
 - simple one-shot destructive-update importance scores;
 - static capacity as a solution to development;
 - extra recurrent depth past the observed saturation point;
-- small aggregate recurrence gains as a reason for prolonged tuning.
+- small aggregate recurrence gains as a reason for prolonged tuning;
+- frozen-how adaptation on Cognitive Transfer v0;
+- ordinary full fine-tuning as a lifelong-learning solution.
 
 ## 11. Non-negotiable evaluation rule
 
