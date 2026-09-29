@@ -250,9 +250,71 @@ tick(); setInterval(tick,5000);
 </script>
 </body></html>`;
 
+const openApi = {
+  openapi: "3.1.0",
+  info: {
+    title: "SELF-ROOT BTC Arb Monitor",
+    version: "0.1.0",
+    description: "Live market-data monitor comparing matching Kalshi and Polymarket US 15-minute BTC BRTI contracts. No trade execution."
+  },
+  servers: [{ url: "https://browser-worker-production-c691.up.railway.app" }],
+  paths: {
+    "/api/scan": {
+      get: {
+        operationId: "scanBtcArbitrage",
+        summary: "Compare the current matching BTC 15-minute books",
+        description: "Returns matched contract metadata, displayed best bid/ask depth, fee estimates, and the best two-leg cross-venue route for a small test size.",
+        responses: {
+          "200": {
+            description: "Current matched-market scan",
+            content: {
+              "application/json": {
+                schema: { type: "object" }
+              }
+            }
+          },
+          "503": { description: "Current market metadata or book unavailable" }
+        }
+      }
+    },
+    "/health": {
+      get: {
+        operationId: "health",
+        summary: "Service health",
+        responses: { "200": { description: "Healthy" } }
+      }
+    }
+  }
+};
+
+const llmsText = [
+  "# SELF-ROOT BTC Arb Monitor",
+  "",
+  "A live market-data service for matching Kalshi and Polymarket US 15-minute BTC contracts.",
+  "",
+  "## Public endpoints",
+  "- GET /api/scan — current cross-venue comparison, displayed depth, fee estimates, and best route",
+  "- GET /openapi.json — OpenAPI 3.1 description",
+  "- GET /health — health status",
+  "",
+  "The scanner verifies that the contracts share the same CF Benchmarks BRTI window and benchmark before comparing them.",
+  "It does not execute trades and does not guarantee profit or quote persistence.",
+  "",
+  "Founder access / alerting: " + PAYMENT_LINK,
+  "Contact: " + CONTACT_EMAIL
+].join("\n");
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   res.setHeader("x-content-type-options", "nosniff");
+  if (u.pathname === "/openapi.json") {
+    res.writeHead(200, {"content-type":"application/json","cache-control":"public, max-age=300"});
+    return res.end(JSON.stringify(openApi));
+  }
+  if (u.pathname === "/llms.txt") {
+    res.writeHead(200, {"content-type":"text/plain; charset=utf-8","cache-control":"public, max-age=300"});
+    return res.end(llmsText);
+  }
   if (u.pathname === "/health") {
     res.writeHead(200, {"content-type":"application/json"});
     return res.end(JSON.stringify({ok:true, service:"self-root-arb-monitor"}));
