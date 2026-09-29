@@ -14,7 +14,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.15.0";
+const VERSION = "0.15.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -160,6 +160,7 @@ const recentEvents = [];
 const taskQueue = new Map();
 const motorQueue = [];
 const motorCompleted = new Map();
+let motorBootstrapConsumed = false;
 const motorAllowedActions = new Set([
   "system.ping",
   "continuity.verify",
@@ -185,7 +186,7 @@ function motorSummary() {
   const leased = motorQueue.filter((item) => item.status === "leased" && Date.parse(item.expiresAt) > now);
   return {
     configured: Boolean(motorAgentToken),
-    bootstrapEnabled: Boolean(motorBootstrapToken),
+    bootstrapEnabled: Boolean(motorBootstrapToken) && !motorBootstrapConsumed,
     agentMailWebhookConfigured: Boolean(agentMailWebhookToken),
     allowedActions: Array.from(motorAllowedActions),
     pending: pending.length,
@@ -3849,6 +3850,15 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/v1/motor/bootstrap") {
     if (!motorBootstrapAuthorized(req)) return json(res, 401, { error: "unauthorized" });
     if (!motorAgentToken) return json(res, 503, { error: "motor_not_configured" });
+    if (motorBootstrapConsumed) return json(res, 410, { error: "bootstrap_already_consumed" });
+    motorBootstrapConsumed = true;
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      type: "motor.bootstrap_consumed",
+      source: "smolmachine",
+      externalId: null,
+    });
     return json(res, 200, {
       motorToken: motorAgentToken,
       runtimeBaseUrl: publicRuntimeBaseUrl,
