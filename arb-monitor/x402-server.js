@@ -59,9 +59,17 @@ const paidResourceConfig = {
   mimeType: "application/json",
 };
 
+const CANONICAL_PATH = "/api/btc-kalshi-polymarket-arbitrage";
+
+app.get("/api/scan", (req, res) => {
+  const query = req.originalUrl.includes("?")
+    ? req.originalUrl.slice(req.originalUrl.indexOf("?"))
+    : "";
+  res.redirect(308, CANONICAL_PATH + query);
+});
+
 const paidRoutes = {
-  "GET /api/scan": paidResourceConfig,
-  "GET /api/btc-kalshi-polymarket-arbitrage": paidResourceConfig,
+  ["GET " + CANONICAL_PATH]: paidResourceConfig,
 };
 
 app.use(paymentMiddleware(paidRoutes, resourceServer));
@@ -96,8 +104,7 @@ const paidScanHandler = async (req, res) => {
   }
 };
 
-app.get("/api/scan", paidScanHandler);
-app.get("/api/btc-kalshi-polymarket-arbitrage", paidScanHandler);
+app.get(CANONICAL_PATH, paidScanHandler);
 
 app.get("/openapi.json", (_req, res) => {
   res.json({
@@ -177,7 +184,7 @@ app.get("/llms.txt", (_req, res) => {
     "",
     "## Endpoints",
     "- GET /api/btc-kalshi-polymarket-arbitrage — $0.01 USDC via x402 on Base mainnet; current fee-adjusted cross-venue scan",
-    "- GET /api/scan — backward-compatible paid alias",
+    "- GET /api/scan — compatibility redirect to the canonical paid route",
     "- GET /openapi.json — machine-readable OpenAPI 3.1 discovery document",
     "- GET /.well-known/x402 — x402 discovery compatibility document",
     "- GET /health — free liveness check",
