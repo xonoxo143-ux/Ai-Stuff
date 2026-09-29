@@ -106,9 +106,9 @@ Current service classification:
 | Service | Classification | Current state |
 | --- | --- | --- |
 | `browser-worker-wNUX` | **LIVE Agent Core runtime** | successful deployment |
-| `browser-worker-v2` | historical browser-worker experiment | sleeping |
+| `browser-worker-v2` | historical browser-worker experiment | successful deployment; retained only as provenance |
 | `browser-worker-bYcU` | historical experiment | sleeping |
-| `browser-worker` | historical experiment | failed |
+| `browser-worker` | historical experiment | successful deployment; retained only as provenance |
 | `browser-core` | historical experiment | failed |
 
 The separate Railway project `agent-v1-lab` is currently empty and historical.
@@ -121,8 +121,10 @@ Current live implementation:
 
 - Railway service: `browser-worker-wNUX`
 - runtime: `continuity-agent-core`
-- current deployed release: **v0.15.2**
-- deployment source is pinned to a specific Git commit
+- current deployed release: **v0.17.0**
+- code-release commit: `905ca640599b2dc2c2aae65a4333f1fc2f63e200`
+- successful production deployment: `ccb90cd0-9fe0-45dd-865d-cd95344a316f`
+- deployment source is pinned to that exact code-release commit
 - public healthcheck path: `/health`
 - outbound work: enabled
 - direct financial actions: disabled
@@ -226,19 +228,19 @@ There is intentionally **no arbitrary remote-shell action** in the motor protoco
 
 The one-time installer bootstrap was disabled after successful installation. The permanent token remains only in managed runtime secret storage and the machine's owner-only secrets directory.
 
-### Remaining ingress gap
+### AgentMail ingress — live
 
-The remaining missing link is the direct **AgentMail → Agent Core** webhook registration.
+The direct **AgentMail → Agent Core** webhook is registered and live.
 
-Agent Core already exposes a signed `message.received` ingress. Mail with an exact subject of:
+Agent Core exposes a signed `message.received` ingress. Mail with an exact subject of:
 
 ```text
 SELF-ROOT COMMAND: <allowlisted-action>
 ```
 
-can be translated into a bounded motor command, and the sender policy currently trusts only `oldcraft541@agentmail.to`.
+is translated into a bounded motor command, and the sender policy currently trusts only `oldcraft541@agentmail.to`.
 
-Once the AgentMail provider webhook is registered to that ingress, the full path becomes:
+Verified live path:
 
 ```text
 SELF-ROOT / AgentMail
@@ -256,7 +258,9 @@ motor queue
 persistent smolmachine
 ```
 
-Do **not** create a second agent or a broad account-wide machine-exec credential to solve this.
+Production startup logs report `agentmail.webhook_ready`, and the live motor is polling and acknowledging commands with HTTP 200 responses.
+
+Do **not** create a second agent or a broad account-wide machine-exec credential.
 
 ## Autonomous work control plane (v0.17.0)
 
@@ -287,6 +291,24 @@ Worker-facing authenticated endpoints:
 - `POST /v1/reports/ack`
 
 The runtime still refuses autonomous spending and arbitrary remote shell access. General coding or research jobs require a compatible episodic reasoning worker to consume leases; Agent Core coordinates and remembers the work but does not pretend its deterministic scheduler can author arbitrary deliverables itself.
+
+## Current handoff checkpoint — 2026-09-29
+
+Agent Core v0.17.0 is committed, deployed, and live.
+
+- implementation branch: `agent-core`
+- code-release SHA: `905ca640599b2dc2c2aae65a4333f1fc2f63e200`
+- live Railway service: `browser-worker-wNUX`
+- production deployment: `ccb90cd0-9fe0-45dd-865d-cd95344a316f`
+- runtime startup reports version `0.17.0`
+- AgentMail webhook is ready
+- motor polling/acknowledgements are live
+- direct financial actions remain disabled
+- outbound work remains enabled
+
+Docs-only commits may advance the `agent-core` branch beyond the pinned code-release SHA. Do not mistake a later documentation commit for a new runtime release.
+
+The next major capability gap is **episodic execution**: Agent Core can discover, qualify, lease, checkpoint, persist, recover, and account for work, but a compatible reasoning worker still needs to consume leases and execute general coding/research deliverables. The next end-to-end milestone is to connect that worker and run a real task through the v0.17 lifecycle without manual orchestration.
 
 ## Recovery sequence for a new worker
 
