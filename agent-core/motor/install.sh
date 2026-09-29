@@ -10,7 +10,6 @@ if [ -z "$BOOTSTRAP_TOKEN" ]; then
 fi
 
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 3; }
-command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 3; }
 
 mkdir -p /workspace/continuity/motor /workspace/continuity/secrets
 chmod 700 /workspace/continuity/secrets
@@ -18,7 +17,16 @@ chmod 700 /workspace/continuity/secrets
 TMP_JSON="$(mktemp)"
 trap 'rm -f "$TMP_JSON"' EXIT
 
-curl -fsS -X POST   -H "Authorization: Bearer $BOOTSTRAP_TOKEN"   "$RUNTIME_URL/v1/motor/bootstrap" > "$TMP_JSON"
+SELF_ROOT_RUNTIME_URL="$RUNTIME_URL" SELF_ROOT_MOTOR_BOOTSTRAP_TOKEN="$BOOTSTRAP_TOKEN" python3 - "$TMP_JSON" <<'PY'
+import os, sys, urllib.request
+url = os.environ["SELF_ROOT_RUNTIME_URL"].rstrip("/") + "/v1/motor/bootstrap"
+token = os.environ["SELF_ROOT_MOTOR_BOOTSTRAP_TOKEN"]
+req = urllib.request.Request(url, method="POST", headers={"Authorization": f"Bearer {token}"})
+with urllib.request.urlopen(req, timeout=30) as resp:
+    data = resp.read()
+with open(sys.argv[1], "wb") as f:
+    f.write(data)
+PY
 
 MOTOR_TOKEN="$(python3 - "$TMP_JSON" <<'PY'
 import json, sys
@@ -36,7 +44,14 @@ chmod 600 /workspace/continuity/secrets/motor_token
 printf '%s\n' "$RUNTIME_URL" > /workspace/continuity/motor/runtime_url
 chmod 600 /workspace/continuity/motor/runtime_url
 
-curl -fsSL   "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/motor/self_root_motor.py"   -o /workspace/continuity/motor/self_root_motor.py
+python3 - /workspace/continuity/motor/self_root_motor.py <<'PY'
+import sys, urllib.request
+url = "https://raw.githubusercontent.com/xonoxo143-ux/Ai-Stuff/agent-core/agent-core/motor/self_root_motor.py"
+with urllib.request.urlopen(url, timeout=30) as resp:
+    data = resp.read()
+with open(sys.argv[1], "wb") as f:
+    f.write(data)
+PY
 chmod 700 /workspace/continuity/motor/self_root_motor.py
 
 mkdir -p /workspace/continuity/motor
