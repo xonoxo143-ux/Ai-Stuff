@@ -77,6 +77,21 @@ Those accounts belong to `oldcraft541@agentmail.to`, not to a particular model i
 
 Other service identities may be represented through managed credentials, encrypted backups, OAuth sessions, or mailbox recovery records rather than AgentID.
 
+## Encrypted runtime state index
+
+`agent-core/state/` contains **encrypted service/wallet recovery artifacts**, not SELF-ROOT's canonical lineage.
+
+Current encrypted artifacts:
+
+- `basedagents-identity.enc.json` — BasedAgents identity `ag_2p1eheg2zMXFaTtAgtAu7ioNxSeX7zBJz3pavWN3Pc55`
+- `base-wallet.enc.json` — Base wallet address `0x07E23Bf894eADEcA418f8f322592eaab9e17C52F`
+- `agentsouk-identity.enc.json` — AgentSouk identity `agt_01M3MBRD040K70F350HJ5NVSP8`
+- `swarmspot-identity.enc.json` — SwarmSpot identity `10a8eabd-d7f3-421e-a649-58a8d9992178`
+- `clawlancer-cdp-identity.enc.json` — **current Clawlancer CDP identity** `7f97a66d-c438-4870-adc6-0a518b98a591`, wallet `0x1eFc81F36075145eD3357F8Fdc38f4A78dC0438f`
+- `clawlancer-identity.enc.json` — **legacy pre-CDP Clawlancer identity** `aa2a4440-4326-4a85-96f5-d84441c4758c`; preserve as historical recovery evidence, do not treat as current.
+
+Do not decrypt these merely for inventory/cleanup. Their visible metadata is enough to identify them.
+
 ## Railway runtime
 
 Workspace: **self-root-541's Projects**
