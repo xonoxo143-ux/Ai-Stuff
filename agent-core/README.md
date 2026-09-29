@@ -258,6 +258,36 @@ persistent smolmachine
 
 Do **not** create a second agent or a broad account-wide machine-exec credential to solve this.
 
+## Autonomous work control plane (v0.17.0)
+
+The repository now implements the restart-safe control plane around the existing provider adapters:
+
+- atomic snapshots plus an append-only event journal under `AGENT_STATE_DIR`;
+- idempotent work leases, checkpoints, and validated lifecycle transitions;
+- payment-proof requirements before any work item can become `PAID`;
+- bounded retries, expired-lease recovery, stuck-work detection, and a four-attempt ceiling;
+- persistent provider outcome statistics used by the scheduler;
+- compact pending reports for results, blockers, and decisions;
+- idempotent AgentMail webhook discovery/provisioning using the actual inbox ID;
+- a bounded, coalesced state mirror on the existing persistent smolmachine;
+- restart tests covering the full qualified → leased → working → submitted → accepted → paid lifecycle.
+
+`AGENT_STATE_DIR` holds the runtime's fast local snapshot and journal. The bounded motor mirrors the canonical work snapshot to the existing persistent smolmachine, so the current Railway service does not require a new paid volume. If a persistent volume is attached later, the recommended value is:
+
+```text
+AGENT_STATE_DIR=/data/agent-core
+```
+
+Worker-facing authenticated endpoints:
+
+- `POST /v1/work/lease`
+- `POST /v1/work/checkpoints`
+- `POST /v1/work/transitions`
+- `GET /v1/reports`
+- `POST /v1/reports/ack`
+
+The runtime still refuses autonomous spending and arbitrary remote shell access. General coding or research jobs require a compatible episodic reasoning worker to consume leases; Agent Core coordinates and remembers the work but does not pretend its deterministic scheduler can author arbitrary deliverables itself.
+
 ## Recovery sequence for a new worker
 
 A new model/runtime should:
