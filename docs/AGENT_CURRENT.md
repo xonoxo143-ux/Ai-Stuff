@@ -502,3 +502,86 @@ A mechanism survives only if the whole-system gain justifies:
 - maintenance/research cost.
 
 > Structural changes must pay rent — and the rent should usually be large enough to matter.
+
+## 1B. Developmental Nursery v0 — local self-construction gate
+
+A new architecture-invention track has earned promotion into current project truth.
+
+The goal remains the self-contained conversational agent, but the project will not assume that humans must hand-design all of its eventual internal computation.
+
+Working developmental rule:
+
+```text
+RESEARCH
+→ SYNTHESIZE
+→ BUILD THE BEST CURRENT SMALL TEST
+→ EVALUATE CAUSALLY
+→ KEEP / REVERT
+→ COMPRESS SURVIVING COMPUTATION INTO REUSABLE PRIMITIVES
+→ ATTACK THE NEXT HIGHEST-LEVERAGE BOTTLENECK
+```
+
+### Local gate result
+
+A fully local Python-standard-library prototype implemented:
+- a tiny executable instruction substrate;
+- bounded synthesis;
+- self-authored macro operations;
+- archive-based descendant search;
+- held-out validation;
+- causal ablation hooks;
+- compression pressure.
+
+On the first untouched composition holdout:
+
+```text
+fixed primitive system     0 / 5
+self-constructed genome    5 / 5
+```
+
+The promoted genome independently recovered three reusable latent operations from developmental experience.
+
+A stress variant initially failed (1/5) because retrospective compression over-prioritized frequent past fragments and did not propose a rarer future-useful operation.
+
+The developmental law was changed from research rather than target-specific hand-coding:
+- compact whole solved procedures are now prospective candidates even if seen once;
+- archive selection preserves structurally different stepping stones.
+
+The previously failing variant then reached:
+
+```text
+revised developmental system   5 / 5
+```
+
+This is a **toy-domain positive gate**, not evidence of general intelligence.
+
+### Adopted build implications
+
+Promote:
+- stable parent + disposable descendants;
+- archive rather than latest-only self-modification;
+- external immutable evaluator;
+- executable computational genome;
+- both retrospective compression and prospective skill proposals;
+- causal promotion/ablation;
+- compression of surviving repeated computation into new primitives.
+
+Do not yet promote:
+- unrestricted Python self-rewriting;
+- blind genetic search;
+- one fixed graph/MoE architecture;
+- the toy stack DSL as the final cognition substrate.
+
+### Next high-leverage gate
+
+Test the scaling claim behind:
+
+`STORE BROADLY / ACTIVATE NARROWLY / DEVELOP SELECTIVELY`.
+
+Specifically:
+
+> increase stored reusable computation by 10× and then 100× while measuring whether relevant-capability retrieval, active program size, RAM traffic, and search cost can remain nearly bounded.
+
+A naive global scan is expected to fail this gate; the experiment should compare candidate addressing mechanisms and allow the developmental system to change them.
+
+Whole-Agent Closure remains the eventual integration milestone. The developmental nursery is now a candidate mechanism for how the internal agent grows rather than a replacement for the conversational end test.
