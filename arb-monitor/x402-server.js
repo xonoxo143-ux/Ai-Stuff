@@ -172,8 +172,34 @@ app.get("/openapi.json", (_req, res) => {
 app.get("/.well-known/x402", (_req, res) => {
   res.json({
     version: 1,
-    resources: [PUBLIC_ORIGIN + "/api/btc-kalshi-polymarket-arbitrage"],
+    resources: [PUBLIC_ORIGIN + CANONICAL_PATH],
     instructions: "Machine-payable BTC 15-minute Kalshi vs Polymarket US BRTI market-data scan. See /openapi.json for pricing and schema."
+  });
+});
+
+app.get("/.well-known/x402-service.json", (_req, res) => {
+  res.json({
+    x402: "1.0",
+    name: "self-root-btc-arb-monitor",
+    description: "Fee-adjusted live comparison of matching Kalshi and Polymarket US 15-minute BTC BRTI books.",
+    capabilities: [
+      "prediction-markets",
+      "market-data",
+      "arbitrage-research",
+      "bitcoin"
+    ],
+    pricing: {
+      currency: "USDC",
+      base: "0.01",
+      unit: "request"
+    },
+    payment: {
+      address: PAY_TO,
+      chain: "base",
+      facilitator: FACILITATOR_URL
+    },
+    endpoint: PUBLIC_ORIGIN + CANONICAL_PATH,
+    contact: CONTACT_EMAIL
   });
 });
 
@@ -188,6 +214,7 @@ app.get("/llms.txt", (_req, res) => {
     "- GET /api/scan — compatibility redirect to the canonical paid route",
     "- GET /openapi.json — machine-readable OpenAPI 3.1 discovery document",
     "- GET /.well-known/x402 — x402 discovery compatibility document",
+    "- GET /.well-known/x402-service.json — true402 seller manifest",
     "- GET /health — free liveness check",
     "",
     "The API never places trades and does not promise quote persistence or profit.",
@@ -222,6 +249,30 @@ async function registerWithX402Scan() {
   }
 }
 
+async function registerWithTrue402() {
+  const endpoint = "https://true402.dev/api/v1/services";
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: PUBLIC_ORIGIN }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const body = await response.text();
+    console.log(JSON.stringify({
+      event: "true402_registration",
+      status: response.status,
+      ok: response.ok,
+      body: body.slice(0, 4000)
+    }));
+  } catch (err) {
+    console.log(JSON.stringify({
+      event: "true402_registration_error",
+      error: err instanceof Error ? err.message : String(err)
+    }));
+  }
+}
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(JSON.stringify({
     event: "listening",
@@ -232,4 +283,5 @@ app.listen(PORT, "0.0.0.0", () => {
     facilitator: FACILITATOR_URL
   }));
   setTimeout(() => { void registerWithX402Scan(); }, 1500);
+  setTimeout(() => { void registerWithTrue402(); }, 2500);
 });
