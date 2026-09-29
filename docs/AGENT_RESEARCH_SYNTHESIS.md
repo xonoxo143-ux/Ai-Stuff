@@ -848,3 +848,103 @@ That directly links:
 - behavioral addressing;
 - future reachability;
 - adaptive compute.
+
+## Developmental synthesis S13 — reason, falsify, then compile
+
+### Reasoning Amortization Gate v0
+
+The expensive-reasoning hypothesis was tested directly.
+
+For each deep functional problem class:
+1. bounded search discovered a procedure;
+2. the procedure was tested on held-out inputs;
+3. surviving procedures were compiled into a disk-backed skill store;
+4. the same functional problem was encountered again.
+
+Across three seeds, 40 developmental problem classes each:
+
+```text
+skills surviving fixed-probe validation   92.5%–95.0%
+correctness given compiled cache hit      100%
+first-encounter mean expansions           322–393
+repeat mean expansions incl. fallback     7–27
+expansion reduction                       ~12×–55×
+median wall-clock reduction               ~167×–242×
+```
+
+Novel functional classes produced zero false cache hits. Once a novel class earned a validated skill, a later encounter executed it without synthesis search.
+
+This is strong evidence for the developmental principle:
+
+> expensive successful reasoning can be converted into dormant reusable computation, materially reducing future active compute.
+
+### Failure that prevented full promotion
+
+The fixed seven behavioral probes did not uniquely specify every function.
+
+A synthesized program could match all seven examples yet differ on unseen inputs. Those procedures were correctly rejected by wider validation, leaving roughly 5–7.5% of classes uncompiled.
+
+This was not a reason to lower the validation threshold. It exposed a specification problem.
+
+### Active-Probe Compilation Gate v0
+
+The fixed validation scheme was replaced with a bounded hypothesis space of 21,845 candidate programs.
+
+The system begins with the same seven probes. If multiple surviving programs predict different behavior somewhere in a candidate input domain, it chooses a discriminating probe from their disagreement, queries the environment once, filters the hypothesis space, and repeats.
+
+Across three independent seeds:
+
+```text
+fixed 7-probe generalization        92.5%–95.0%
+active-probe generalization        100.0%
+compiled skill fraction            100.0%
+correctness given compiled hit     100.0%
+extra probes / skill, mean          0.275–0.475
+extra probes / skill, median        0
+maximum extra probes                2
+```
+
+Thirty-six novel problem classes across the three seeds:
+- zero false cache hits;
+- 100% correct after first active identification;
+- 100% compiled;
+- 100% correct on the second encounter.
+
+### Revised developmental law
+
+The self-coding loop should be:
+
+```text
+expensive reasoning / synthesis
+→ candidate procedure
+→ attempt to distinguish/falsify it
+→ if ambiguous, acquire the most informative missing evidence
+→ resynthesize/filter
+→ stop only when surviving hypotheses are behaviorally indistinguishable
+→ causal/generalization validation
+→ compile
+→ cold-store
+→ direct reuse
+```
+
+The system therefore does not merely ask whether a new procedure has worked before.
+
+It asks:
+
+> **What observation could still prove that this procedure means something different from what I think it means?**
+
+This adds epistemic control to self-modification.
+
+### Current synthesis frontier
+
+The major pieces now demonstrated separately in toy form are:
+- self-authored reusable computation;
+- large cold stores with sublinear active retrieval work;
+- behavioral/effect addressing;
+- expensive future reasoning as a useful fallback;
+- reasoning amortization by compilation;
+- active falsification before durable promotion.
+
+The next high-value test should combine these pieces in one developmental lifetime and measure whether:
+
+> **capability accumulates while average active computation per familiar problem falls and cold-store growth does not force active-work growth.**
