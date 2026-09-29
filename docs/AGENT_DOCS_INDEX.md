@@ -1,93 +1,92 @@
 # Agent documentation index
 
-**Date:** 2026-09-28  
-**Purpose:** make the Agent line searchable without forcing readers to reconstruct chronology from dozens of experiment files.
+**Date:** 2026-09-29  
+**Purpose:** make the Agent line searchable without reconstructing chronology from every experiment file.
 
 ## Read order
 
 ### 1. Current answer
 
-**`AGENT_CURRENT.md`**
+**\`AGENT_CURRENT.md\`**
 
-Authoritative current architecture, evidence summary, open decisions, and active frontier.
+Authoritative current architecture, evidence summary, leverage rule, and next gate.
 
-Start here after any gap in context.
+### 2. Short frontier
 
-### 2. Product/integration target
+**\`agent-memory/agent_current_frontier_v21.md\`**
 
-**`AGENT_V1_CHATBOT_ANCHOR.md`**
+Compressed current state for fast cold-start recovery.
 
-Defines chatbot-first integration and the relationship between language machinery, the capability ecology, and optional future game/sensor interfaces.
+### 3. Current cognitive-core result
 
-### 3. Current developmental experiment
+**\`AGENT_COGNITIVE_CORE_V0.md\`**
 
-**`AGENT_V1_A1_UPDATE_PREDICTORS.md`**
+Replicated factor-graph core result, thought-depth evidence, specialist ceilings, and the next transfer gate.
 
-Current test of prospective destructive-update predictors.
+### 4. Research terminology map
 
-### 4. Latest replicated mechanistic evidence
+**\`AGENT_RESEARCH_TERMINOLOGY_MAP.md\`**
 
-**`AGENT_V1_A1_UPDATE_REVERSION_REPLICATION.md`**
+Maps our informal research questions onto literature terms such as recurrent depth, compositional meta-learning, neural algorithmic reasoning, factor graphs and adaptive computation.
 
-Fresh-seed evidence that forgetting is disproportionately attributable to a small subset of private-cell updates.
+Consult this **before expensive new branches**.
 
-### 5. Agent v1 experimental lineage
+### 5. Language results
 
-**`AGENT_V1_A_SPEC.md`**
+- \`AGENT_LANGUAGE_REAL_TEXT_RESULT_01.md\` — real-text from-scratch production baseline.
+- \`AGENT_LANGUAGE_PERCEPTION_RESULT_02.md\` — rejected attentive-BiGRU refinement and current perception baseline.
+- \`AGENT_LANGUAGE_ROUNDTRIP_V0.md\` — controlled English→state→English bridge result.
+- \`AGENT_LANGUAGE_ORGAN_RESULT_01.md\` — early synthetic production comparison.
 
-Historical baseline specification for V1-A. Useful for original gates and controls, but its embedded "current frontier" text is not authoritative.
+### 6. Developmental / continual-learning evidence
 
-Then consult the individual `AGENT_V1_A1_*.md` result/spec files for exact experimental provenance.
-
-### 6. Agent v0 evidence
-
-**`AGENT_V0_CLOSEOUT.md`**
-
-Start here for the frozen v0 evidence carried into v1.
-
-The remaining `AGENT_V0_*.md` files contain individual experiments.
+- \`AGENT_V1_A1_UPDATE_REVERSION_REPLICATION.md\` — post-hoc destructive-update localization.
+- \`AGENT_V1_A1_UPDATE_PREDICTORS.md\` — weak simple prospective predictors.
+- \`AGENT_V1_A_SPEC.md\` — historical v1-A specification.
+- \`AGENT_V0_CLOSEOUT.md\` — frozen v0 evidence.
 
 ## Infrastructure docs
 
-These are compute/test infrastructure, not cognitive architecture:
+Compute/test infrastructure, not cognitive architecture:
 
-- `AGENT_FLOOT_LAB.md`
-- `AGENT_HF_JOBS.md`
+- \`AGENT_FLOOT_LAB.md\`
+- \`AGENT_HF_JOBS.md\`
 
-## Unrelated/sibling architecture docs in this repository
+## Unrelated/sibling repository docs
 
-**`ARCHITECTURE.md`** describes the Android AI Workbench/app architecture. It is not the Agent cognition architecture.
-
-Do not infer Agent architecture from generic repository documents without checking scope.
+\`ARCHITECTURE.md\` describes the Android AI Workbench/app architecture, not the Agent cognition architecture.
 
 ## Document status convention
 
-Use these meanings when adding/updating Agent docs:
-
-```text
+\`\`\`text
 CURRENT
 authoritative current orientation
 
 ACTIVE EXPERIMENT
-a live hypothesis under test
+live hypothesis under test
 
-RESULT
-durable evidence from a completed experiment
+RESULT / REPLICATED BASELINE
+durable completed evidence
 
 HISTORICAL SPEC
-the plan at a point in time; useful provenance, not current status
+plan at a point in time
 
 SUPERSEDED
-kept only because the failure/history matters
-```
+retained because failure/history matters
+\`\`\`
 
-## Search rule
+## Conflict rule
 
-When search returns multiple plausible "current" answers:
+When documents disagree:
 
-1. prefer `AGENT_CURRENT.md`;
-2. then prefer the newest RESULT relevant to the question;
-3. then use active experiment specs;
-4. treat older specs/plans as historical unless explicitly re-promoted.
+1. \`AGENT_CURRENT.md\`;
+2. \`agent-memory/agent_current_frontier_v21.md\`;
+3. newest relevant RESULT / REPLICATED BASELINE;
+4. active experiment spec;
+5. historical specs/archive.
 
-The long architecture notebook in the persistent Library remains the deep conceptual record. Its new front-page snapshot should be treated the same way: current snapshot first, numbered historical sections second.
+## Research rule
+
+Before adding a substantial new experiment document, check \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\` and record which adjacent literature terms and baselines were searched.
+
+The long architecture notebook remains deep historical/conceptual context, not the fastest current-state source.

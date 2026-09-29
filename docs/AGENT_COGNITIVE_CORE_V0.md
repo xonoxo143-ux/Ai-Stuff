@@ -1,155 +1,210 @@
 # Agent Cognitive Core v0
 
-Date: 2026-09-28
-Status: ACTIVE EXPERIMENT
+**Date:** 2026-09-29  
+**Status:** REPLICATED BASELINE / TRANSFER GATE NEXT  
+**Workflow:** \`36612931106\`
 
-Goal: test whether one learned non-language processor can perform multiple kinds of cognition and generalize beyond the sizes and combinations seen during training.
+## Goal
 
-## Task anchor
+Test whether one learned non-language processor can perform multiple kinds of cognition and generalize beyond training sizes/combinations.
 
-This project is still building the intelligent conversational agent itself from scratch.
+No pretrained LLM is used.
 
-Language perception and production are interfaces around the missing middle:
-
+\`\`\`text
 language perception
-  -> non-language state
-  -> COGNITIVE CORE
-  -> new non-language state
-  -> language production
+→ non-language state
+→ COGNITIVE CORE
+→ new non-language state
+→ language production
+\`\`\`
 
-No pretrained LLM is used by this cognitive-core experiment.
+## Shared representation
 
-## Shared benchmark representation
+Every family uses the same slot schema and bounded answer vocabulary.
 
-Every family uses the same slot schema:
-
-(kind, symbol_a, symbol_b, symbol_c, operator, position)
-
-The same bounded symbol vocabulary is also the answer vocabulary. TRUE and FALSE are ordinary special symbols. There is no task-specific neural head.
-
-The five families are:
+Families:
 
 1. transitive directed relations;
-2. ordered state updates using SET, +1 and -1;
+2. ordered mutable state;
 3. graph reachability;
-4. modular rule induction from examples;
+4. rule induction;
 5. associative key/value memory.
 
-OOD evaluation increases chain length, event length, graph size/path length, example combinations, or memory load.
+IID/OOD generators have exact oracle checks.
 
-Every family has an exact oracle solver. CI checks hundreds of IID and OOD generated examples against those oracles.
+## Why v0 uses a factor graph
 
-## Why the core became a factor graph
+Earlier local formulations failed or were inefficient:
 
-Several cheaper formulations failed locally before v0 was frozen.
+- dense all-pairs slot MLP: too slow for its value;
+- recurrent all-slot attention: transitive relation specialist stayed at chance;
+- same-symbol slot adjacency: still stayed at chance.
 
-A dense all-pairs slot MLP was too slow for its size.
+The useful change was to make shared entity/symbol identity explicit and persistent.
 
-A recurrent all-slot attention processor was much faster, but a transitive-relation specialist stayed at chance.
+Current organization:
 
-Explicitly linking slots that mention the same symbol also stayed at chance.
-
-The successful change was to give shared symbols their own persistent recurrent states instead of treating identity only as a property of fact slots.
-
-## Current processor
-
-v0 is a recurrent factor graph:
-
+\`\`\`text
 fact / event / query slots
-  <-> role-typed messages
-persistent symbol nodes
+        ↕ role-typed messages
+persistent symbol/entity nodes
+\`\`\`
 
-Each thought step:
+The same weights are reused across families and recurrent thought steps.
 
-1. slots send role-specific messages to symbols in argument positions A, B and C;
-2. symbol nodes recurrently update;
-3. symbol states send role-specific messages back to slots;
-4. slots receive a global context summary;
-5. slots recurrently update;
-6. original slot and symbol inputs may be re-injected.
+## Rigorous three-seed result
 
-The same weights are reused across thought steps and across every task family.
+400 mixed updates:
 
-The answer head is pointer-like: the query state scores the same persistent symbol states used during cognition.
+\`\`\`text
+model                         IID mean   OOD mean   train time
+flat MLP                        40.5%      23.9%       3.7 s
+factor one-pass                 77.3%      59.8%       7.6 s
+factor recurrent                80.6%      64.6%      26.0 s
+factor recurrent, no reinject   81.6%      65.8%      25.6 s
+\`\`\`
 
-## Local discriminating results
+### What matters
 
-These are single-seed local results and are not yet durable evidence.
+The large architectural gain is:
 
-Transitive specialist after 200 updates:
+\`\`\`text
+flat 23.9% OOD
+→ factor one-pass 59.8% OOD
+\`\`\`
 
-6 thought steps: 100% IID, 97.5% OOD.
-1 thought step: 100% IID, 91.5% OOD.
+This is the main reason the factor graph survives.
 
-Other specialist sanity checks:
+The average recurrence gain:
 
-relation: 100% IID, 97.5% OOD.
-rule: 97% IID, 99% OOD.
-memory: 100% IID, 100% OOD.
-state: 46% IID, 27.5% OOD.
-graph: 100% IID, 46% OOD.
+\`\`\`text
+59.8% → 64.6%
+\`\`\`
 
-State is learnable but hard. Graph reachability currently fits IID and fails to extrapolate, making it a useful falsification family.
+is real but too small relative to ~3.4× training time to justify a long recurrence-tuning campaign.
 
-Matched 250-update shared five-family run:
+Input reinjection did not help and is demoted.
 
-one-pass factor: 73.5% IID mean, 54.2% OOD mean, 4.6 s.
-6-step recurrent factor: 76.2% IID mean, 66.2% OOD mean, 15.4 s.
+## Thought depth
 
-OOD breakdown, one-pass -> recurrent:
+Same trained recurrent model:
 
-relation 86% -> 94%.
-state 19% -> 26%.
-graph 42% -> 50%.
-rule 55% -> 62%.
-memory 69% -> 99%.
+\`\`\`text
+depth   OOD mean
+1       38.1%
+2       51.2%
+4       62.0%
+6       63.0%
+8       62.8%
+\`\`\`
 
-Input reinjection ablation:
+Memory:
 
-with reinjection: 66.2% OOD mean.
-without reinjection: 62.5% OOD mean.
+\`\`\`text
+1       10.2%
+2       52.0%
+4       99.6%
+6      100.0%
+\`\`\`
 
-Thought-depth ablation on the same trained model:
+So recurrent computation can unlock a capability, but extra thought saturates.
 
-1 step: 38.0% OOD mean.
-2 steps: 48.6%.
-4 steps: 63.4%.
-6 steps: 63.4%.
-8 steps: 63.4%.
+Current rule:
 
-Memory specifically went from 10% at one step to 34% at two steps to 100% at four steps.
+> pay for additional thought only until it stops buying capability.
 
-This is the first local sign that repeated processing is carrying useful computation rather than merely adding parameters.
+This question overlaps strongly with the literature on recurrent depth, looped networks/Transformers, iterative refinement and adaptive computation. Future work should begin from that literature rather than reproving the basic effect.
 
-## Rigorous CI gate
+## Specialist ceilings
 
-The workflow runs:
+\`\`\`text
+family      specialist OOD
+relation        98.5%
+rule            97.3%
+memory         100.0%
+graph           45.5%
+state           20.5%
+\`\`\`
 
-1. shared-core comparison across three seeds:
-   flat MLP, one-pass factor, recurrent factor, recurrent factor without input reinjection;
+Approximate shared recurrent result:
 
-2. specialist ceilings:
-   the same recurrent processor trained separately on each family;
+\`\`\`text
+relation        88.7%
+rule            65.8%
+memory          99.7%
+graph           46.2%
+state           22.8%
+\`\`\`
 
-3. thought-depth probe:
-   one trained shared core evaluated at 1, 2, 4, 6 and 8 recurrent steps.
+The largest actionable shared-vs-specialist gap is rule induction.
 
-Primary metrics are IID accuracy, OOD accuracy, specialist/shared gap, recurrence gain, reinjection gain, thought-depth curve, and wall-clock cost.
+Graph/state are currently poor targets for shared-core optimization because the specialists also fail to extrapolate strongly.
 
-## Kill and redesign conditions
+## High-leverage interpretation
 
-Do not keep the factor graph because it is elegant.
+Worth keeping:
 
-Redesign if replicated tests show:
+- factor-graph entity organization;
+- a bounded amount of recurrent thought where it unlocks capability.
 
-- recurrence does not improve OOD performance enough to justify cost;
-- shared training stays far below specialists with no transfer benefit;
-- graph/state failures are fixed only by brute-force scale;
-- performance depends on human structure the language-perception layer cannot plausibly supply;
-- later transfer tests show no reusable computational knowledge.
+Not worth a dedicated optimization campaign right now:
 
-## Next gate if v0 survives
+- input reinjection;
+- 6/8 steps versus ~4;
+- squeezing a few extra mean OOD points from recurrent tuning.
 
-Train on four families and measure adaptation speed on the fifth against a fresh core and a specialist.
+## Next experiment: transfer, not tuning
 
-Then connect controlled language-perception states to the core and require one system to switch cognitive task families turn-to-turn.
+The next question:
+
+> Did the shared core learn reusable computation, or merely learn five tasks at once?
+
+Use a genuinely held-out sixth family and compare:
+
+### A — fresh
+Random core learns task 6 from scratch.
+
+### B — ordinary transfer
+Current shared factor core is pretrained on the existing families, then adapted to task 6.
+
+### C — explicit reusable-computation baseline
+A mechanism that separates/recomposes **what computation is required** from **how computation is implemented**.
+
+Measure:
+
+- zero-shot accuracy;
+- OOD accuracy;
+- examples/updates to fixed target;
+- retained old-task performance;
+- wall-clock adaptation cost.
+
+The desired result is a step change in learning efficiency, not a small fine-tuning advantage.
+
+Working leverage heuristic:
+
+\`\`\`text
+2000 → 1700 examples   low leverage
+2000 → 500             interesting
+2000 → 100             major
+strong zero/few-shot   major
+\`\`\`
+
+## Relevant research vocabulary
+
+Before building the transfer gate, search:
+
+- meta-learning / learning-to-learn;
+- compositional meta-learning;
+- modular meta-learning;
+- reusable computation;
+- skill composition;
+- continual compositional learning;
+- low-rank task composition;
+- task inference;
+- systematic generalization.
+
+See \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\`.
+
+## Kill condition
+
+If ordinary pretraining or explicit compositional machinery provides only a small sample-efficiency gain on a genuinely new family, do not keep scaling this core on the assumption that general intelligence will emerge from more of the same.

@@ -1,8 +1,8 @@
 # Agent language real-text result 01
 
-**Date:** 2026-09-28  
-**Workflow run:** `36436244279`  
-**Status:** PROMISING RESULT / AWAITING MULTI-SEED REPLICATION
+**Date:** 2026-09-29  
+**Workflow:** initial run \`36436244279\`; three-seed replication \`36437199998\`  
+**Status:** REPLICATED RESULT
 
 ## Setup
 
@@ -15,57 +15,60 @@ Training corpus:
 - first 4,000 streamed TinyStories training examples;
 - first 400 validation examples;
 - raw UTF-8 bytes;
-- about 3.40 MB train and 0.33 MB validation after collection.
+- about 3.40 MB train and 0.33 MB validation.
 
-Training:
+Per run:
 
-```text
+\`\`\`text
 800 updates
 batch 8
 256-byte windows
-seed 101
-```
+\`\`\`
 
-## Result
+Seeds: 101, 202, 303.
 
-```text
-model          params     valid bits/byte   time      steps/s
-GRU            800,640        1.659         133.1 s     6.01
-Transformer    927,872        2.610          82.8 s     9.67
-```
+## Replicated result
 
-## Generated samples
+\`\`\`text
+model          params     mean valid bits/byte   mean train time
+GRU            800,640          1.640                187.8 s
+Transformer    927,872          2.567                131.5 s
+\`\`\`
 
-GRU:
+Per-seed GRU validation bits/byte:
 
-```text
-Once upon a time there was a little girl named Lily. She was so happy and said the bird was so happy. The bird was so happy and said the
-```
+\`\`\`text
+101   1.659
+202   1.620
+303   1.642
+\`\`\`
 
-Transformer:
+Per-seed Transformer:
 
-```text
-Once upon a time the was she starked the bit the bug the the bight the the bit the bit the the bo the the the stomet the the sthe sther
-```
+\`\`\`text
+101   2.610
+202   2.583
+303   2.507
+\`\`\`
+
+All three GRU samples crossed into recognizable but repetitive English. Example starts included:
+
+\`\`\`text
+"Once upon a time there was a little girl named Lily..."
+"Once upon a time, there was a big box..."
+"Once upon a time, there was a little girl named Timmy..."
+\`\`\`
+
+The Transformer remained much more malformed at the same update budget.
 
 ## Interpretation
 
-At the same update budget, the GRU has already crossed into recognizable English while the Transformer has not.
+The synthetic GRU quality advantage survived real-text replication.
 
-The GRU result is still far from a conversational language organ:
+This is a meaningful language-surface result, not evidence that the model is already an intelligent conversational agent.
 
-- repetition is severe;
-- semantic depth is minimal;
-- no dialogue objective has been trained;
-- no perception/cognition loop is connected yet.
+Current consequence:
 
-But this is the first real-language evidence that a sub-million-parameter, raw-byte, random-init language organ can acquire usable English surface structure cheaply enough for this project.
-
-## Next gate
-
-Repeat exactly across three seeds before:
-
-- increasing update budget;
-- increasing model size;
-- choosing a production architecture;
-- connecting the learned checkpoint to the Agent runtime.
+- GRU is the production baseline;
+- Transformer remains an efficiency/control candidate;
+- do not scale either merely to polish surface language while the cognitive/transfer problem is more important.

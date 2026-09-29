@@ -1,12 +1,13 @@
 # Agent language roundtrip v0
 
-**Date:** 2026-09-28  
-**Status:** ACTIVE EXPERIMENT  
+**Date:** 2026-09-29  
+**Workflow run:** \`36438063867\`  
+**Status:** RESULT  
 **Goal:** test the first closed language loop around a bounded non-language state.
 
 ## Structure
 
-```text
+\`\`\`text
 held-out English paraphrase
         ↓
 BiGRU perception organ
@@ -18,74 +19,51 @@ hard or soft 16-d bridge
 GRU production organ
         ↓
 canonical English target
-```
+\`\`\`
 
-The test is synthetic and deliberately interpretable.
+## Bridge controls
 
-It is the first experiment where the language ears and mouth are evaluated as a coupled system.
+### Oracle
+Ground-truth state supplied to the producer.
 
-## Why three bridge conditions
+### Hard predicted
+Perception argmax converted to one-hot state.
 
-### Oracle state
+### Soft predicted
+Per-slot probability distributions concatenated directly.
 
-Ground-truth semantic state is supplied to the producer.
+Teacher forcing was intentional in this v0 gate to isolate the semantic junction before free-generation exposure errors.
 
-This answers:
+## Three-seed result
 
-> Is the mouth trained well enough for the bridge test to mean anything?
+\`\`\`text
+perception exact state       70.31%
+oracle sequence exact       100.00%
+oracle byte accuracy        100.00%
 
-### Hard predicted state
+hard sequence exact          70.31%
+hard byte accuracy           98.65%
 
-The perception argmax is converted to one-hot state.
+soft sequence exact          67.53%
+soft byte accuracy           98.70%
+\`\`\`
 
-This tests a discrete semantic bottleneck.
+## Interpretation
 
-### Soft predicted state
+The hard-state exact output rate equals the perception exact-state rate.
 
-The four slot probability distributions are concatenated directly.
+So, in this controlled setting:
 
-This tests whether uncertainty-preserving state is easier for the producer to use than hard discretization.
+> when perception recovers the correct state, the semantic bridge and trained producer add essentially no additional exact-sequence loss.
 
-## Metrics
+Soft probabilities did not improve exact sequence recovery.
 
-For each bridge:
+The primary bottleneck is therefore the perception/state extraction side, not the controlled state→production junction.
 
-- exact teacher-forced output sequence;
-- byte accuracy.
+## Consequence
 
-Also record:
+This result establishes that language can be split around a bounded non-language representation without automatically destroying the information needed for output.
 
-- perception exact-state accuracy;
-- training time.
+It does **not** establish open-domain semantics, free-running dialogue, or a final ontology.
 
-Teacher forcing is intentional in v0.
-
-It isolates the semantic bridge before adding autoregressive exposure errors.
-
-A later gate will generate freely once the bridge itself is reliable.
-
-## Failure interpretation
-
-```text
-oracle bad
-→ producer is undertrained
-
-oracle good, hard/soft bad
-→ perception or bridge is the bottleneck
-
-soft > hard
-→ preserving uncertainty helps
-
-hard > soft
-→ producer currently expects discrete capability state
-
-hard/soft ≈ perception exact
-→ junction adds little extra damage
-```
-
-## Current baselines
-
-- perception: plain BiGRU, chosen from the replicated perception gate;
-- production: micro GRU, chosen because the semantic-conditioning probe already reached 64/64 held-out combinations across three seeds.
-
-This does not imply those architectures are permanent.
+Do not keep optimizing this toy bridge. Move effort to higher-leverage cognition/transfer questions and later return with a richer integrated state.

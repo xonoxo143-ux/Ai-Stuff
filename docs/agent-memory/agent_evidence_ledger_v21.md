@@ -1,7 +1,7 @@
 # Agent Evidence Ledger
 
-**Version:** 2.1  
-**Date:** 2026-09-28  
+**Version:** 2.2  
+**Date:** 2026-09-29  
 **Role:** authoritative summary of what experiments currently support or reject.
 
 ## Status vocabulary
@@ -12,301 +12,245 @@
 - **REJECTED SIMPLE RULE** — tested formulation failed; related richer mechanisms remain possible.
 - **OPEN** — not yet established.
 
----
+## Developmental evidence
 
-## E-V0-001 — Sparse execution can save real runtime
+### E-V0-001 — Sparse execution can save real runtime
 **Status:** SUPPORTED
 
-Agent v0 demonstrated real wall-clock savings from sparse top-k execution relative to dense execution in the tested recurrent ecology.
+Agent v0 demonstrated real wall-clock savings from sparse top-k execution relative to dense execution.
 
-Design consequence:
-- sparsity is worth keeping as a hardware-dependent target;
-- theoretical FLOP sparsity is not enough—wall-clock measurement remains mandatory.
-
----
-
-## E-V0-002 — Shallow recurrent thought can be useful
+### E-V0-002 — Shallow recurrent thought can be useful
 **Status:** SUPPORTED
 
-In the tested regime, shallow recurrence improved prediction while excess untrained depth degraded it.
+Shallow recurrence improved prediction in the tested regime while excess untrained depth degraded it.
 
-Design consequence:
-- recurrence depth should be adaptive/validated rather than universally maximized.
-
----
-
-## E-V0-003 — Learned cells can acquire causal specialization
+### E-V0-003 — Learned cells can acquire causal specialization
 **Status:** SUPPORTED
 
 Lesion tests found reproducible cell-specific causal effects.
 
-Design consequence:
-- internal processes can specialize without a human taxonomy;
-- specialization must be measured causally, not inferred from activation frequency.
-
----
-
-## E-V0-004 — Useful computation can be relational
+### E-V0-004 — Useful computation can be relational
 **Status:** SUPPORTED
 
-Pair interventions found useful interaction/synergy effects that could not be assigned cleanly to isolated cells.
+Pair interventions found useful interaction/synergy effects not assignable cleanly to isolated cells.
 
-Design consequence:
-- reusable structure may be a capability **or an interaction motif**.
-
----
-
-## E-V0-005 — Useful motifs can be compiled
+### E-V0-005 — Useful motifs can be compiled but must pay rent
 **Status:** SUPPORTED LOCALLY
 
-One validated pair motif was compiled into a smaller/faster computation.
+A validated pair motif was compiled to a smaller/faster computation, but whole-agent savings were too small for promotion.
 
-But the whole-agent expected saving was too small to justify automatic promotion.
-
-Design consequence:
-- local speedup is insufficient;
-- promotion must use total-system economics.
-
----
-
-## E-V1-001 — Larger static capacity is not automatically better
+### E-V1-001 — Larger static capacity is not automatically better
 **Status:** SUPPORTED NEGATIVE RESULT
 
-Fixed sparse-64 and dense-64 did not produce a clean robust capacity crossover over fixed-16 across the early v1 capacity sweeps.
+Early v1 sweeps found no simple robust capacity crossover.
 
-Design consequence:
-- reserve recruitment cannot be justified merely by "more cells should help";
-- development must earn a benefit beyond owning capacity.
-
----
-
-## E-V1-002 — Sequential lifetime learning creates measurable interference
+### E-V1-002 — Sequential lifetime learning creates measurable interference
 **Status:** SUPPORTED
 
 Blocked-family lifelong training produced measurable forgetting/retention effects.
 
-Design consequence:
-- continual-learning pressure in the benchmark is real enough to study mechanistically.
-
----
-
-## E-V1-003 — Private recurrent updates can cause forgetting
+### E-V1-003 — Private recurrent updates can cause forgetting
 **Status:** SUPPORTED
 
 Freezing private recurrent weights reduced old-task damage on sampled destructive transitions.
 
-Design consequence:
-- destructive interference is partly parametric, not merely routing/context noise.
-
----
-
-## E-V1-004 — Usage is not maturity
+### E-V1-004 — Usage is not maturity
 **Status:** REJECTED SIMPLE RULE
 
-Protecting high-usage cells did not reliably outperform matched random cells.
+High-use cells were not reliably the cells that deserved protection.
 
-Rejected rule:
-`high use -> important -> mature -> protect`
-
----
-
-## E-V1-005 — Execution importance is not update danger
+### E-V1-005 — Execution importance is not update danger
 **Status:** REJECTED SIMPLE RULE
 
-Cells that were most important for executing old skills did not reliably identify the updates responsible for later forgetting.
+Old-task lesion importance did not reliably identify updates that later caused forgetting.
 
-Rejected rule:
-`important for old execution -> dangerous to modify`
-
-Design consequence:
-- execution causality and learning-update causality are different questions.
-
----
-
-## E-V1-006 — Destructive updates are localized post hoc
+### E-V1-006 — Destructive updates are localized post hoc
 **Status:** SUPPORTED / REPLICATED
 
-Fresh-seed replication:
+Fresh-seed top-4 reversion captured about 95%+ of positive destructive-attribution mass in both fixed16 and sparse64 conditions.
 
-**fixed16**
-- top-4 destructive updates beat matched random in **10/11** destructive transitions;
-- top-4 captured about **95.4%** of positive destructive-attribution mass.
-
-**sparse64**
-- top-4 beat matched random in **8/12**;
-- top-4 captured about **96.9%**.
-
-Strongest supported statement:
-
-> A relatively small subset of private-cell parameter updates disproportionately causes forgetting in the current benchmark.
-
-Limitation:
-- this is a post-hoc reversion/autopsy result, not an online learning rule.
-
----
-
-## E-V1-007 — Simple prospective per-cell predictors are weak
+### E-V1-007 — Simple prospective per-cell predictors are weak
 **Status:** REJECTED SIMPLE RULE / MIXED
 
-Tested predictors:
-- incoming gradient magnitude;
-- usage × incoming gradient;
-- output-sensitivity × incoming gradient;
-- old-loss sensitivity × incoming gradient;
-- old/new gradient conflict.
+Gradient magnitude, usage×gradient, sensitivity×gradient and old/new conflict all showed near-zero rank correlation with true destructive-update attribution.
 
-Fresh-seed result:
-- mean Spearman rank correlation with true destructive-update scores was near zero;
-- fixed16 predictors were roughly +0.02 to +0.11;
-- sparse64 predictors were roughly -0.06 to -0.03.
+## Language evidence
 
-Some selected top-4 sets protected old performance more often than random, but the ranking signal was weak and overlap with true destructive cells modest.
-
-Design consequence:
-- do not keep rescuing the hypothesis with increasingly clever one-shot scalar "importance" scores;
-- next tests should distinguish trajectory/history, interactions, and spare-capacity routing explanations.
-
----
-
-## E-ARCH-001 — One substrate is not required
-**Status:** ARCHITECTURAL SYNTHESIS, NOT YET PERFORMANCE PROOF
-
-The project now treats `Capability` as the common public abstraction. A capability may be implemented by:
-- Transformer/attention;
-- SSM/recurrent machinery;
-- learned memory;
-- code;
-- tools;
-- learned specialists;
-- compiled compositions.
-
-This is a design direction supported by prior internal failures of monolithic assumptions, not yet an end-to-end benchmark win.
-
----
-
-## E-ARCH-002 — Whole-system utility dominates local elegance
-**Status:** SUPPORTED DESIGN RULE
-
-Several experiments showed that:
-- locally useful/compressive structure can still hurt search;
-- individually weak candidates can be jointly useful;
-- locally faster motifs may not repay recognition/dispatch overhead.
-
-Design consequence:
-> Structural changes must pay rent at the whole-system level.
-
----
-
-## E-LANG-001 — Tiny from-scratch byte models show architecture-specific tradeoffs
+### E-LANG-001 — Tiny byte models show architecture-specific tradeoffs
 **Status:** SUPPORTED IN SYNTHETIC BENCHMARK
 
-Five-seed Agent language-organ v0 replication at roughly 130k-150k parameters:
+Five-seed ~130k-150k parameter comparison:
 
-- GRU: mean 2.002 validation bits/byte; best on 5/5 seeds.
-- Transformer: mean 2.606 bits/byte; about 2.5× faster training.
-- fixed-patch RNN: mean 3.381 bits/byte; no validation wins and slower than the Transformer.
+\`\`\`text
+GRU          2.002 bits/byte   5/5 validation wins
+Transformer  2.606
+fixed patch  3.381
+\`\`\`
 
-Design consequence:
-- retain GRU and Transformer as distinct surviving candidates;
-- drop the current fixed-patch RNN formulation;
-- do not infer that multiscale language in general is rejected.
+The Transformer trained much faster; the fixed-patch formulation was dropped.
 
-Scope:
-- controlled synthetic micro-English only.
-
----
-
-## E-LANG-002 — Bounded non-language state can drive compositional language
+### E-LANG-002 — Bounded non-language state can drive compositional language
 **Status:** SUPPORTED IN SYNTHETIC BENCHMARK
 
-Across three seeds, both the GRU and Transformer language-production candidates generated all 64 held-out combinations of structured non-language state exactly after the small conditioning curriculum.
+Across three seeds, both GRU and Transformer producers generated all 64 held-out structured semantic combinations exactly.
 
-Result:
+### E-LANG-003 — BiGRU leads controlled language perception
+**Status:** SUPPORTED IN CONTROLLED SYNTHETIC BENCHMARK
 
-```text
-GRU          64/64 exact on 3/3 seeds
-Transformer  64/64 exact on 3/3 seeds
-```
+Three-seed means:
 
-Design consequence:
+\`\`\`text
+BiGRU          72.0% exact   91.6% slot accuracy
+Transformer    36.5% exact   77.9%
+GRU            36.3% exact   75.9%
+\`\`\`
 
-> The Agent can maintain a language-production boundary in which internal state is supplied as a compact non-language conditioning channel instead of serialized prompt text.
+### E-LANG-004 — Sub-million raw-byte GRU learns recognizable real English cheaply
+**Status:** SUPPORTED ON BOUNDED REAL-TEXT CURRICULUM
 
-Scope:
-- synthetic 4-slot semantic state;
-- does not prove open-domain language or that the final Agent state should use these human-defined slots.
+Three-seed TinyStories replication, random initialization, 800 updates:
 
+\`\`\`text
+GRU          mean 1.640 bits/byte
+Transformer  mean 2.567 bits/byte
+\`\`\`
 
----
-
-## E-LANG-003 — Bidirectional recurrence currently leads controlled language perception
-**Status:** PROMISING / REPLICATED SYNTHETIC RESULT
-
-In the first three-seed English-bytes→structured-state probe, validation held out both semantic combinations and sentence templates.
-
-Mean results:
-
-```text
-BiGRU          72.0% exact state   91.6% slot accuracy
-GRU            36.3% exact state   75.9% slot accuracy
-Transformer    36.3% exact state   77.9% slot accuracy
-```
-
-The Transformer trained about 3.1× faster than the BiGRU.
+All three GRU samples were recognizably English but repetitive. Transformer samples remained substantially more malformed at the same update budget.
 
 Design consequence:
-- language perception and production should remain separately selectable;
-- bidirectional recurrence is the current quality baseline for perception;
-- faster Transformer perception remains economically relevant;
-- test slot-specific readout before increasing model size.
+- GRU is the current production baseline;
+- do not confuse recognizable surface language with open-domain conversational intelligence.
 
-Scope:
-- human-defined four-slot synthetic semantics;
-- does not establish open-domain understanding.
-
-
----
-
-## E-LANG-004 — A sub-million-parameter raw-byte GRU learned recognizable real English cheaply
-**Status:** PROMISING / SINGLE REAL-TEXT SEED
-
-First TinyStories screen, random initialization, 800 updates:
-
-```text
-GRU          800,640 params   1.659 bits/byte
-Transformer  927,872 params   2.610 bits/byte
-```
-
-The GRU produced a recognizably grammatical, though repetitive, story continuation after about 133 seconds of CPU training on the GitHub runner.
-
-The Transformer trained faster but remained largely malformed at the same update budget.
-
-Design consequence:
-- use the GRU as the first production-organ integration baseline if the result replicates;
-- retain the Transformer as the training-speed/control candidate;
-- do not increase model scale before repeating the result.
-
-Scope:
-- one seed;
-- constrained TinyStories curriculum;
-- surface language modeling only.
-
-
----
-
-## E-LANG-005 — Slot-query attention did not improve BiGRU perception
+### E-LANG-005 — Slot-query attention did not improve BiGRU perception
 **Status:** REJECTED SIMPLE REFINEMENT
 
-Three-seed follow-up:
+\`\`\`text
+plain BiGRU       72.0% exact
+attentive BiGRU   64.6%
+\`\`\`
 
-```text
-plain BiGRU       72.0% exact state
-attentive BiGRU   64.6% exact state
-```
+### E-LANG-006 — Controlled language→state→language junction adds little loss
+**Status:** SUPPORTED IN CONTROLLED SYNTHETIC BENCHMARK
 
-The slot-query variant was also slightly worse in per-slot accuracy and slightly slower.
+Three-seed closed loop:
+
+\`\`\`text
+perception exact state      70.3%
+oracle state output        100.0%
+hard predicted-state output 70.3%
+soft predicted-state output 67.5%
+\`\`\`
+
+The hard-state roundtrip exact rate equals perception exactness. When perception recovers the correct state, the bridge and trained producer are effectively lossless on this controlled task.
+
+## Cognitive-core evidence
+
+### E-COG-001 — Factor-graph organization produces a large OOD gain
+**Status:** SUPPORTED / REPLICATED
+
+Three-seed, 400 mixed updates:
+
+\`\`\`text
+flat MLP OOD          23.9%
+factor one-pass OOD   59.8%
+\`\`\`
+
+The factor model also uses far fewer parameters (~105k vs ~380k).
 
 Design consequence:
-- keep the simpler BiGRU perception baseline;
-- do not infer that attention is generally unhelpful;
-- treat the one-seed local improvement as variance rather than evidence.
+
+> Explicit persistent symbol/entity identity with role-typed fact/query connections is the current high-leverage cognitive representation baseline.
+
+### E-COG-002 — Aggregate recurrence gain is real but modest relative to cost
+**Status:** SUPPORTED / LOW-TO-MEDIUM LEVERAGE
+
+\`\`\`text
+factor one-pass     59.8% OOD   ~7.6 s
+factor recurrent    64.6% OOD   ~26.0 s
+\`\`\`
+
+Do not launch a long tuning campaign around the aggregate +4.8 point gain.
+
+### E-COG-003 — Repeated thought can unlock specific capabilities
+**Status:** SUPPORTED / REPLICATED
+
+Same trained recurrent model, OOD mean:
+
+\`\`\`text
+1 step   38.1%
+2 steps  51.2%
+4 steps  62.0%
+6 steps  63.0%
+8 steps  62.8%
+\`\`\`
+
+Associative memory:
+
+\`\`\`text
+1 step   10.2%
+2 steps  52.0%
+4 steps  99.6%
+6 steps 100.0%
+\`\`\`
+
+Design consequence:
+- recurrent depth should be treated as selective computation;
+- current benchmark mostly saturates around four steps.
+
+### E-COG-004 — Input reinjection did not pay rent
+**Status:** REJECTED SIMPLE ASSUMPTION
+
+\`\`\`text
+recurrent + reinjection     64.6% OOD
+recurrent no reinjection    65.8% OOD
+\`\`\`
+
+Do not preserve input reinjection as a default architectural requirement.
+
+### E-COG-005 — Specialist ceilings localize the remaining useful gaps
+**Status:** SUPPORTED / REPLICATED
+
+Recurrent specialists:
+
+\`\`\`text
+relation   98.5% OOD
+rule       97.3%
+memory    100.0%
+graph      45.5%
+state      20.5%
+\`\`\`
+
+Approximate shared recurrent OOD:
+
+\`\`\`text
+relation   88.7%
+rule       65.8%
+memory     99.7%
+graph      46.2%
+state      22.8%
+\`\`\`
+
+Interpretation:
+- memory is effectively at its specialist ceiling;
+- graph/state are weak even in specialists and should not drive shared-core tuning;
+- rule induction is the largest meaningful shared-vs-specialist gap;
+- the next high-value question is transfer, not another architecture micro-tweak.
+
+## Architectural evidence
+
+### E-ARCH-001 — One substrate is not required
+**Status:** ARCHITECTURAL SYNTHESIS
+
+Current evidence supports treating perception, cognition, production, memory and exact capabilities as separable mechanisms connected by bounded contracts.
+
+### E-ARCH-002 — Whole-system utility dominates local elegance
+**Status:** SUPPORTED DESIGN RULE
+
+Local improvement is insufficient when recognition, routing, runtime, memory, maintenance or research cost overwhelms the gain.
+
+### E-ARCH-003 — Research leverage is now an explicit evaluation dimension
+**Status:** PROCESS RULE
+
+A positive result does not automatically earn another cycle.
+
+Prefer experiments that plausibly yield step changes: large capability gains, ≥2× efficiency, new abilities, strong transfer/OOD behavior, or much faster acquisition of new skills.

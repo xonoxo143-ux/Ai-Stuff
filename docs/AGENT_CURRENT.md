@@ -1,323 +1,309 @@
 # Agent — Current Architecture and Frontier
 
-**Date:** 2026-09-28  
-**Status:** authoritative current orientation for the Agent line  
-**Branch:** `experiment/agent-v1-developmental-ecology`
+**Date:** 2026-09-29  
+**Status:** authoritative current orientation  
+**Branch:** \`experiment/agent-v1-developmental-ecology\`
 
-> If another Agent document disagrees with this file about what is currently believed, treat that document as historical unless this file explicitly promotes it.
+> If another Agent document disagrees with this file about the current direction, treat that document as historical unless this file explicitly re-promotes it.
 
-## 1. Product anchor
+## 1. Task anchor
 
-Build a high-quality local conversational agent, no larger than roughly 32 GB as a finished runnable system, that can store broad capability while spending only the computation useful for the current moment.
+Build an intelligent local conversational agent from scratch, with a finished runnable system no larger than roughly 32 GB.
+
+A pretrained LLM may be used only as a control/reference system. It must not silently supply the intelligence we are trying to build.
 
 Short form:
 
-```text
+\`\`\`text
 STORE BROADLY
 ACTIVATE NARROWLY
 DEVELOP SELECTIVELY
-```
+\`\`\`
 
-The first integrated embodiment is a **chatbot**.
+The first integrated embodiment is a chatbot.
 
-Game control, sensors, robotics, and other environments remain valid future interfaces, not current prerequisites.
+## 2. Current architecture
 
-## 2. Current conceptual direction
+The strongest current path is no longer "pick one monolithic language model."
 
-The target is **not** a pure recurrent agent, pure Transformer, pure state-space model, pure symbolic system, or pure skill graph.
+\`\`\`text
+English / bytes
+      ↓
+language perception
+(current baseline: BiGRU)
+      ↓
+bounded non-language state
+      ↓
+general cognitive core
+(current baseline: factor-graph processor)
+      ↓
+bounded non-language state
+      ↓
+language production
+(current baseline: GRU)
+      ↓
+English / bytes
+\`\`\`
 
-The current direction is a heterogeneous capability ecology:
+Memory, tools, retrieval, persistent state, development and specialist capabilities are attached around this core as they earn a measurable role.
 
-```text
-human language / tools / future sensors
-                │
-                ▼
-      representation + language machinery
-                │
-        ┌───────┴────────┐
-        │                │
- attention/Transformer   recurrent/SSM state
- or hybrids              and continuity
-        │                │
-        └───────┬────────┘
-                │
-       bounded shared state
-                │
-      capability recruitment
-                │
- ┌──────────────┼─────────────────┐
- │              │                 │
-learned      explicit          sparse / learned
-specialist   code/tool         memory capability
- │              │                 │
- └──────── temporary composition ─┘
-                │
-        response / tool action
-                │
-              trace
-                │
-        developmental layer
-                │
- causal credit / update risk / promotion
- compilation / pruning / replacement
-                │
-        persistent capability graph
-                ↺
-```
+The language organs and cognitive core do not have to share one architecture.
 
-No one substrate is required to implement every capability.
+## 3. Language evidence
 
-A capability may internally be:
+### Production
 
-- Transformer/attention machinery;
-- recurrent or state-space machinery;
-- sparse memory;
-- deterministic code;
-- a tool wrapper;
-- a learned specialist;
-- an exact or distilled composition;
-- another validated implementation.
+Random-init raw-byte real-text replication on the same bounded TinyStories curriculum, 800 updates, three seeds:
 
-The common abstraction is the **capability contract**, not the internal substrate.
+\`\`\`text
+GRU          800,640 params   mean 1.640 bits/byte
+Transformer  927,872 params   mean 2.567 bits/byte
+\`\`\`
 
-## 3. Functional division currently worth testing
+All three GRU runs produced recognizable but repetitive English. The Transformer trained faster but remained substantially worse at the same update budget.
 
-This is a hypothesis map, not a fixed hierarchy.
+Current production baseline: **GRU**.
 
-### Language / relational processing
+### Perception
 
-Transformer-style attention or an attention/recurrent hybrid is a strong candidate for high-quality language and precise relational manipulation.
+Controlled English-bytes → structured-state task, three seeds:
 
-There is no anti-Transformer requirement.
+\`\`\`text
+BiGRU          72.0% exact state   91.6% slot accuracy
+Transformer    36.5% exact state   77.9% slot accuracy
+GRU            36.3% exact state   75.9% slot accuracy
+\`\`\`
 
-### Persistent active continuity
+A slot-query attentive BiGRU refinement fell to 64.6% exact and was rejected.
 
-Recurrent or state-space machinery is a strong candidate where fixed-size state, temporal continuity, and cheap repeated updates matter.
+Current perception baseline: **plain BiGRU**.
 
-### Large stored knowledge
+### Closed language loop
 
-Sparse/addressable memory should be tested separately from active cognition. Most new conversational facts should not automatically become weight updates.
+Controlled held-out paraphrases:
 
-### Exact capabilities
+\`\`\`text
+English
+→ BiGRU perception
+→ 16-d semantic state
+→ GRU production
+→ canonical English
+\`\`\`
 
-Code and tools should be used where they are more reliable or cheaper than learned approximation.
+Three-seed result:
 
-### Capability-level cognition
+\`\`\`text
+perception exact state      70.3%
+oracle state → sentence    100.0%
+hard predicted state        70.3% exact sentence
+soft predicted state        67.5% exact sentence
+hard byte accuracy          98.65%
+soft byte accuracy          98.70%
+\`\`\`
 
-The ecology decides which capabilities participate in the current thought/task, how they communicate, and when more computation is worth spending.
+When perception is correct, the controlled state bridge and producer add essentially no extra exact-sequence loss. The bottleneck in this probe is perception.
 
-Sparse recruitment is primarily a **capability/thought-scale** hypothesis, not a requirement that every low-level language operation be sparse.
+## 4. Cognitive Core v0 — replicated result
 
-### Development
+The first useful non-language core uses a common factor-graph representation:
 
-Slow learning changes what the system can do economically in the future:
+\`\`\`text
+fact / event / query slots
+        ↕ role-typed messages
+persistent shared symbol/entity nodes
+\`\`\`
 
-- specialization;
-- routing/relevance;
-- new reusable capability;
-- interaction motif;
-- compilation;
-- replacement;
-- retirement;
-- plasticity allocation.
+The same processor and answer vocabulary are used across:
 
-## 4. Memory is not one thing
+- transitive relations;
+- ordered mutable state;
+- graph reachability;
+- rule induction;
+- associative memory.
 
-Keep these conceptually separate:
+Rigorous three-seed CI, 400 mixed updates:
 
-```text
-ACTIVE STATE
-what matters now
+\`\`\`text
+model                         mean OOD   mean IID   train time
+flat MLP                        23.9%      40.5%       3.7 s
+factor one-pass                 59.8%      77.3%       7.6 s
+factor recurrent                64.6%      80.6%      26.0 s
+factor recurrent, no reinject   65.8%      81.6%      25.6 s
+\`\`\`
 
-EPISODIC MEMORY
-what happened
+The **large result** is the representation/organization change:
 
-SEMANTIC / WORLD MEMORY
-what the system currently treats as true/probable
+> flat 23.9% OOD → factor one-pass 59.8% OOD, with far fewer parameters.
 
-CAPABILITY MEMORY
-what the system has learned how to do
-```
+That is high-leverage enough to guide architecture.
 
-A useful development path is often:
+The average recurrence gain is much smaller:
 
-```text
-"I remember solving this"
-        ↓
-"I know how to do this"
-```
+> 59.8% → 64.6% OOD for roughly 3.4× training time.
 
-Facts should generally enter episodic/semantic memory first.
+Do not spend a long research cycle polishing that aggregate gain.
 
-Weight or structural changes should be reserved for learning **capability**, representation, routing, or reusable computation when justified.
+Input reinjection did not pay rent and is currently demoted.
 
-## 5. Multi-timescale learning
+## 5. Thought depth
 
-The architecture increasingly points toward learning itself being routed across timescales.
+The same trained recurrent core evaluated at different recurrent depths:
 
-```text
-FAST
-active/recurrent state
-ordinary cognition
+\`\`\`text
+1 step   38.1% OOD mean
+2 steps  51.2%
+4 steps  62.0%
+6 steps  63.0%
+8 steps  62.8%
+\`\`\`
 
-MEDIUM
-contextual organization
-recruitment, gain, temporary coalitions
-relevance/reliability updates
+Memory is the clearest capability unlock:
 
-SLOW
-parametric capability change
-structural promotion/pruning
-plasticity consolidation
-```
+\`\`\`text
+1 step   10.2%
+2 steps  52.0%
+4 steps  99.6%
+6 steps 100.0%
+\`\`\`
 
-The current Agent v1 interference experiments are testing the slow-learning problem in isolation.
+Interpretation:
 
-## 6. Experimental evidence carried forward
+- repeated computation can unlock capabilities;
+- most value in this benchmark is obtained by about four steps;
+- extra depth after saturation should not be paid for automatically.
 
-### Agent v0
+This connects directly to the literature on **recurrent depth / looped networks / adaptive computation**, so future work should use that literature rather than rediscover the basic phenomenon.
 
-Supported:
+## 6. Specialist ceilings
 
-- sparse top-k execution can save real wall-clock work;
-- shallow recurrent thought can be useful;
-- learned cells can acquire reproducible causal roles;
-- useful computation can be relational between cells;
-- a causally useful pair motif can be compiled into a smaller/faster reusable unit;
-- local speedup alone is insufficient for promotion if whole-agent savings do not pay rent.
+The same recurrent processor trained separately by task family:
 
-### Agent v1-A1
+\`\`\`text
+family      specialist OOD
+relation        98.5%
+rule            97.3%
+memory         100.0%
+graph           45.5%
+state           20.5%
+\`\`\`
 
-Established so far:
+The shared recurrent core is approximately:
 
-- larger static capacity did not produce a simple robust capacity crossover;
-- lifelong sequential training produces measurable interference/forgetting;
-- private recurrent updates can causally contribute to destructive forgetting;
-- routing frequency does not identify which cells deserve protection;
-- old-task execution importance also does not reliably identify destructive updates;
-- **post-hoc destructive-update localization replicated on fresh seeds**.
+\`\`\`text
+relation        88.7%
+rule            65.8%
+memory          99.7%
+graph           46.2%
+state           22.8%
+\`\`\`
 
-Fresh-seed replication:
+Implications:
 
-```text
-fixed16 top-4 destructive updates:
-  beat matched random in 10/11 destructive events
-  captured ~95.4% of positive destructive-attribution mass
+- memory is effectively solved in this controlled benchmark;
+- graph/state are limited even for specialists, so they are poor places for shared-core tuning until the task/representation is reconsidered;
+- relation is reasonably close to specialist performance;
+- rule induction has the largest meaningful shared-vs-specialist gap.
 
-sparse64 top-4:
-  beat matched random in 8/12
-  captured ~96.9%
-```
+## 7. High-leverage experimental rule
 
-Strongest current mechanistic statement:
+The project now optimizes **progress per unit effort**, not the number of positive experiments.
 
-> A relatively small subset of private-cell parameter updates disproportionately causes forgetting in the current benchmark.
+A new branch should normally earn continued work by plausibly producing at least one of:
 
-This is post-hoc evidence, not yet an online learning rule.
+- roughly **20+ percentage points** of capability improvement on a meaningful metric;
+- roughly **2× or greater** real efficiency improvement;
+- a previously absent capability;
+- strong OOD/transfer/generalization that changes what the system can do;
+- a large reduction in examples or updates needed to acquire a new capability.
 
-## 7. Current experiment
+Smaller gains may be recorded as evidence, but normally do not earn another optimization cycle.
 
-`AGENT_V1_A1_UPDATE_PREDICTORS.md` tests whether signals available before/during learning can predict the destructive updates later identified by reversion.
+The thresholds are triage heuristics, not laws. The standard is: **does this materially move us toward the intelligent conversational agent?**
 
-Candidate predictor families include:
+## 8. Literature-before-build rule
 
-- new-gradient magnitude;
-- old usage × new-gradient magnitude;
-- old output sensitivity × new gradient;
-- old-loss sensitivity × new gradient;
-- old/new gradient conflict.
+Before an expensive experimental branch:
 
-The result decides whether a prospective plasticity/gating mechanism has earned a test.
+\`\`\`text
+state the question
+→ search our wording
+→ search neighboring terminology
+→ search mechanism names
+→ search recent work + canonical precedents
+→ search known failure modes / ablations
+→ identify the strongest relevant baseline
+→ build only the unresolved discriminating test
+\`\`\`
 
-## 8. Current integration direction
+Maintain a terminology map in \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\`.
 
-Do **not** interpret Agent v1's recurrent cells as the final chatbot substrate.
+Important current mappings include:
 
-Agent v1 is the experimental developmental tissue.
+- "think longer with the same brain" → recurrent depth, looped networks/Transformers, adaptive computation, iterative refinement;
+- "reuse learned computation on new tasks" → compositional meta-learning, learning-to-learn, modular skill composition, what/how separation;
+- "facts/entities connected by shared identity" → factor graphs, graph networks, message passing, relational inductive bias;
+- "same processor across problem families" → neural algorithmic reasoning, shared processors, systematic/generalization benchmarks.
 
-The integrated chatbot direction is:
+## 9. Next high-information gate: transfer
 
-```text
-strong language machinery
-        +
-persistent recurrent/SSM continuity where useful
-        +
-sparse/addressable memory
-        +
-explicit tools/code
-        +
-learned specialists
-        +
-capability-level sparse composition
-        +
-multi-timescale developmental control
-```
+Do **not** spend the next cycle tuning Cognitive Core v0.
 
-Transformers, tokens, SSMs, recurrence, symbolic computation, and learned memory are all implementation variables.
+The next question is:
 
-Use whichever mechanism wins at its scale.
+> Did the shared core learn reusable machinery for thinking, or merely learn five tasks simultaneously?
 
-## 9. Near-term build sequence
+Compare on a genuinely held-out sixth task family:
 
-Two tracks may now proceed without contaminating each other.
+\`\`\`text
+A. fresh core
+   learn task 6 from scratch
 
-### Track A — developmental mechanism
+B. current shared core
+   pretrained on existing families
+   → adapt to task 6
 
-```text
-destructive-update predictor
-→ prospective plasticity/gating test
-→ reserve-development pressure
-→ motif/promotion lifecycle
-```
+C. explicit reusable-computation baseline
+   separate/recompose WHAT computation is required
+   from HOW the computation is performed
+\`\`\`
 
-### Track B — chatbot substrate/interface
+Measure zero-shot behavior and the learning curve at small data/update budgets.
 
-```text
-benchmark candidate language spines
-→ define capability contract / shared-state boundary
-→ separate active, episodic, semantic, capability memory
-→ minimal multi-turn chatbot
-```
+Primary metric:
 
-Then:
+> examples or updates required to reach the same OOD target.
 
-```text
-Track A + Track B
-        ↓
-first hybrid lifelong chatbot
-```
+A small improvement such as 2000 → 1700 examples is not enough to justify a new architecture branch.
 
-## 10. Open decisions
+A reduction such as 2000 → 500 is interesting.
 
-Still experimental:
+A reduction such as 2000 → 100, or strong zero-/few-shot composition, is a major result.
 
-- exact language spine;
-- role and granularity of Transformer attention;
-- role and granularity of SSM/recurrent state;
-- tokenizer / byte / patch representation;
-- memory implementation;
-- capability granularity;
-- routing mechanism;
-- shared-state format/bandwidth;
-- online plasticity predictor/gate;
-- reserve recruitment;
-- physical model placement and cache strategy;
-- whether sparse activation wins on actual target hardware.
+## 10. Current demotions / stopped branches
+
+Do not keep rescuing these without new evidence:
+
+- fixed-patch byte RNN;
+- slot-query attentive BiGRU;
+- input reinjection in Cognitive Core v0;
+- simple one-shot destructive-update importance scores;
+- static capacity as a solution to development;
+- extra recurrent depth past the observed saturation point;
+- small aggregate recurrence gains as a reason for prolonged tuning.
 
 ## 11. Non-negotiable evaluation rule
 
 Architectural elegance does not count.
 
-A mechanism survives only if it improves the whole system after:
+A mechanism survives only if the whole-system gain justifies:
 
 - quality;
+- OOD/transfer ability;
 - wall-clock cost;
 - memory movement;
 - routing/recognition overhead;
 - storage;
 - developmental cost;
-- maintenance cost
+- maintenance/research cost.
 
-are counted.
-
-> Structural changes must pay rent.
+> Structural changes must pay rent — and the rent should usually be large enough to matter.
