@@ -948,3 +948,73 @@ The major pieces now demonstrated separately in toy form are:
 The next high-value test should combine these pieces in one developmental lifetime and measure whether:
 
 > **capability accumulates while average active computation per familiar problem falls and cold-store growth does not force active-work growth.**
+
+## Developmental synthesis S14 — integrated lifetime scaling
+
+### Integrated Developmental Lifetime Gate v0
+
+The previously surviving mechanisms were combined:
+
+```text
+expensive identification when novel
+→ active falsification certificate
+→ verified compiled skill
+→ disk-backed cold store
+→ behavior/effect-keyed lookup
+→ certificate check
+→ direct payload execution on familiar task
+→ reject and escalate when unfamiliar
+```
+
+The verified cold library was scaled:
+
+```text
+32 → 320 → 3,200 skills
+```
+
+Each stored skill had a 4 KiB cold payload and a behavioral retrieval key plus its learned falsification certificate.
+
+Three replicated scaling curves used a fixed 80/20 familiar/novel workload.
+
+Across every stage and seed:
+- familiar tasks were retrieved 100% of the time;
+- every retrieved familiar skill was correct;
+- genuinely novel tasks produced zero false reuse;
+- novel tasks therefore still escalated to expensive identification.
+
+Mean scaling result from 32 → 3,200 skills:
+
+```text
+skill count growth                100×
+cold-store byte growth            ~93.7×
+familiar rows touched growth      ~1.43×
+familiar verification queries     ~1.79×
+selected payload bytes            4 KiB → 4 KiB
+80/20 active-work growth          ~1.27×
+```
+
+Median lookup latency remained in the ~0.014–0.018 ms range in this local Python/SQLite implementation, but wall-clock microbenchmarks at this scale should be treated as descriptive rather than as a hardware-independent claim.
+
+### Interpretation
+
+This is the first integrated toy result supporting the project's central scaling hypothesis:
+
+> **total durable capability can grow by roughly two orders of magnitude while active work per thought grows only modestly, provided familiar computation is effect-addressed, cold-stored, and protected by compact falsification certificates.**
+
+The result does not show that arbitrary cognition will have the same scaling law.
+
+It does show that the earlier pieces can coexist without immediately destroying one another:
+- compilation does not force the whole store into RAM;
+- store growth does not force global scan;
+- sparse retrieval does not create false reuse on the bounded task family;
+- epistemic certificates allow cheap reuse while preserving novelty detection.
+
+### Strategic consequence
+
+Stop extending the toy function world unless a later whole-agent failure requires it.
+
+The next unresolved bottleneck is again the real agent:
+
+> **Can natural language / conversational context be converted into the structured goal/effect state needed to invoke this developmental machinery, and can the selected computation feed a homegrown response generator?**
+
+This reconnects the developmental substrate to Whole-Agent Closure rather than allowing the nursery to become a separate benchmark project.
