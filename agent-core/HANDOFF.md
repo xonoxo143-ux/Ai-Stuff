@@ -2,6 +2,16 @@
 
 _Last updated: 2026-09-29_
 
+## Project boundary — do not merge these
+
+This handoff is for the **AgentMail / SELF-ROOT operational agent** only.
+
+It is **not** the separate homegrown/custom-agent research project whose goal is to build an intelligent conversational agent from scratch without importing another LLM. That project has its own architecture, experiments, and continuation state.
+
+For this project, references to a "reasoning worker", "episodic worker", or "replaceable model worker" mean an execution component used by SELF-ROOT to complete work. They do **not** mean that the homegrown-agent research project should be folded into Agent Core.
+
+Keep the two projects separate unless the human explicitly decides to integrate them later.
+
 ## Resume here
 
 Agent Core v0.17.0 is live in production.
