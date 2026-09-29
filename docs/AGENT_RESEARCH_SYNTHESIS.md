@@ -135,29 +135,30 @@ This lets us ask whether the failure lives in the processor/routing layer.
 
 ---
 
-### S5. Routing is now the strongest new candidate bottleneck
+### S5. Routing was not the immediate bottleneck we thought it might be
 
-The research refresh changed this substantially.
+The research refresh elevated routing because many successful compositional systems explicitly select and sequence reusable computation.
 
-Multiple independent lines report that successful composition depends not just on having reusable pieces but on learning **which piece to use, on which state, in which order**.
+Operator Routing Gate v0 then supplied the correct semantic decomposition and route directly.
 
-That matches our failure pattern:
+Result:
 
 ```text
-96% IID
-40.5% OOD
+shared factor core      43.7% IID   27.0% OOD
+oracle operator core    95.8% IID   41.2% OOD
 ```
 
-A shared processor can memorize/fit the composed task, but it does not necessarily learn a reusable execution sequence.
+The oracle route massively improved fitting but only added **14.2 OOD points**, below the high-leverage gate.
 
-**Current synthesis:**
+**Revised synthesis:**
 
-> The next core should explicitly represent an execution path rather than forcing one processor to implicitly emulate every operation.
+> Routing matters in the general problem, but it is not the next bottleneck in this benchmark. Even with the route solved, the learned operators do not extrapolate strongly to longer execution depth.
 
-**Confidence:** medium-high.
+The immediate question becomes whether the operation learned on short chains is an actual reusable algorithm or a short-horizon approximation.
+
+**Confidence:** high.
 
 ---
-
 ### S6. Recurrent depth remains useful, but as an executor
 
 Our own depth probe:
@@ -204,46 +205,36 @@ The external literature's modular, task-inference, local-component and parameter
 
 ---
 
-### S8. The strongest current architecture possibility is now a four-layer cognitive loop
+### S8. The four-layer loop remains a possibility, but the operator layer is now the weak link
 
-Not a final architecture — a research hypothesis:
+The broad decomposition remains conceptually useful:
 
 ```text
 STRUCTURED STATE / BINDINGS
-(factor/entity graph)
           ↓
 CONTROL / TASK INFERENCE
-(what needs to happen?)
           ↓
 ROUTER / SEQUENCER
-(which learned operation acts next?)
           ↓
-OPERATOR BANK
-(reusable learned transformations)
+REUSABLE LEARNED OPERATIONS
           ↓
 ITERATIVE EXECUTION
-(update state and repeat)
           ↺
 ```
 
-The operators may be:
+But Operator Routing Gate v0 prevents us from treating this as the next architecture to build.
 
-- small message-passing networks;
-- recurrent dynamical motifs;
-- low-rank learned transformations;
-- specialized subnetworks;
-- other bounded learned functions.
+Supplying the operator boundaries and sequence produced near-solved IID fitting while OOD stayed weak. Therefore the unresolved issue is more basic:
 
-They do **not** need to be symbolic rules.
+> Can a learned operation preserve the same semantics when it must execute for more steps, on longer paths, or under new bindings?
 
-The defining property is:
+Until that is demonstrated, an operator bank risks becoming a collection of specialized short-horizon functions rather than reusable cognition.
 
-> an operation remains individually addressable enough to be reused in a novel execution sequence without globally rewriting the network.
+**Confidence in the broad loop:** medium-low.
 
-**Confidence:** medium.
+**Confidence that depth-generalizing operator semantics are the next research target:** high.
 
 ---
-
 ## What changed over the project
 
 ### Stage A — developmental recurrent ecology
@@ -304,135 +295,49 @@ It also elevated two constraints:
 
 ---
 
-## Next experimental hypothesis
+## Completed hypothesis H1 — oracle operator decomposition
 
-### Hypothesis H1 — explicit reusable operators can beat a shared processor on unseen composition
+H1 asked whether explicit reusable operators could produce a large OOD advantage over a shared processor when the route was supplied.
 
-Hold constant:
-
-- factor/entity state representation;
-- task families;
-- parameter budget as closely as practical;
-- training/evaluation budgets.
-
-Change only the execution organization.
-
-#### Baseline A — shared factor processor
-
-Current Cognitive Core v0 style:
+Rigorous three-seed result:
 
 ```text
-state → same processor → state → same processor → ...
+                         IID      OOD
+shared factor core      43.7%    27.0%
+oracle operator core    95.8%    41.2%
+
+OOD delta                       +14.2 points
+required gate                   +20.0 points
 ```
 
-#### Diagnostic B — oracle-routed operator bank
+**H1 failed the high-leverage gate.**
 
-Use several learned operator modules, but provide the correct operator identity/sequence during training **and evaluation**.
+The architecture clearly improves optimization/sample acquisition on the training distribution, but it does not solve depth extrapolation.
 
-Purpose:
+Per the precommitted decision rule:
 
-> establish whether explicit decomposition has enough representational/execution capacity to solve the held-out compositions at all.
+- learned routing is not built next;
+- automatic operator discovery is not built next;
+- the positive IID result is retained as evidence, not promoted into architecture.
 
-This is an **upper-bound diagnostic**, not a candidate final agent.
+## Next research hypothesis — depth-invariant learned operations
 
-#### Candidate C — learned-routed operator bank
+The next cycle returns to research before another build.
 
-Same learned operators, but the router/sequencer must infer the next operator from task/state context.
+Working question:
 
-Purpose:
+> What mechanism makes a learned computation behave like the **same operation at depth 5 as at depth 1**, rather than learning a short-chain approximation?
 
-> test whether routing can generalize to withheld operation sequences.
+Candidate mechanism families to research, not yet adopt:
 
-### Why use an oracle arm?
+- algorithmic alignment / neural algorithmic reasoning;
+- recurrent processors trained on execution traces or intermediate invariants;
+- stable variable/entity binding across repeated updates;
+- equivariant or state-machine-like transition structure;
+- training distributions that force length extrapolation rather than finite coverage;
+- error-correcting / anchored latent execution.
 
-Because otherwise a failure is ambiguous:
-
-```text
-operator architecture failed
-OR
-router failed
-OR
-operators never specialized
-```
-
-The oracle arm separates those.
-
-If B cannot produce a large gain, stop. There is little reason to invest in automatic module discovery/routing.
-
-If B succeeds but C fails, routing is the bottleneck.
-
-If B and C succeed, we have earned the next test: **remove explicit operator supervision and ask whether specialization can emerge automatically**.
-
----
-
-## Training/evaluation design
-
-Train on primitive operations plus selected compositions.
-
-Withhold:
-
-1. specific operator combinations;
-2. longer sequence lengths;
-3. some role/entity permutations.
-
-Evaluate separately:
-
-```text
-IID known compositions
-OOD unseen combinations
-OOD longer depth
-OOD binding permutations
-old-task retention
-adaptation cost for one new operator
-```
-
-The benchmark must prevent trivial coverage leakage.
-
----
-
-## High-leverage gate
-
-The candidate does **not** survive for a small positive result.
-
-Strong evidence would be at least one of:
-
-- ~20+ OOD points over the shared factor baseline;
-- strong unseen composition at near-IID accuracy;
-- several-fold fewer updates for a new composition;
-- near-zero adaptation for a novel sequence of known operators;
-- adding one new operator without materially degrading old ones.
-
-### Kill conditions
-
-Stop the branch if:
-
-- oracle operator decomposition barely beats the shared core;
-- learned routing collapses to memorized sequence templates;
-- performance disappears under longer composition depth;
-- binding permutations break the model;
-- routing overhead erases the capability/efficiency gain.
-
----
-
-## If H1 passes
-
-Only then test **automatic operator discovery**.
-
-Candidate training signals from the literature:
-
-- competition / winner-take-most allocation;
-- modular routing pressure;
-- predictive/self-supervised dynamics;
-- compositional meta-training;
-- compound examples containing reusable pieces;
-- slow operator weights + faster routing/context learning.
-
-The key question becomes:
-
-> Can the system discover the operator vocabulary itself instead of being told what the reusable pieces are?
-
----
-
+The next experiment should change **one** of these while holding decomposition and route fixed, so the failure remains interpretable.
 ## Research-to-build promotion rule
 
 ```text
@@ -484,12 +389,29 @@ This document owns synthesis and experimental hypotheses.
 
 ---
 
+### 2026-09-29 — after Operator Routing Gate v0
+
+**Prior synthesis:** explicit decomposition plus an oracle route should reveal whether routing/decomposition was the main obstacle to compositional OOD.
+
+**Prediction:** if operatorization was the missing organization, the oracle arm should beat the shared core by at least 20 OOD points.
+
+**Result:** oracle operators reached 95.8% IID but only 41.2% OOD versus 27.0% OOD for the shared core; +14.2 points, below gate.
+
+**What survived:** explicit decomposition strongly improves learnability/fitting; factor state remains useful.
+
+**What failed:** the claim that decomposition/routing is sufficient for strong compositional extrapolation.
+
+**Revised synthesis:** the learned operation itself lacks robust depth/length invariance. Routing is demoted as the immediate bottleneck.
+
+**Next discriminating question:** what training/representation constraint makes a learned operator execute an invariant rule over longer trajectories?
+
+---
 ## Current synthesis frontier
 
-The present best hypothesis is:
+The present best hypothesis is narrower than before:
 
-> A general cognitive core may be better modeled as **structured bound state + reusable learned operations + learned routing/sequencing + iterative execution**, with slower plasticity in operations than in control/routing.
+> Structured state and modular control may still be useful, but **reusable cognition requires learned operations whose semantics remain stable across execution depth, path length, and binding changes**. Decomposition and routing cannot compensate for operators that only approximate short training trajectories.
 
-The immediate goal is **not** to believe this architecture.
+The next job is research, not architecture expansion:
 
-The immediate goal is to build the cheapest experiment capable of killing it.
+> identify the strongest demonstrated mechanisms for **depth/length-generalizing learned execution**, then design one cheap test that can distinguish a genuinely invariant operator from a short-horizon heuristic.
