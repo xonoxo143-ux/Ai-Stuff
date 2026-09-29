@@ -550,3 +550,105 @@ Not supported yet:
 > Can stored computational capability grow by 10×–100× while the active working set/search cost stays nearly bounded, and can the developmental system learn the addressing structure needed to make that true?
 
 This directly links self-construction to the project's broader hypothesis: store broadly, activate narrowly, develop selectively.
+
+## Developmental synthesis S10 — dormant capacity and effect-addressed computation
+
+The Developmental Nursery established that reusable executable primitives can be self-authored in a toy domain. The next question was whether storing many such capabilities necessarily makes every thought expensive.
+
+### Addressing Gate v0
+
+A local pure-Python gate compared:
+- exhaustive global scan;
+- flat content buckets;
+- hierarchical metric routing.
+
+Store size increased:
+
+```text
+128 → 1,280 → 12,800 modules
+1×      10×       100×
+```
+
+With exact adaptive branch-and-bound search, the hierarchy always returned the same nearest module as exhaustive scan in the validation runs.
+
+At moderate query noise:
+
+```text
+store growth                  100×
+hierarchy inspections growth  ~2.85×
+active inspected fraction     ~0.39% at 100×
+```
+
+At harder noise:
+
+```text
+hierarchy inspections growth  ~5.02×
+active inspected fraction     ~0.77% at 100×
+```
+
+Search effort increased with ambiguity rather than being fixed per query.
+
+### Disk-backed gate
+
+The in-memory hierarchy exposed a new failure: its Python index memory still grew roughly linearly with store size.
+
+A second local gate moved lower hierarchy records and functional keys into SQLite with a capped cache and kept capability payloads in a separate disk file.
+
+At moderate noise, across three seeds:
+
+```text
+cold store growth             ~97.2×
+module inspections growth     ~2.57×
+logical bytes/query growth    ~1.47×
+payload bytes/query           4,096 → 4,096
+target retrieval              100%
+```
+
+At harder noise:
+
+```text
+module inspections growth     ~4.85×
+logical bytes/query growth    ~2.25×
+target retrieval              100%
+```
+
+Opening the 100× disk index produced no measurable RSS increase in these runs with the SQLite cache capped; this is only a coarse process-level measurement, not a hardware cache proof.
+
+### What survives
+
+The project now has local evidence for:
+
+> **stored capability can grow much faster than the amount of capability metadata/payload touched by one retrieval.**
+
+This supports the broader STORE BROADLY / ACTIVATE NARROWLY hypothesis at the addressing layer.
+
+### What does not survive yet
+
+The gate supplied a good query address: a noisy vector near the target module key.
+
+That is privileged information.
+
+Therefore the important unresolved problem is no longer raw indexing.
+
+It is:
+
+> **How does the agent construct an address for computation that will matter from its current goal/state?**
+
+### Revised hypothesis: effect-addressed computation
+
+Static semantic similarity is probably insufficient.
+
+The next candidate mechanism is to index reusable computation by compact descriptions of its **causal effect / behavioral signature**, then let the active reasoner construct a desired-effect query such as:
+
+```text
+current state
++ goal
+→ desired state change
+→ retrieve operations whose learned effects could cause that change
+```
+
+Program-synthesis work on property signatures and learned query selection gives external precedent for behavior-based addresses, but it does not yet establish this mechanism for open-ended cognition.
+
+Next gate:
+
+> Replace arbitrary module vectors with executable modules whose addresses are derived from observed behavior. Test whether unseen tasks can retrieve and compose useful modules from a goal specification without being given module identity.
