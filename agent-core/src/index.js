@@ -11,10 +11,11 @@ import {
 } from "node:crypto";
 import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
-import { createStripeAdapter } from "./stripe-adapter.mjs";
+import { createDurableState } from "./durable-state.js";
+import { createStripeAdapter } from "./stripe-adapter.js";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.16.0";
+const VERSION = "0.17.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -22,6 +23,7 @@ const motorAgentToken = process.env.MOTOR_AGENT_TOKEN || "";
 const motorBootstrapToken = process.env.MOTOR_BOOTSTRAP_TOKEN || "";
 const agentMailWebhookToken = process.env.AGENTMAIL_WEBHOOK_TOKEN || "";
 const agentMailApiKey = process.env.AGENTMAIL_API_KEY || "";
+const agentMailInboxId = process.env.AGENTMAIL_INBOX_ID || "";
 const agentMailWebhookProvision = process.env.AGENTMAIL_WEBHOOK_PROVISION === "true";
 const agentMailWebhookClientId =
   process.env.AGENTMAIL_WEBHOOK_CLIENT_ID || "self-root-motor-v1";
@@ -58,6 +60,19 @@ const workMaxSubstantial = Math.max(
 const workMaxMicro = Math.max(
   1,
   Math.min(8, Number(process.env.WORK_MAX_MICRO || 2)),
+);
+const agentStateDir = process.env.AGENT_STATE_DIR || "/data/agent-core";
+const workLeaseTtlMs = Math.max(
+  60_000,
+  Math.min(Number(process.env.WORK_LEASE_TTL_MS || 30 * 60_000), 8 * 60 * 60_000),
+);
+const workStuckMs = Math.max(
+  15 * 60_000,
+  Math.min(Number(process.env.WORK_STUCK_MS || 6 * 60 * 60_000), 7 * 24 * 60 * 60_000),
+);
+const workMaxAttempts = Math.max(
+  1,
+  Math.min(Number(process.env.WORK_MAX_ATTEMPTS || 4), 10),
 );
 
 const taskBountyFeedUrl =
@@ -190,6 +205,16 @@ const recentEvents = [];
 const taskQueue = new Map();
 const workLedger = new Map();
 const workOutcomes = [];
+const workReports = [];
+const workIdempotency = new Map();
+const durableState = createDurableState({ directory: agentStateDir });
+const autonomyState = {
+  lastRunAt: null,
+  runCount: 0,
+  recoveredLeases: 0,
+  stuckItems: 0,
+  lastError: null,
+};
 const workSchedulerState = {
   enabled: workSchedulerEnabled,
   lastRunAt: null,
@@ -205,7 +230,11 @@ const motorAllowedActions = new Set([
   "continuity.verify",
   "continuity.status",
   "browser.profile.status",
+  "state.snapshot.read",
+  "state.snapshot.write",
 ]);
+let motorMirrorTimer = null;
+let motorMirrorSnapshot = null;
 
 function motorAuthorized(req) {
   if (!motorAgentToken) return false;
@@ -255,15 +284,24 @@ function pruneMotorQueue() {
   }
 }
 
-function enqueueMotorCommand(action, source = "operator", externalId = null) {
+function enqueueMotorCommand(action, source = "operator", externalId = null, payload = null) {
   pruneMotorQueue();
   if (!motorAllowedActions.has(action)) {
     throw new Error("motor_action_not_allowed");
   }
   const duplicate = externalId
-    ? motorQueue.find((item) => item.externalId === externalId && item.action === action)
+    ? motorQueue.find((item) =>
+        item.externalId === externalId &&
+        item.action === action &&
+        ["pending", "leased"].includes(item.status)
+      )
     : null;
-  if (duplicate) return duplicate;
+  if (duplicate) {
+    if (duplicate.status === "pending" && payload !== null) duplicate.payload = payload;
+    duplicate.expiresAt = new Date(Date.now() + motorCommandTtlMs).toISOString();
+    persistDurableState("motor_command_coalesced");
+    return duplicate;
+  }
 
   const createdAt = new Date().toISOString();
   const command = {
@@ -277,15 +315,20 @@ function enqueueMotorCommand(action, source = "operator", externalId = null) {
     leasedAt: null,
     completedAt: null,
     result: null,
+    payload,
   };
   motorQueue.push(command);
-  rememberEvent({
-    id: randomUUID(),
-    receivedAt: createdAt,
-    type: "motor.command_queued",
-    source: command.source,
-    externalId: command.externalId || command.id,
-  });
+  if (!action.startsWith("state.snapshot.")) {
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: createdAt,
+      type: "motor.command_queued",
+      source: command.source,
+      externalId: command.externalId || command.id,
+    });
+  } else {
+    persistDurableState("motor_snapshot_queued");
+  }
   return command;
 }
 
@@ -309,6 +352,7 @@ function leaseMotorCommand() {
     action: item.action,
     createdAt: item.createdAt,
     expiresAt: item.expiresAt,
+    payload: item.payload ?? null,
   };
 }
 
@@ -327,18 +371,26 @@ function completeMotorCommand(id, ok, result) {
     completedAt: item.completedAt,
     result: item.result,
   });
-  rememberEvent({
-    id: randomUUID(),
-    receivedAt: item.completedAt,
-    type: ok ? "motor.command_completed" : "motor.command_failed",
-    source: "smolmachine",
-    externalId: item.id,
-  });
+  if (ok && item.action === "state.snapshot.read" && result?.snapshot) {
+    mergeRecoveredWorkState(result.snapshot, "smolmachine");
+  }
+  if (!item.action.startsWith("state.snapshot.")) {
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: item.completedAt,
+      type: ok ? "motor.command_completed" : "motor.command_failed",
+      source: "smolmachine",
+      externalId: item.id,
+    });
+  } else {
+    persistDurableState("motor_snapshot_completed");
+  }
   return item;
 }
 
 const agentMailWebhookState = {
   status: "not_started",
+  inboxId: agentMailInboxId || null,
   webhookId: null,
   enabled: false,
   lastError: null,
@@ -374,6 +426,27 @@ async function agentMailRequest(path, { method = "GET", body = null } = {}) {
   return payload;
 }
 
+async function resolveAgentMailInboxId() {
+  if (agentMailWebhookState.inboxId) return agentMailWebhookState.inboxId;
+  let pageToken = null;
+  for (let page = 0; page < 10; page += 1) {
+    const query = new URLSearchParams({ limit: "100" });
+    if (pageToken) query.set("page_token", pageToken);
+    const payload = await agentMailRequest(`/v0/inboxes?${query}`);
+    const inboxes = Array.isArray(payload?.inboxes) ? payload.inboxes : [];
+    const match = inboxes.find((inbox) =>
+      String(inbox?.email || "").trim().toLowerCase() === agentEmail.toLowerCase()
+    );
+    if (match?.inbox_id) {
+      agentMailWebhookState.inboxId = String(match.inbox_id);
+      return agentMailWebhookState.inboxId;
+    }
+    pageToken = payload?.next_page_token || null;
+    if (!pageToken) break;
+  }
+  throw new Error("agentmail_inbox_id_not_found");
+}
+
 async function provisionAgentMailWebhook() {
   if (!agentMailWebhookProvision) {
     agentMailWebhookState.status = "disabled";
@@ -386,11 +459,26 @@ async function provisionAgentMailWebhook() {
   }
   try {
     agentMailWebhookState.status = "provisioning";
-    const path = `/v0/inboxes/${encodeURIComponent(agentEmail)}/webhooks`;
+    const inboxId = await resolveAgentMailInboxId();
+    const path = `/v0/inboxes/${encodeURIComponent(inboxId)}/webhooks`;
+    const existingPayload = await agentMailRequest(path);
+    const existingRows = Array.isArray(existingPayload?.webhooks) ? existingPayload.webhooks : [];
+    const expectedUrl = `${publicRuntimeBaseUrl}/integrations/agentmail/webhook`;
+    const existing = existingRows.find((webhook) =>
+      webhook?.client_id === agentMailWebhookClientId || webhook?.url === expectedUrl
+    );
+    if (existing?.webhook_id) {
+      agentMailWebhookState.status = "ready";
+      agentMailWebhookState.webhookId = existing.webhook_id;
+      agentMailWebhookState.enabled = existing.enabled === true;
+      agentMailWebhookState.lastError = null;
+      agentMailWebhookState.updatedAt = new Date().toISOString();
+      return true;
+    }
     const payload = await agentMailRequest(path, {
       method: "POST",
       body: {
-        url: `${publicRuntimeBaseUrl}/integrations/agentmail/webhook`,
+        url: expectedUrl,
         event_types: ["message.received"],
         client_id: agentMailWebhookClientId,
         headers: {
@@ -3333,9 +3421,160 @@ async function readJson(req, maxBytes = 131072) {
   return JSON.parse(raw.toString("utf8"));
 }
 
+function durableSnapshot() {
+  return {
+    version: VERSION,
+    capturedAt: new Date().toISOString(),
+    workLedger: Array.from(workLedger.entries()),
+    workOutcomes: workOutcomes.slice(-500),
+    workReports: workReports.slice(-250),
+    workIdempotency: Array.from(workIdempotency.entries()).slice(-1000),
+    recentEvents: recentEvents.slice(-200),
+    motorQueue: motorQueue.slice(-250),
+    motorCompleted: Array.from(motorCompleted.entries()).slice(-250),
+    motorBootstrapConsumed,
+    workSchedulerState: { ...workSchedulerState },
+    autonomyState: { ...autonomyState },
+  };
+}
+
+function durableWorkSnapshot() {
+  return {
+    version: VERSION,
+    capturedAt: new Date().toISOString(),
+    workLedger: Array.from(workLedger.entries()),
+    workOutcomes: workOutcomes.slice(-500),
+    workReports: workReports.slice(-250),
+    workIdempotency: Array.from(workIdempotency.entries()).slice(-1000),
+    workSchedulerState: { ...workSchedulerState },
+    autonomyState: { ...autonomyState },
+  };
+}
+
+function mergeRecoveredWorkState(state, source = "local") {
+  if (!state || typeof state !== "object") return false;
+  for (const pair of Array.isArray(state.workLedger) ? state.workLedger : []) {
+    if (!Array.isArray(pair) || pair.length !== 2 || !pair[0] || !pair[1]) continue;
+    const current = workLedger.get(pair[0]);
+    const recoveredAt = Date.parse(pair[1]?.updatedAt || pair[1]?.lastSeenAt || 0);
+    const currentAt = Date.parse(current?.updatedAt || current?.lastSeenAt || 0);
+    if (!current || recoveredAt >= currentAt) workLedger.set(pair[0], pair[1]);
+  }
+  const outcomeIds = new Set(workOutcomes.map((x) => x.id));
+  for (const outcome of Array.isArray(state.workOutcomes) ? state.workOutcomes : []) {
+    if (outcome?.id && !outcomeIds.has(outcome.id)) {
+      workOutcomes.push(outcome);
+      outcomeIds.add(outcome.id);
+    }
+  }
+  workOutcomes.splice(0, Math.max(0, workOutcomes.length - 500));
+  const reportIds = new Set(workReports.map((x) => x.id));
+  for (const report of Array.isArray(state.workReports) ? state.workReports : []) {
+    if (report?.id && !reportIds.has(report.id)) {
+      workReports.push(report);
+      reportIds.add(report.id);
+    }
+  }
+  workReports.splice(0, Math.max(0, workReports.length - 250));
+  for (const pair of Array.isArray(state.workIdempotency) ? state.workIdempotency : []) {
+    if (Array.isArray(pair) && pair.length === 2 && !workIdempotency.has(pair[0])) {
+      workIdempotency.set(pair[0], pair[1]);
+    }
+  }
+  Object.assign(workSchedulerState, state.workSchedulerState || {});
+  Object.assign(autonomyState, state.autonomyState || {});
+  console.log(JSON.stringify({ event: "durable_work_state.merged", source }));
+  persistDurableState(`recovered_${source}`);
+  return true;
+}
+
+function scheduleMotorStateMirror() {
+  if (!motorAgentToken) return;
+  motorMirrorSnapshot = durableWorkSnapshot();
+  if (motorMirrorTimer) return;
+  motorMirrorTimer = setTimeout(() => {
+    motorMirrorTimer = null;
+    const snapshot = motorMirrorSnapshot;
+    motorMirrorSnapshot = null;
+    if (!snapshot) return;
+    try {
+      enqueueMotorCommand(
+        "state.snapshot.write",
+        "durability",
+        "durable-state-mirror",
+        { snapshot },
+      );
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "durable_state.motor_mirror_error",
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }, 2_000);
+  motorMirrorTimer.unref();
+}
+
+function persistDurableState(reason) {
+  durableState.schedule(durableSnapshot(), reason);
+  if (!String(reason).startsWith("motor_snapshot_") && !String(reason).startsWith("recovered_smolmachine")) {
+    scheduleMotorStateMirror();
+  }
+}
+
+async function restoreDurableState() {
+  const restored = await durableState.init();
+  const state = restored.snapshot;
+  if (!state) return restored;
+  mergeRecoveredWorkState(state, "local");
+  recentEvents.push(...(Array.isArray(state.recentEvents) ? state.recentEvents.slice(-200) : []));
+  motorQueue.push(...(Array.isArray(state.motorQueue) ? state.motorQueue.slice(-250) : []));
+  for (const pair of Array.isArray(state.motorCompleted) ? state.motorCompleted : []) {
+    if (Array.isArray(pair) && pair.length === 2) motorCompleted.set(pair[0], pair[1]);
+  }
+  motorBootstrapConsumed = state.motorBootstrapConsumed === true;
+  Object.assign(workSchedulerState, state.workSchedulerState || {});
+  Object.assign(autonomyState, state.autonomyState || {});
+
+  const now = Date.now();
+  for (const item of workLedger.values()) {
+    if (item?.execution?.leaseExpiresAt && Date.parse(item.execution.leaseExpiresAt) <= now) {
+      item.execution.leaseId = null;
+      item.execution.leaseOwner = null;
+      item.execution.leaseExpiresAt = null;
+      item.execution.recoveredAt = new Date().toISOString();
+      autonomyState.recoveredLeases += 1;
+    }
+  }
+  persistDurableState("startup_recovery");
+  return restored;
+}
+
+function queueWorkReport({ type, severity = "info", summary, key = null, dedupeKey = null }) {
+  const normalizedDedupe = String(dedupeKey || `${type}:${key || summary}`).slice(0, 500);
+  const existing = workReports.find((x) => x.status === "pending" && x.dedupeKey === normalizedDedupe);
+  if (existing) return existing;
+  const report = {
+    id: randomUUID(),
+    type: String(type || "work.update").slice(0, 100),
+    severity: ["info", "result", "blocker", "decision"].includes(severity) ? severity : "info",
+    summary: String(summary || "Work state changed").slice(0, 1000),
+    key: key ? String(key).slice(0, 320) : null,
+    dedupeKey: normalizedDedupe,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    acknowledgedAt: null,
+  };
+  workReports.push(report);
+  while (workReports.length > 250) workReports.shift();
+  persistDurableState("report_queued");
+  return report;
+}
+
 function rememberEvent(evt) {
   recentEvents.push(evt);
-  while (recentEvents.length > 100) recentEvents.shift();
+  while (recentEvents.length > 200) recentEvents.shift();
+  void durableState.appendEvent(evt);
+  persistDurableState("event");
 }
 
 const stripeAdapter = createStripeAdapter({ rememberEvent });
@@ -3985,8 +4224,19 @@ function upsertWorkItem(candidate, origin = "derived") {
       ...(previous?.metadata || {}),
       ...(candidate.metadata && typeof candidate.metadata === "object" ? candidate.metadata : {}),
     },
+    execution: previous?.execution || {
+      attempts: 0,
+      leaseId: null,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      checkpoint: null,
+      retryAt: null,
+      lastError: null,
+    },
+    paymentProof: previous?.paymentProof || null,
     firstSeenAt: previous?.firstSeenAt || now,
     lastSeenAt: now,
+    stateChangedAt: previous?.state === state ? (previous.stateChangedAt || previous.updatedAt || now) : now,
     updatedAt: now,
   };
   record.lane = workLane(record);
@@ -4005,6 +4255,34 @@ function upsertWorkItem(candidate, origin = "derived") {
       priorityScore: record.priorityScore,
     });
   }
+  if (previous?.state !== record.state) {
+    if (record.state === "REVISION") {
+      queueWorkReport({
+        type: "work.revision",
+        severity: "decision",
+        summary: `Revision requested for ${record.provider} work ${record.externalId}`,
+        key,
+        dedupeKey: `revision:${key}:${record.updatedAt}`,
+      });
+    } else if (record.state === "PAID") {
+      queueWorkReport({
+        type: "work.paid",
+        severity: "result",
+        summary: `Payment verified for ${record.provider} work ${record.externalId}`,
+        key,
+        dedupeKey: `paid:${key}`,
+      });
+    } else if (record.state === "BLOCKED" && previous && WORK_ACTIVE_STATES.has(previous.state)) {
+      queueWorkReport({
+        type: "work.blocked",
+        severity: "blocker",
+        summary: `${record.provider} work ${record.externalId} became blocked: ${record.blockers.join(", ") || "unknown blocker"}`,
+        key,
+        dedupeKey: `blocked:${key}:${record.blockers.join("|")}`,
+      });
+    }
+  }
+  persistDurableState("work_upsert");
   return record;
 }
 
@@ -4366,6 +4644,8 @@ function workSchedulerSummary() {
       clawlancerRequiresObservedEscrowTransaction: true,
     },
     capacity: schedulerCapacity(items),
+    autonomy: { ...autonomyState },
+    reporting: reportingSummary(),
     counts,
     recommendedNext: recommended
       ? {
@@ -4409,6 +4689,9 @@ function workSchedulerSummary() {
       issueUrl: item.issueUrl,
       firstSeenAt: item.firstSeenAt,
       lastSeenAt: item.lastSeenAt,
+      stateChangedAt: item.stateChangedAt,
+      execution: item.execution,
+      paymentProof: item.paymentProof,
     })),
     recentOutcomes: workOutcomes.slice(-25),
   };
@@ -4454,6 +4737,26 @@ function recordWorkOutcome(body) {
   if (!["PAID", "REJECTED", "LOST", "STALE", "BLOCKED"].includes(outcome)) {
     throw new Error("invalid_outcome");
   }
+  const paymentProof = body?.paymentProof && typeof body.paymentProof === "object"
+    ? {
+        source: String(body.paymentProof.source || "").slice(0, 100),
+        reference: String(body.paymentProof.reference || "").slice(0, 240),
+        status: String(body.paymentProof.status || "verified").slice(0, 80),
+        amountUsd: Math.max(0, finiteNumber(body.paymentProof.amountUsd, body?.realizedUsd) || 0),
+        currency: String(body.paymentProof.currency || "USD").slice(0, 20).toUpperCase(),
+        verifiedAt: String(body.paymentProof.verifiedAt || new Date().toISOString()).slice(0, 80),
+      }
+    : null;
+  if (outcome === "PAID" && (!paymentProof?.source || !paymentProof?.reference)) {
+    throw new Error("paid_outcome_requires_payment_proof");
+  }
+  const duplicate = workOutcomes.find((x) =>
+    x.provider === provider &&
+    x.externalId === externalId &&
+    x.outcome === outcome &&
+    (outcome !== "PAID" || x.paymentProof?.reference === paymentProof.reference)
+  );
+  if (duplicate) return duplicate;
   const outcomeRecord = {
     id: randomUUID(),
     provider,
@@ -4464,6 +4767,7 @@ function recordWorkOutcome(body) {
     minutesSpent: Math.max(0, finiteNumber(body?.minutesSpent, 0) || 0),
     recordedAt: new Date().toISOString(),
     notes: String(body?.notes || "").slice(0, 1000),
+    paymentProof,
   };
   workOutcomes.push(outcomeRecord);
   while (workOutcomes.length > 200) workOutcomes.shift();
@@ -4476,6 +4780,7 @@ function recordWorkOutcome(body) {
     item.lastSeenAt = outcomeRecord.recordedAt;
     item.priorityScore = scoreWorkItem(item);
     item.nextAction = "none";
+    if (paymentProof) item.paymentProof = paymentProof;
   }
   rememberEvent({
     id: randomUUID(),
@@ -4485,8 +4790,239 @@ function recordWorkOutcome(body) {
     externalId,
     realizedUsd: outcomeRecord.realizedUsd,
   });
+  if (outcome === "PAID") {
+    queueWorkReport({
+      type: "work.paid",
+      severity: "result",
+      summary: `Payment verified for ${provider} work ${externalId}: $${outcomeRecord.realizedUsd.toFixed(2)}`,
+      key,
+      dedupeKey: `paid:${key}:${paymentProof.reference}`,
+    });
+  } else if (outcome === "BLOCKED") {
+    queueWorkReport({
+      type: "work.blocked",
+      severity: "blocker",
+      summary: `${provider} work ${externalId} is blocked${outcomeRecord.notes ? `: ${outcomeRecord.notes}` : ""}`,
+      key,
+      dedupeKey: `blocked:${key}:${outcomeRecord.notes}`,
+    });
+  }
   refreshWorkScheduler();
+  persistDurableState("work_outcome");
   return outcomeRecord;
+}
+
+const WORK_TRANSITIONS = new Map([
+  ["DISCOVERED", new Set(["VERIFIED", "QUALIFIED", "REJECTED", "BLOCKED", "STALE"])],
+  ["VERIFIED", new Set(["QUALIFIED", "REJECTED", "BLOCKED", "STALE"])],
+  ["QUALIFIED", new Set(["CLAIMED", "WORKING", "REJECTED", "BLOCKED", "LOST", "STALE"])],
+  ["CLAIMED", new Set(["WORKING", "SUBMITTED", "REVISION", "BLOCKED", "LOST"])],
+  ["WORKING", new Set(["SUBMITTED", "REVISION", "BLOCKED", "LOST"])],
+  ["SUBMITTED", new Set(["REVISION", "ACCEPTED", "PAID", "REJECTED", "BLOCKED", "LOST"])],
+  ["REVISION", new Set(["WORKING", "SUBMITTED", "ACCEPTED", "BLOCKED", "LOST"])],
+  ["ACCEPTED", new Set(["PAID", "REVISION", "BLOCKED", "LOST"])],
+  ["BLOCKED", new Set(["VERIFIED", "QUALIFIED", "WORKING", "SUBMITTED", "LOST", "STALE"])],
+]);
+
+function resolveWorkItem(body) {
+  const key = String(body?.key || workKey(body?.provider, body?.externalId || body?.external_id)).slice(0, 320);
+  const item = workLedger.get(key);
+  if (!item) throw new Error("work_item_not_found");
+  return item;
+}
+
+function idempotencyLookup(body) {
+  const key = String(body?.idempotencyKey || body?.idempotency_key || "").trim().slice(0, 240);
+  if (!key) return { key: null, value: null };
+  return { key, value: workIdempotency.get(key) || null };
+}
+
+function leaseNextWork(body) {
+  if (!outboundWorkEnabled) throw new Error("outbound_work_disabled");
+  const idem = idempotencyLookup(body);
+  if (idem.value) return idem.value;
+  refreshWorkScheduler();
+  const requestedKey = String(body?.key || "").trim();
+  const item = requestedKey
+    ? workLedger.get(requestedKey)
+    : workSchedulerState.recommendedNextKey
+      ? workLedger.get(workSchedulerState.recommendedNextKey)
+      : selectRecommendedWork(Array.from(workLedger.values()));
+  if (!item) throw new Error("no_eligible_work");
+  if (item.blockers?.length) throw new Error("work_item_blocked");
+  if (WORK_TERMINAL_STATES.has(item.state)) throw new Error("work_item_terminal");
+  const nowMs = Date.now();
+  if (item.execution?.retryAt && Date.parse(item.execution.retryAt) > nowMs) {
+    throw new Error("work_item_retry_not_due");
+  }
+  if (item.execution?.leaseExpiresAt && Date.parse(item.execution.leaseExpiresAt) > nowMs) {
+    const owner = String(body?.workerId || body?.worker_id || "worker").slice(0, 120);
+    if (item.execution.leaseOwner !== owner) throw new Error("work_item_already_leased");
+    return { item, lease: { ...item.execution } };
+  }
+  const workerId = String(body?.workerId || body?.worker_id || "anonymous-worker").trim().slice(0, 120);
+  const leaseId = randomUUID();
+  const now = new Date().toISOString();
+  item.execution = {
+    ...(item.execution || {}),
+    attempts: Math.max(0, finiteNumber(item.execution?.attempts, 0) || 0) + 1,
+    leaseId,
+    leaseOwner: workerId,
+    leasedAt: now,
+    leaseExpiresAt: new Date(nowMs + workLeaseTtlMs).toISOString(),
+    retryAt: null,
+    lastError: null,
+  };
+  item.updatedAt = now;
+  const result = { item, lease: { ...item.execution } };
+  if (idem.key) workIdempotency.set(idem.key, result);
+  rememberEvent({
+    id: randomUUID(), receivedAt: now, type: "work.leased", source: workerId,
+    externalId: item.externalId, key: item.key, leaseId,
+  });
+  persistDurableState("work_leased");
+  return result;
+}
+
+function checkpointWork(body) {
+  const idem = idempotencyLookup(body);
+  if (idem.value) return idem.value;
+  const item = resolveWorkItem(body);
+  const leaseId = String(body?.leaseId || body?.lease_id || "").trim();
+  if (!leaseId || item.execution?.leaseId !== leaseId) throw new Error("invalid_work_lease");
+  if (!item.execution?.leaseExpiresAt || Date.parse(item.execution.leaseExpiresAt) <= Date.now()) {
+    throw new Error("work_lease_expired");
+  }
+  const now = new Date().toISOString();
+  item.execution.checkpoint = {
+    phase: String(body?.phase || "working").slice(0, 100),
+    detail: String(body?.detail || "").slice(0, 1000),
+    artifactRefs: Array.isArray(body?.artifactRefs)
+      ? body.artifactRefs.map((x) => String(x).slice(0, 500)).slice(0, 20)
+      : [],
+    at: now,
+  };
+  item.execution.leaseExpiresAt = new Date(Date.now() + workLeaseTtlMs).toISOString();
+  item.updatedAt = now;
+  const result = { item, checkpoint: item.execution.checkpoint };
+  if (idem.key) workIdempotency.set(idem.key, result);
+  persistDurableState("work_checkpoint");
+  return result;
+}
+
+function transitionWork(body) {
+  const idem = idempotencyLookup(body);
+  if (idem.value) return idem.value;
+  const item = resolveWorkItem(body);
+  const nextState = String(body?.state || "").trim().toUpperCase();
+  if (!WORK_STATES.has(nextState)) throw new Error("invalid_work_state");
+  if (item.state !== nextState && !WORK_TRANSITIONS.get(item.state)?.has(nextState)) {
+    throw new Error(`invalid_work_transition:${item.state}->${nextState}`);
+  }
+  const leaseId = String(body?.leaseId || body?.lease_id || "").trim();
+  if (item.execution?.leaseId && leaseId !== item.execution.leaseId) throw new Error("invalid_work_lease");
+  const now = new Date().toISOString();
+  const previousState = item.state;
+  item.state = nextState;
+  item.stateChangedAt = previousState === nextState ? item.stateChangedAt : now;
+  item.updatedAt = now;
+  item.lastSeenAt = now;
+  if (Array.isArray(body?.blockers)) item.blockers = body.blockers.map(String).slice(0, 20);
+  if (body?.providerReference) {
+    item.metadata.providerReference = String(body.providerReference).slice(0, 240);
+  }
+  if (["SUBMITTED", "ACCEPTED"].includes(nextState)) {
+    item.execution.checkpoint = {
+      ...(item.execution.checkpoint || {}),
+      phase: nextState.toLowerCase(),
+      at: now,
+    };
+  }
+  if (WORK_TERMINAL_STATES.has(nextState) || nextState === "ACCEPTED") {
+    item.execution.leaseId = null;
+    item.execution.leaseOwner = null;
+    item.execution.leaseExpiresAt = null;
+  }
+  item.lane = workLane(item);
+  item.priorityScore = scoreWorkItem(item);
+  item.nextAction = workNextAction(item);
+  let outcome = null;
+  if (WORK_TERMINAL_STATES.has(nextState)) {
+    outcome = recordWorkOutcome({ ...body, provider: item.provider, externalId: item.externalId, outcome: nextState });
+  } else {
+    rememberEvent({
+      id: randomUUID(), receivedAt: now, type: "work.transitioned", source: item.provider,
+      externalId: item.externalId, from: previousState, to: nextState,
+    });
+  }
+  const result = { item, outcome };
+  if (idem.key) workIdempotency.set(idem.key, result);
+  persistDurableState("work_transition");
+  return result;
+}
+
+function runAutonomyRecovery() {
+  const now = Date.now();
+  autonomyState.lastRunAt = new Date(now).toISOString();
+  autonomyState.runCount += 1;
+  autonomyState.stuckItems = 0;
+  try {
+    for (const item of workLedger.values()) {
+      const execution = item.execution || {};
+      if (execution.leaseExpiresAt && Date.parse(execution.leaseExpiresAt) <= now) {
+        const attempts = Math.max(0, finiteNumber(execution.attempts, 0) || 0);
+        execution.leaseId = null;
+        execution.leaseOwner = null;
+        execution.leaseExpiresAt = null;
+        execution.lastError = "worker_lease_expired";
+        if (attempts >= workMaxAttempts) {
+          item.state = "BLOCKED";
+          item.stateChangedAt = autonomyState.lastRunAt;
+          item.blockers = [...new Set([...(item.blockers || []), "autonomous_attempt_limit_reached"])]
+            .slice(0, 20);
+          queueWorkReport({
+            type: "work.attempt_limit",
+            severity: "blocker",
+            summary: `${item.provider} work ${item.externalId} exhausted ${attempts} autonomous attempts`,
+            key: item.key,
+            dedupeKey: `attempt-limit:${item.key}`,
+          });
+        } else {
+          const delayMs = Math.min(60 * 60_000, 30_000 * (2 ** Math.max(0, attempts - 1)));
+          execution.retryAt = new Date(now + delayMs).toISOString();
+        }
+        item.updatedAt = autonomyState.lastRunAt;
+        autonomyState.recoveredLeases += 1;
+      }
+      const stateAge = now - Date.parse(item.stateChangedAt || item.updatedAt || item.firstSeenAt || 0);
+      if (WORK_ACTIVE_STATES.has(item.state) && stateAge > workStuckMs) {
+        autonomyState.stuckItems += 1;
+        queueWorkReport({
+          type: "work.stuck",
+          severity: "blocker",
+          summary: `${item.provider} work ${item.externalId} has remained ${item.state} without progress`,
+          key: item.key,
+          dedupeKey: `stuck:${item.key}:${item.state}`,
+        });
+      }
+    }
+    autonomyState.lastError = null;
+    refreshWorkScheduler();
+    persistDurableState("autonomy_recovery");
+  } catch (error) {
+    autonomyState.lastError = error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500);
+  }
+}
+
+function reportingSummary() {
+  const pending = workReports.filter((x) => x.status === "pending");
+  return {
+    pendingCount: pending.length,
+    blockers: pending.filter((x) => x.severity === "blocker").length,
+    decisions: pending.filter((x) => x.severity === "decision").length,
+    results: pending.filter((x) => x.severity === "result").length,
+    pending: pending.slice(-50),
+  };
 }
 
 
@@ -4519,6 +5055,8 @@ const server = http.createServer(async (req, res) => {
         agentLine: agentLineSummary(),
       },
       workScheduler: workSchedulerSummary(),
+      durability: await durableState.summary(),
+      reporting: reportingSummary(),
     });
   }
 
@@ -4550,6 +5088,8 @@ const server = http.createServer(async (req, res) => {
         agentLine: agentLineSummary(),
       },
       workScheduler: workSchedulerSummary(),
+      durability: await durableState.summary(),
+      reporting: reportingSummary(),
     });
   }
 
@@ -4587,6 +5127,8 @@ const server = http.createServer(async (req, res) => {
       },
       queue: Array.from(taskQueue.values()).slice(-100),
       workScheduler: workSchedulerSummary(),
+      durability: await durableState.summary(),
+      reporting: reportingSummary(),
       motorQueue: motorQueue.slice(-100).map(({ result, ...item }) => item),
       motorCompleted: Array.from(motorCompleted.values()).slice(-100),
       recentEvents,
@@ -4636,6 +5178,65 @@ const server = http.createServer(async (req, res) => {
       return json(res, err.message === "payload_too_large" ? 413 : 400, {
         error: err instanceof Error ? err.message : "invalid_request",
       });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/work/lease") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 16_000);
+      return json(res, 200, { accepted: true, ...leaseNextWork(body) });
+    } catch (err) {
+      const code = err?.message === "work_item_not_found" ? 404 : 409;
+      return json(res, code, { error: err instanceof Error ? err.message : "lease_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/work/checkpoints") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 64_000);
+      return json(res, 202, { accepted: true, ...checkpointWork(body) });
+    } catch (err) {
+      const code = err?.message === "work_item_not_found" ? 404 : 409;
+      return json(res, code, { error: err instanceof Error ? err.message : "checkpoint_failed" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/work/transitions") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 64_000);
+      return json(res, 202, { accepted: true, ...transitionWork(body) });
+    } catch (err) {
+      const code = err?.message === "work_item_not_found" ? 404 : 409;
+      return json(res, code, { error: err instanceof Error ? err.message : "transition_failed" });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/reports") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    return json(res, 200, reportingSummary());
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/reports/ack") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 8_000);
+      const ids = new Set(Array.isArray(body?.ids) ? body.ids.map(String) : [String(body?.id || "")]);
+      let acknowledged = 0;
+      const now = new Date().toISOString();
+      for (const report of workReports) {
+        if (report.status === "pending" && ids.has(report.id)) {
+          report.status = "acknowledged";
+          report.acknowledgedAt = now;
+          acknowledged += 1;
+        }
+      }
+      persistDurableState("reports_acknowledged");
+      return json(res, 200, { acknowledged });
+    } catch (err) {
+      return json(res, 400, { error: "invalid_request" });
     }
   }
 
@@ -4934,6 +5535,17 @@ const server = http.createServer(async (req, res) => {
   return json(res, 404, { error: "not_found" });
 });
 
+const durableRestore = await restoreDurableState();
+if (durableRestore.recovered) {
+  console.log(JSON.stringify({ event: "durable_state.recovered", directory: agentStateDir }));
+} else if (durableRestore.quarantined) {
+  console.error(JSON.stringify({
+    event: "durable_state.degraded",
+    quarantined: durableRestore.quarantined,
+  }));
+}
+runAutonomyRecovery();
+
 const heartbeat = setInterval(() => {
   tickCount += 1;
   lastTickAt = new Date().toISOString();
@@ -4975,6 +5587,11 @@ const workSchedulerTimer = setInterval(() => {
 }, workSchedulerTickMs);
 workSchedulerTimer.unref();
 
+const autonomyRecoveryTimer = setInterval(() => {
+  runAutonomyRecovery();
+}, Math.min(workSchedulerTickMs, 60_000));
+autonomyRecoveryTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -5005,6 +5622,20 @@ server.listen(PORT, "0.0.0.0", () => {
       taskFeed: taskFeedSummary(),
     }),
   );
+  if (motorAgentToken) {
+    try {
+      enqueueMotorCommand(
+        "state.snapshot.read",
+        "runtime.startup",
+        `durable-state-read:${bootId}`,
+      );
+    } catch (err) {
+      console.error(JSON.stringify({
+        event: "durable_state.motor_restore_queue_error",
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
   if (motorSelfTestAction && motorAllowedActions.has(motorSelfTestAction)) {
     try {
       const command = enqueueMotorCommand(
@@ -5065,8 +5696,11 @@ function shutdown(signal) {
   clearInterval(agentChainTimer);
   clearInterval(clawlancerTimer);
   clearInterval(workSchedulerTimer);
+  clearInterval(autonomyRecoveryTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
-  server.close(() => process.exit(0));
+  server.close(() => {
+    void durableState.flush(durableSnapshot(), `shutdown_${signal}`).finally(() => process.exit(0));
+  });
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 
