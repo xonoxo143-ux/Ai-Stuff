@@ -38,6 +38,11 @@ jobs:
           python -m pip install "numpy>=1.26,<3" "pytest>=8"
           python -m pip install -e agent-model --no-deps
 
+      - name: Validate cognition package syntax
+        run: |
+          set -euo pipefail
+          python -m compileall -q agent-model/agent_cognition
+
       - name: Validate benchmark and model contracts
         run: |
           set -euo pipefail

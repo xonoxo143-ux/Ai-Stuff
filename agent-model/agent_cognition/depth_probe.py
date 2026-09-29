@@ -223,8 +223,7 @@ def main() -> None:
             "w",
             encoding="utf-8",
         ) as handle:
-            handle.write(text + "
-")
+            handle.write(text + "\\n")
 
 
 if __name__ == "__main__":
