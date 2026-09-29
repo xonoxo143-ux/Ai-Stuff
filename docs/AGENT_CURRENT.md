@@ -585,3 +585,72 @@ Specifically:
 A naive global scan is expected to fail this gate; the experiment should compare candidate addressing mechanisms and allow the developmental system to change them.
 
 Whole-Agent Closure remains the eventual integration milestone. The developmental nursery is now a candidate mechanism for how the internal agent grows rather than a replacement for the conversational end test.
+
+## 1C. Dormant Capability Addressing Gate v0 — promoted
+
+The first scaling test of:
+
+`STORE BROADLY / ACTIVATE NARROWLY`
+
+passed at the isolated addressing layer.
+
+### Exact in-memory result
+
+Across 128 → 12,800 stored modules, adaptive hierarchical search matched exhaustive nearest-neighbor search exactly while touching a small fraction of the store.
+
+Moderate ambiguity:
+
+```text
+100× storage
+~2.85× module inspections
+~0.39% of modules touched/query at 100×
+```
+
+Harder ambiguity:
+
+```text
+100× storage
+~5.02× module inspections
+~0.77% touched/query
+```
+
+The search naturally spends more computation when unresolved branches can still change the answer.
+
+### Disk-backed result
+
+The first hierarchy kept all metadata in RAM and therefore failed the stronger memory-scaling requirement.
+
+The revised implementation pages lower index structures and capability data from disk.
+
+Three-seed disk-backed result at moderate ambiguity:
+
+```text
+cold store growth            ~97×
+module inspections growth    ~2.57×
+logical I/O growth           ~1.47×
+selected payload/query       constant 4 KiB
+retrieval                    100%
+```
+
+This ran locally with Python stdlib + SQLite; no GPU/model/runtime dependency was required.
+
+### Promotion decision
+
+Promote as current infrastructure hypothesis:
+- capability payload may remain cold;
+- keep navigation metadata much smaller/hotter than capability payload;
+- use hierarchical/adaptive retrieval;
+- search effort should be conditional on ambiguity;
+- active I/O, not total stored bytes, is the key scaling metric.
+
+Do not promote the current kd-tree/SQLite implementation as the final architecture.
+
+### Next gate
+
+The addressing experiment used privileged module keys.
+
+The next high-leverage question is:
+
+> Can the agent construct the address from **current state + desired effect**, then retrieve and compose useful executable modules without being told their identity?
+
+Build the next gate with behavioral/functional module signatures rather than arbitrary random vectors.
