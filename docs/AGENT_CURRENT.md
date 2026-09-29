@@ -55,6 +55,121 @@ DEVELOP SELECTIVELY
 
 The first integrated embodiment is a chatbot.
 
+## 1A. Whole-agent capability audit — 2026-09-29
+
+The project objective is the **self-contained conversational agent**, not any individual synthetic cognition benchmark.
+
+Audit against the original end test:
+
+> Can the from-scratch system carry a genuinely generated, multi-turn conversation across very different topics without importing a pretrained LLM as its hidden intelligence?
+
+### Blocking gap 1 — the self-contained conversational loop is not closed
+
+The runtime infrastructure is real, but its current language composer uses an OpenAI-compatible backend intended for llama.cpp/other language servers.
+
+The from-scratch language organs live separately in `agent_language`, and the factor cognitive core lives separately in `agent_cognition`.
+
+So today we do **not** have:
+
+```text
+user bytes
+→ homegrown perception
+→ persistent internal state / memory
+→ homegrown cognition
+→ homegrown conditioned production
+→ response bytes
+```
+
+running as one conversational system.
+
+This is the largest project-level gap.
+
+### Blocking gap 2 — the language/semantic interface is still toy-scale
+
+Current perception success is on a controlled four-slot semantic task.
+
+Current conditioned production can perfectly express held-out combinations of a bounded 16-dimensional state.
+
+Current real-text GRU was trained from scratch on about 3.4 MB of TinyStories and produces recognizable but repetitive English.
+
+These results prove useful mechanisms, but they do not yet provide open-domain dialogue understanding or response generation.
+
+### Blocking gap 3 — broad knowledge is plumbing without a learned knowledge interface
+
+The runtime already has:
+
+- episodic turn storage;
+- durable SQLite memory;
+- semantic key/value memory;
+- lexical/FTS retrieval;
+- capability contribution contracts.
+
+But semantic facts are currently inserted explicitly and retrieved lexically. There is no general from-scratch path that reads broad text, forms useful knowledge, and makes it available to the homegrown conversational system.
+
+For philosophy, coding, literature, factual questions, and role-play flexibility, this is a larger capability gap than another few points on synthetic chain traversal.
+
+### Major gap 4 — multi-turn thread/state control is infrastructure, not yet learned behavior
+
+The runtime can preserve recent episodes and active state, but our homegrown perception/cognition/production stack has not yet demonstrated:
+
+- abrupt topic switching;
+- resuming an interrupted thread;
+- maintaining a role/scene;
+- using earlier analytic threads later;
+- deciding when a referent is ambiguous;
+- preserving user-specific facts over conversation.
+
+The existing `chatbot-v0` benchmark already contains many of these tests and should return to the foreground.
+
+### Secondary gap 5 — cognition/generalization
+
+The factor core remains the strongest tested cognitive representation baseline.
+
+Compositional OOD, transfer, depth generalization, and catastrophic forgetting remain important **diagnostics**.
+
+They are no longer allowed to define the roadmap by themselves.
+
+The failed transfer and oracle-operator gates are evidence about weaknesses of the cognition module, not evidence that the whole project should become a compositional-generalization project.
+
+### Secondary gap 6 — developmental/continual machinery
+
+Plasticity control, specialization, motifs, sparse execution, and continual learning remain relevant to the eventual lifelong agent.
+
+They should be reintroduced when there is a self-contained conversational system whose capabilities can actually develop and be measured.
+
+### Priority reset
+
+```text
+1. CLOSE THE HOMEGROWN CONVERSATIONAL LOOP
+2. EXPAND LANGUAGE / SEMANTIC GENERALITY
+3. GIVE IT BROAD RETRIEVABLE KNOWLEDGE
+4. PASS REAL MULTI-TURN / TOPIC-SWITCH TESTS
+5. USE COGNITIVE BENCHMARKS TO FIX FAILURES THAT MATTER THERE
+6. ADD CONTINUAL DEVELOPMENT ONCE THERE IS SOMETHING WORTH DEVELOPING
+```
+
+### Next integrated milestone
+
+Build **Whole-Agent Closure Gate v0**.
+
+Requirements:
+
+- no pretrained/external LLM in the inference path;
+- byte input and byte output;
+- use the existing runtime/memory contracts rather than replacing them;
+- connect a homegrown perception path to bounded non-language state;
+- condition a homegrown producer on that state plus retrieved/recent context;
+- include at least several distinct conversational behaviors in one multi-turn run;
+- trace each failure to perception, state/memory, cognition, retrieval, or production.
+
+The first pass does not need to solve open-domain conversation.
+
+It needs to create the qualitatively missing capability:
+
+> **one genuinely conversational turn loop produced entirely by our own learned stack, with memory across turns.**
+
+Once that exists, the whole-agent benchmark—not whichever isolated subsystem is currently fashionable—decides where the next large gain is.
+
 ## 2. Current architecture
 
 The strongest current path is no longer "pick one monolithic language model."
