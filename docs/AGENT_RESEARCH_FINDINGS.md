@@ -27,134 +27,250 @@ For each research question:
 
 The target is not “all papers.” It is the **best current map of what is known, what is uncertain, and what remains open**.
 
+## Current research question
+
+> What mechanisms have the strongest evidence for **recombining learned operations into genuinely new OOD compositions**, while avoiding destructive retraining?
+
 ## Current frontier
 
-### F1. Systematic compositional generalization remains a real difficulty
+### F1. Pattern matching alone is structurally limited for compositional OOD generalization
 
-Modern neural systems can fit familiar task distributions extremely well while failing to recombine known operations under new compositions or distribution shifts.
+Recent work formalizes a **coverage** problem: if a model solves composition mainly by matching training fragments, generalization remains bounded by which fragments and contexts were covered during training.
 
-A growing line of work improves systematicity by making compositional structure part of the learning problem rather than expecting ordinary end-to-end training to discover it automatically.
+In controlled two-hop tasks, required training coverage can grow rapidly with vocabulary size, and simply scaling model size does not automatically fix data efficiency. Path ambiguity is especially damaging because multiple computational routes can induce context-dependent internal representations.
 
-**Current status:** strong evidence that training objective and representational organization matter; no single generally accepted solution across domains.
+**Current status:** strong evidence that better architecture/training mechanisms are needed when test-time composition goes beyond recombining already-covered fragments.
 
-### F2. Modularity is promising, but modules do not automatically specialize usefully
+### F2. Meta-learning can produce systematicity in narrow controlled task families, but the scope of “human-like” claims is disputed
 
-Modular deep learning separates computation, routing, and often parameter updates. Reviews and controlled experiments report advantages for transfer, reduced interference, and systematic generalization in some settings.
+Meta-Learning for Compositionality (MLC) showed that a standard neural network trained across a stream of related compositional tasks can match human patterns on controlled instruction-learning tasks and improve several compositional benchmarks.
 
-However, merely imposing modules does not guarantee that learned components align with reusable task structure. Successful compositional generalization depends on discovering or inducing the right decomposition and routing.
+Follow-on criticism argues that this success depends on a restricted meta-learning setup and should not be generalized into a claim that neural networks now possess unrestricted human-like systematic compositionality.
 
-**Current status:** modularity is a serious mechanism class, not a solved recipe.
+**Current status:** meta-training explicitly for composition works in some controlled settings; general human-like systematicity remains unresolved.
 
-### F3. Reusable computation can emerge inside recurrent networks
+### F3. Modularity is useful only when useful specialization is actually learned
 
-Multitask recurrent networks can develop recurring **dynamical motifs** that implement computations reused across tasks. In controlled experiments, these motifs can support transfer and show localized causal roles under lesions.
+The literature increasingly separates **structural modularity** from **functional specialization**.
 
-This provides evidence that reusable computation need not be symbolic or hand-coded; it can exist as learned dynamics.
+Simply dividing a network into modules does not guarantee that different modules learn different reusable computations. Controlled theory/experiments show that specialization depends on the data structure, optimization dynamics, resource constraints, and inductive biases.
 
-**Current status:** demonstrated in controlled multitask settings; open question how reliably such motifs can be discovered, addressed, and recomposed in broader agents.
+Work on discovering modular solutions further shows that compositional generalization depends on identifying the latent reusable components, not merely having more isolated parameter blocks.
 
-### F4. Separating “what computation?” from “how to perform it” can support fast reuse
+**Current status:** “make it modular” is not a mechanism by itself. The important problem is **how reusable computations become identifiable and specialized**.
 
-Recent compositional meta-learning work explicitly separates task/context inference from reusable computation.
+### F4. Routing/sequencing is emerging as a first-class bottleneck
 
-Two related approaches show that:
+Several independent approaches improve compositional generalization by explicitly learning **which computation should act on which state, and in what order**.
 
-- structured task inference can identify combinations of reusable computations with very few examples and sometimes without parameter updates;
-- a separate context/"what" system can compose reusable low-rank recurrent components in a "how" system, supporting forward transfer, continual learning, and unseen task compositions in controlled families.
+Examples include:
 
-**Current status:** compelling controlled evidence for separation of task inference from execution; generality to open-ended tasks is not established.
+- modular routing over blocks of activation;
+- learnable allocation of latent skills/modules to tasks;
+- task/context inference that selects reusable computations;
+- low-rank recurrent components composed according to inferred context.
 
-### F5. Competition plus composition can encourage independent mechanisms
+These systems often outperform fully shared, task-specific, or ordinary mixture-of-experts baselines on their respective controlled tasks.
 
-Work on modular world models shows that competitive learning signals can encourage mechanisms to specialize, after which learned mechanisms can be recomposed in new environments with improved adaptation efficiency.
+**Current status:** there is converging evidence that routing is not incidental plumbing; it is part of the compositional reasoning problem.
 
-**Current status:** evidence that *how modules are trained* may matter as much as having modules.
+### F5. Reusable computation can emerge as learned neural dynamics
 
-### F6. The frontier is increasingly about learned decomposition + learned routing
+Multitask recurrent networks can spontaneously develop recurring **dynamical motifs** implementing reusable computations such as memory, rotations, and decision structures. Lesion studies show that some motifs have localized causal roles and can be reused across tasks.
 
-Across modular learning, compositional meta-learning, world models, and recurrent dynamics, a common pattern is emerging:
+Very recent predictive-learning work reports that recurrent networks trained only to predict future sensory input can develop modular clusters corresponding to independent latent dynamics and recombine those clusters in unseen combinations.
+
+**Current status:** reusable computation does not need to be symbolic or hand-authored. Learned neural dynamics can become modular under the right training conditions.
+
+### F6. Separating “what computation?” from “how to execute it” has direct empirical support
+
+Two recent lines are especially relevant:
+
+- probabilistic task inference represents a new task as a structured combination of previously learned computations and can infer solutions from very few examples, sometimes without parameter updates;
+- a two-system architecture separates context/task inference (“what”) from reusable recurrent computation (“how”), enabling continual learning and compositional reuse of low-rank recurrent components in controlled task families.
+
+**Current status:** strong controlled evidence that **task inference and execution can be usefully separated**. Generality to open-ended cognition is unproven.
+
+### F7. Variable binding can be learned as an internal routing/memory mechanism
+
+In controlled symbolic-program tasks, Transformers can learn a systematic variable-dereferencing procedure rather than only memorizing surface patterns.
+
+Mechanistic analysis shows specialized attention heads routing information through the residual stream as an addressable memory, supporting multi-step binding chains.
+
+**Current status:** variable binding need not always be hard-coded, but the evidence is currently from tightly controlled symbolic tasks.
+
+### F8. Recurrent/iterative execution helps OOD only when paired with stronger constraints
+
+Recent latent-reasoning work combines:
+
+- input-adaptive recurrence;
+- algorithmic supervision;
+- anchored/discrete latent representations;
+- explicit error correction.
+
+Together these mechanisms improve OOD algorithmic generalization on controlled computational-graph tasks.
+
+This is consistent with a wider neural-algorithmic-reasoning literature in which algorithmic alignment, structured intermediate states, and iterative processors support size/depth extrapolation.
+
+**Current status:** recurrence alone is not the result. **Structured recurrence plus supervision/representation constraints** is the stronger pattern.
+
+### F9. Training distribution matters as much as architecture
+
+Across several papers, compositional generalization improves when training exposes the learner to:
+
+- varied compositions of shared primitives;
+- curricula/meta-training over changing task grammars;
+- compound traces containing reusable operations;
+- structurally diverse problem instances;
+- explicit held-out recombinations.
+
+Recent work also suggests that training only isolated primitives can be worse than training compound examples from which reusable pieces can be discovered.
+
+**Current status:** a model cannot be judged “compositional” from architecture alone. The training distribution must make reusable structure identifiable.
+
+### F10. No current mechanism solves open-ended compositionality
+
+Nearly all positive results use controlled domains where:
+
+- primitive operations recur across tasks;
+- task boundaries or latent factors are relatively clean;
+- compositional structure exists by construction;
+- OOD splits are deliberately designed;
+- the number and complexity of primitives are far below open-ended conversation and reasoning.
+
+**Current status:** the literature now contains several credible mechanisms for pieces of compositional reuse, but no demonstrated general-purpose solution.
+
+## Cross-paper convergence
+
+The strongest common pattern across otherwise different research programs is:
 
 ```text
-discover reusable computation
+learn/discover reusable operations
         +
-represent task/context structure
+maintain explicit or stable bindings/state
         +
-select / route / sequence reusable pieces
+infer what operation is relevant
         +
-limit destructive global updates
+route/sequence operations over state
+        +
+train on distributions that force reuse
+        +
+evaluate on genuinely unseen compositions/depths
 ```
 
-The literature does **not** establish that this combination is sufficient for general intelligence. It does make it a stronger research direction than expecting generic full-network fine-tuning to yield systematic reuse by itself.
+This is a description of the **research frontier**, not a claim that this combination is sufficient.
 
-## Important limitations of the evidence
+## Known failure modes
 
-Most positive results above use controlled task families where:
-
-- primitive operations are repeated across tasks;
-- compositional structure exists by construction;
-- train/test distributions are carefully defined;
-- task complexity is far below open-ended conversation and reasoning.
-
-Therefore:
-
-> success on these benchmarks is evidence about mechanisms, not evidence that the complete agent problem is solved.
-
-The key unresolved question is whether useful decompositions can be learned **without already knowing the correct task vocabulary**.
+1. **High IID / low OOD:** models fit the training composition while failing on longer or novel compositions.
+2. **Modules without specialization:** structural separation does not guarantee functional decomposition.
+3. **Coverage dependence:** apparent composition can collapse when required fragments or contexts were absent from training.
+4. **Path ambiguity:** multiple computational paths can destabilize reusable internal state.
+5. **Global retraining:** broad fine-tuning can improve a new task while destroying prior skills.
+6. **Benchmark overclaiming:** success on restricted grammars/tasks is sometimes described more broadly than the evidence warrants.
+7. **Routing failure:** reusable components may exist but remain inaccessible if selection/sequencing does not generalize.
+8. **Topology/depth shift:** a mechanism that handles new combinations may still fail when problem size or reasoning depth grows.
 
 ## Current open research questions
 
-1. How can reusable operations be discovered rather than specified?
-2. How should routing/sequencing be learned for unseen compositions?
-3. What representations preserve variable identity and role binding across compositions?
-4. Can new operations be added without global catastrophic forgetting?
-5. Can modular execution remain efficient rather than becoming routing overhead?
-6. Which mechanisms extrapolate to greater depth/length rather than only new IID combinations?
-7. How can these mechanisms connect to language perception and production without turning language itself into the hidden cognitive core?
+1. Can reusable operations be **discovered automatically** without a known task vocabulary?
+2. What learning signal causes useful functional specialization instead of arbitrary module partitioning?
+3. What is the best representation for persistent variable/entity binding across operator sequences?
+4. Can a router learn novel **sequences**, not only select familiar modules?
+5. How should new operations be added without globally rewriting old ones?
+6. Which mechanisms extrapolate simultaneously across **composition, depth, and size**?
+7. Can predictive/self-supervised objectives induce reusable causal operators in more general environments?
+8. How much explicit structure is necessary before the system becomes a disguised hand-built program?
+9. Can all of this remain computationally cheaper than a large monolithic model?
 
 ## Key current references
 
-1. Laura N. Driscoll, Krishna V. Shenoy, David Sussillo (2024), *Nature Neuroscience*, 78 citations at refresh: **Flexible multitask computation in recurrent networks utilizes shared dynamical motifs**  
-   https://consensus.app/papers/flexible-multitask-computation-in-recurrent-networks-driscoll-shenoy/efaaebd2282c51979bce6983d67c6dc3/?utm_source=chatgpt
+1. Brenden M. Lake, Marco Baroni (2023), *Nature*: **Human-like systematic generalization through a meta-learning neural network**  
+   DOI: 10.1038/s41586-023-06668-3
 
-2. Jonas Pfeiffer, Sebastian Ruder, Ivan Vulic, E. Ponti (2023), arXiv, 119 citations at refresh: **Modular Deep Learning**  
-   https://consensus.app/papers/modular-deep-learning-pfeiffer-ruder/a8b57a21263d5675bf4ca34322404bae/?utm_source=chatgpt
+2. Tim Nelson Woydt et al. (2025), arXiv: **Fodor and Pylyshyn's Legacy — Still No Human-like Systematic Compositionality in Neural Networks**  
+   arXiv: 2506.01820
 
-3. Haozhe Shan, Minni Sun, Lea Duncker (2025), arXiv, 10 citations at refresh: **Separating the what and how of compositional computation to enable reuse and continual learning**  
-   https://consensus.app/papers/separating-the-what-and-how-of-compositional-computation-shan-sun/f181b7774aa557baa339bb36a6b9fd4f/?utm_source=chatgpt
+3. Hoyeon/Hao-Hsiang Chang et al. (2025), arXiv: **The Coverage Principle / Characterizing Pattern Matching and Its Limits on Compositional Task Structures**  
+   arXiv: 2505.20278
 
-4. Simon Schug et al. (2023), arXiv, 31 citations at refresh: **Discovering modular solutions that generalize compositionally**  
-   https://consensus.app/papers/discovering-modular-solutions-that-generalize-schug-kobayashi/b84919576d4255c6b3cf9408ed75fad7/?utm_source=chatgpt
+4. Devon Jarvis, Richard Klein, Benjamin Rosman, Andrew M. Saxe (2024), arXiv: **On The Specialization of Neural Modules**  
+   arXiv: 2409.14981
 
-5. Anson Lei, Frederik Nolte, B. Schölkopf, Ingmar Posner (2024), arXiv, 4 citations at refresh: **Compete and Compose: Learning Independent Mechanisms for Modular World Models**  
-   https://consensus.app/papers/compete-and-compose-learning-independent-mechanisms-for-lei-nolte/02f41a52eaa555aea8a7bb99a52eeaa3/?utm_source=chatgpt
+5. Gabriel Béna, Dan F. M. Goodman (2025), *Nature Communications*: **Dynamics of specialization in neural modules under resource constraints**  
+   DOI: 10.1038/s41467-024-55188-9
 
-6. Jacob J. W. Bakermans, Pablo Tano, Reidar Riveland, Charles Findling, Alexandre Pouget (2025), arXiv, 5 citations at refresh: **Compositional meta-learning through probabilistic task inference**  
-   https://consensus.app/papers/compositional-metalearning-through-probabilistic-task-bakermans-tano/56ca958841e95f37a3a8a1077f12d251/?utm_source=chatgpt
+6. Simon Schug et al. (2023), arXiv: **Discovering modular solutions that generalize compositionally**  
+   arXiv: 2312.15001
+
+7. Florian Dietz, Dietrich Klakow (2024), arXiv: **Block-Operations: Using Modular Routing to Improve Compositional Generalization**  
+   arXiv: 2408.00508
+
+8. Edoardo Maria Ponti et al. (2023), EACL: **Combining Parameter-efficient Modules for Task-level Generalisation**  
+   DOI: 10.18653/v1/2023.eacl-main.49
+
+9. Laura N. Driscoll, Krishna V. Shenoy, David Sussillo (2024), *Nature Neuroscience*: **Flexible multitask computation in recurrent networks utilizes shared dynamical motifs**
+
+10. Gauthier Boeshertz, Claudia Clopath (2025 preprint): **Predictive learning enables compositional representations**  
+    DOI: 10.1101/2025.09.26.678731
+
+11. Haozhe Shan, Minni Sun, Lea Duncker (2025), arXiv: **Separating the what and how of compositional computation to enable reuse and continual learning**  
+    arXiv: 2510.20709
+
+12. Jacob J. W. Bakermans et al. (2025), arXiv: **Compositional meta-learning through probabilistic task inference**  
+    arXiv: 2510.01858
+
+13. Yiwei Wu, Atticus Geiger, Raphaël Millière (2025), arXiv: **How Do Transformers Learn Variable Binding in Symbolic Programs?**  
+    arXiv: 2505.20896
+
+14. Awni Altabaa et al. (2025), arXiv: **Unlocking Out-of-Distribution Generalization in Transformers via Recursive Latent Space Reasoning**  
+    arXiv: 2510.14095
+
+15. Thaddäus Wiedemer et al. (2023), NeurIPS/arXiv: **Compositional Generalization from First Principles**  
+    arXiv: 2307.05596
+
+16. Lingjing Kong et al. (2026), arXiv: **From Reasoning Traces to Reusable Modules: Understanding Compositional Generalization in Language Model Reasoning**  
+    arXiv: 2606.18089
+
+17. Devon Jarvis et al. (2026), *PNAS*: **Compositionality and systematicity emerge from iterated learning in deep linear networks**  
+    DOI: 10.1073/pnas.2509739123
 
 ## Search vocabulary
 
-Keep expanding this as terminology evolves:
-
 - systematic compositional generalization
-- modular deep learning
+- coverage principle
+- shared-operator generalization
+- modular routing
+- module specialization
 - modular meta-learning
 - compositional meta-learning
 - neural algorithmic reasoning
 - processor transfer
-- learned routing
-- independent mechanisms
 - dynamical motifs
 - variable binding
+- addressable neural memory
 - role-filler representation
 - task inference
 - program induction
+- independent mechanisms
+- predictive compositional representation
+- recurrent / recursive latent reasoning
 - continual compositional learning
-- adaptive computation / recurrent depth
 
 ## Change log
 
-### 2026-09-29 — initial modular research frontier
+### 2026-09-29 — research phase 1: compositional OOD frontier
 
-Migrated the useful role of the old terminology map into a stricter evidence-only document and refreshed the active compositional-generalization frontier with academic search.
+Expanded the initial map into a mechanism-level frontier using Consensus, Scite citation/context search, and current arXiv/web search.
 
-Future entries should record only **material changes in what the external evidence supports**.
+Material changes:
+
+- routing/sequencing promoted from a sub-detail to a first-class research variable;
+- variable binding added as a distinct mechanism, not just a representation keyword;
+- training-distribution/coverage constraints promoted to equal importance with architecture;
+- modularity narrowed: structural modules alone are insufficient without learned specialization;
+- recurrence narrowed: strongest evidence is for structured/anchored iterative execution, not recurrence by itself;
+- MLC-style “human-like” systematicity explicitly marked as contested rather than settled;
+- predictive learning added as an emerging route for spontaneously discovering reusable dynamics.
+
+The current frontier is now mature enough for a separate synthesis pass.
