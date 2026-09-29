@@ -412,3 +412,29 @@ instead of scoring an operation only by immediate effect.
 Successor Feature Landmarks and related goal-conditioned planning work combine learned future representations with higher-level graph/planning structures for long-horizon tasks.
 
 External evidence therefore supports treating downstream reachability as a distinct mechanism rather than assuming one-step similarity or one-step causal improvement will compose automatically.
+
+## Adaptive reasoning and reachability-geometry refresh — 2026-09-29
+
+### F32. Goal-reaching value has exploitable directed-distance structure
+
+Quasimetric RL (Wang et al., ICML 2023) models optimal goal-reaching value with quasimetric geometry rather than a generic unconstrained scalar value function.
+
+TLDR (Bae et al., CoRL 2024/2025) learns temporal-distance-aware representations and uses temporal distance both for exploration and goal reaching.
+
+Multistep quasimetric work at ICLR 2026 further reports that temporal-distance/quasimetric representations can support long-horizon behavior stitching.
+
+External implication: long-horizon consequence can be represented as structured directed distance, but successful methods typically require objectives/curricula designed around temporal structure rather than generic regression.
+
+### F33. Adaptive computation is an established route to reasoning efficiency
+
+Adaptive Computation Time (Graves, 2016, arXiv:1603.08983) lets recurrent networks learn how many computation steps to spend and showed strong gains on several algorithmic tasks, while not universally improving language modeling.
+
+Rational metareasoning treats computation itself as a costly action whose value is the expected improvement in external decision quality minus computation cost.
+
+Callaway et al. (UAI 2018) learn approximate computation-selection policies, and Chen et al. (2026 preprint, DOI: 10.64898/2026.04.14.718499) combine rational metareasoning with recurrent meta-learning so a network learns to select costly mental computations.
+
+The externally supported principle is:
+
+> computation should be allocated according to expected value, not fixed depth.
+
+This does not imply that existing metareasoning algorithms directly solve open-ended AI reasoning.
