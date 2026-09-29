@@ -887,3 +887,68 @@ The desired result is not merely a faster cache.
 It is a developmental scaling law:
 
 > **more total capability, less repeated reasoning, and little growth in active work per thought.**
+
+## 1G. Integrated Developmental Lifetime Gate v0 — promoted
+
+The major developmental mechanisms now work together in one bounded lifetime test.
+
+Verified skill store:
+
+```text
+32 skills
+→ 320
+→ 3,200
+```
+
+Three replicated scaling curves:
+
+```text
+skill count                         100×
+cold-store bytes                   ~93.7×
+familiar skill rows touched        ~1.43×
+familiar certificate queries       ~1.79×
+active selected payload             constant 4 KiB
+standardized 80/20 active work     ~1.27×
+```
+
+Across all stages/seeds:
+
+```text
+familiar retrieval                 100%
+correctness on familiar hit        100%
+novel false reuse                    0
+```
+
+This passes the isolated developmental scaling gate.
+
+### Promoted principle
+
+```text
+NOVEL
+→ reason/search
+→ actively falsify candidate
+→ compile verified computation
+→ store it cold
+
+FAMILIAR
+→ effect address
+→ cheap falsification certificate
+→ page one capability
+→ execute
+```
+
+As the bounded skill library grew by two orders of magnitude, active work grew only modestly rather than proportionally.
+
+### Important limit
+
+The task supplied a compact behavioral goal specification.
+
+Real conversation does not hand the agent a seven-probe function signature.
+
+Therefore the next project bottleneck is no longer storage, compilation, or toy library scaling.
+
+Return to **Whole-Agent Closure**:
+
+> map bytes/language + conversational context into a structured goal/effect state; use that state to select/compose homegrown computation; feed the resulting state into the homegrown producer.
+
+The nursery should now serve as developmental infrastructure for the conversational agent, not become the objective itself.
