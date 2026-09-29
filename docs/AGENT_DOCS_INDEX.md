@@ -1,92 +1,72 @@
 # Agent documentation index
 
 **Date:** 2026-09-29  
-**Purpose:** make the Agent line searchable without reconstructing chronology from every experiment file.
+**Purpose:** stable map of the Agent research record.
 
-## Read order
+## One living document
 
-### 1. Current answer
+**`AGENT_CURRENT.md`** is the only living source of project state.
 
-**\`AGENT_CURRENT.md\`**
+It contains:
 
-Authoritative current architecture, evidence summary, leverage rule, and next gate.
+- current architecture;
+- strongest surviving evidence;
+- rejected/demoted directions;
+- research/build rules;
+- current unresolved question;
+- exact next gate.
 
-### 2. Short frontier
+After each meaningful cycle, update **this file only** for project state.
 
-**\`agent-memory/agent_current_frontier_v21.md\`**
+## Result records
 
-Compressed current state for fast cold-start recovery.
+Completed experiments keep their own durable result/spec files when the technical detail is worth preserving. These are evidence, not competing current-state documents.
 
-### 3. Current cognitive-core result
+Important current records include:
 
-**\`AGENT_COGNITIVE_CORE_V0.md\`**
+- `AGENT_COGNITIVE_CORE_V0.md`
+- `AGENT_COGNITIVE_TRANSFER_V0.md`
+- `AGENT_LANGUAGE_REAL_TEXT_RESULT_01.md`
+- `AGENT_LANGUAGE_PERCEPTION_RESULT_02.md`
+- `AGENT_LANGUAGE_ROUNDTRIP_V0.md`
+- `AGENT_LANGUAGE_ORGAN_RESULT_01.md`
+- `AGENT_V1_A1_UPDATE_REVERSION_REPLICATION.md`
+- `AGENT_V1_A1_UPDATE_PREDICTORS.md`
+- `AGENT_V0_CLOSEOUT.md`
 
-Replicated factor-graph core result, thought-depth evidence, specialist ceilings, and the next transfer gate.
+Completed result files should normally be immutable except for factual corrections.
 
-### 4. Research terminology map
+## Reference / history
 
-**\`AGENT_RESEARCH_TERMINOLOGY_MAP.md\`**
+These may help explain prior reasoning but are **not** maintained as current truth:
 
-Maps our informal research questions onto literature terms such as recurrent depth, compositional meta-learning, neural algorithmic reasoning, factor graphs and adaptive computation.
+- `AGENT_RESEARCH_TERMINOLOGY_MAP.md`
+- `agent-memory/agent_current_frontier_v21.md` — deprecated pointer only;
+- historical specs, notebooks, evidence/decision ledgers, and archives.
 
-Consult this **before expensive new branches**.
+## Infrastructure
 
-### 5. Language results
+Execution/test infrastructure, not cognitive architecture:
 
-- \`AGENT_LANGUAGE_REAL_TEXT_RESULT_01.md\` — real-text from-scratch production baseline.
-- \`AGENT_LANGUAGE_PERCEPTION_RESULT_02.md\` — rejected attentive-BiGRU refinement and current perception baseline.
-- \`AGENT_LANGUAGE_ROUNDTRIP_V0.md\` — controlled English→state→English bridge result.
-- \`AGENT_LANGUAGE_ORGAN_RESULT_01.md\` — early synthetic production comparison.
+- `AGENT_FLOOT_LAB.md`
+- `AGENT_HF_JOBS.md`
 
-### 6. Developmental / continual-learning evidence
-
-- \`AGENT_V1_A1_UPDATE_REVERSION_REPLICATION.md\` — post-hoc destructive-update localization.
-- \`AGENT_V1_A1_UPDATE_PREDICTORS.md\` — weak simple prospective predictors.
-- \`AGENT_V1_A_SPEC.md\` — historical v1-A specification.
-- \`AGENT_V0_CLOSEOUT.md\` — frozen v0 evidence.
-
-## Infrastructure docs
-
-Compute/test infrastructure, not cognitive architecture:
-
-- \`AGENT_FLOOT_LAB.md\`
-- \`AGENT_HF_JOBS.md\`
-
-## Unrelated/sibling repository docs
-
-\`ARCHITECTURE.md\` describes the Android AI Workbench/app architecture, not the Agent cognition architecture.
-
-## Document status convention
-
-\`\`\`text
-CURRENT
-authoritative current orientation
-
-ACTIVE EXPERIMENT
-live hypothesis under test
-
-RESULT / REPLICATED BASELINE
-durable completed evidence
-
-HISTORICAL SPEC
-plan at a point in time
-
-SUPERSEDED
-retained because failure/history matters
-\`\`\`
+`ARCHITECTURE.md` describes the Android AI Workbench/app architecture, not Agent cognition.
 
 ## Conflict rule
 
-When documents disagree:
+When anything disagrees:
 
-1. \`AGENT_CURRENT.md\`;
-2. \`agent-memory/agent_current_frontier_v21.md\`;
-3. newest relevant RESULT / REPLICATED BASELINE (currently including `AGENT_COGNITIVE_TRANSFER_V0.md`);
-4. active experiment spec;
-5. historical specs/archive.
+1. `AGENT_CURRENT.md`;
+2. the newest directly relevant completed result;
+3. older reference/history.
 
-## Research rule
+## Recovery rule
 
-Before adding a substantial new experiment document, check \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\` and record which adjacent literature terms and baselines were searched.
+```text
+AGENT_CURRENT.md
+→ only open linked evidence if needed
+→ continue from its next gate
+```
 
-The long architecture notebook remains deep historical/conceptual context, not the fastest current-state source.
+Do not reconstruct current state by merging old summaries.

@@ -6,6 +6,34 @@
 
 > If another Agent document disagrees with this file about the current direction, treat that document as historical unless this file explicitly re-promotes it.
 
+## 0. Documentation contract
+
+This is the **only living project-state document**.
+
+After a meaningful research/build cycle:
+
+1. update `AGENT_CURRENT.md` with the new current truth, decision, and next gate;
+2. create one experiment/result document only when durable technical detail is worth preserving;
+3. treat completed experiment/result documents as immutable evidence except for factual corrections.
+
+Do **not** maintain a second frontier, duplicate current-state summary, evidence ledger, or decision ledger in parallel.
+
+Other Agent documents are one of:
+
+- **result records** — durable evidence from a completed experiment;
+- **reference/history** — useful context, but not current state;
+- **infrastructure** — execution/deployment details, not cognitive direction.
+
+`AGENT_DOCS_INDEX.md` is a stable map, not a per-cycle status file. Update it only if the documentation structure itself changes.
+
+Cold-start recovery rule:
+
+```text
+READ AGENT_CURRENT.md
+→ open only the result/reference docs it points to when deeper evidence is needed
+→ continue from the stated next gate
+```
+
 ## 1. Task anchor
 
 Build an intelligent local conversational agent from scratch, with a finished runnable system no larger than roughly 32 GB.
@@ -235,7 +263,7 @@ state the question
 → build only the unresolved discriminating test
 \`\`\`
 
-Maintain a terminology map in \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\`.
+Use \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\` as a reference when useful. New active terminology belongs here or in the experiment result that introduced it; the map no longer requires routine synchronization.
 
 Important current mappings include:
 
