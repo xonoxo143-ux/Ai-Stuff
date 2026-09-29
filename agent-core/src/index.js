@@ -14,7 +14,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.15.3";
+const VERSION = "0.16.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -42,6 +42,23 @@ const motorCommandTtlMs = Math.max(
 const financialActionsEnabled = process.env.FINANCIAL_ACTIONS_ENABLED === "true";
 const outboundWorkEnabled = process.env.OUTBOUND_WORK_ENABLED === "true";
 const operatingFloatTargetUsd = Number(process.env.OPERATING_FLOAT_TARGET_USD || 100);
+const workSchedulerEnabled = process.env.WORK_SCHEDULER_ENABLED !== "false";
+const workSchedulerTickMs = Math.max(
+  30_000,
+  Number(process.env.WORK_SCHEDULER_TICK_MS || 60_000),
+);
+const workMinPaidUsd = Math.max(
+  0,
+  Number(process.env.WORK_MIN_PAID_USD || 5),
+);
+const workMaxSubstantial = Math.max(
+  1,
+  Math.min(4, Number(process.env.WORK_MAX_SUBSTANTIAL || 1)),
+);
+const workMaxMicro = Math.max(
+  1,
+  Math.min(8, Number(process.env.WORK_MAX_MICRO || 2)),
+);
 
 const taskBountyFeedUrl =
   process.env.TASKBOUNTY_FEED_URL ||
@@ -171,6 +188,15 @@ let tickCount = 0;
 let lastTickAt = startedAt;
 const recentEvents = [];
 const taskQueue = new Map();
+const workLedger = new Map();
+const workOutcomes = [];
+const workSchedulerState = {
+  enabled: workSchedulerEnabled,
+  lastRunAt: null,
+  runCount: 0,
+  lastError: null,
+  recommendedNextKey: null,
+};
 const motorQueue = [];
 const motorCompleted = new Map();
 let motorBootstrapConsumed = false;
@@ -3466,9 +3492,9 @@ function evaluateTask(task) {
   if (task.bountyCents == null) {
     status = "manual_review";
     reasons.push("missing_bounty_amount");
-  } else if (task.bountyCents < 1000) {
+  } else if (task.bountyCents < Math.round(workMinPaidUsd * 100)) {
     status = "rejected";
-    reasons.push("gross_bounty_below_10_usd");
+    reasons.push("gross_bounty_below_configured_minimum");
   } else {
     if (task.solverNetCents >= 4000) score += 15;
     else if (task.solverNetCents >= 2000) score += 10;
@@ -3752,6 +3778,718 @@ function taskFeedSummary() {
   };
 }
 
+
+const WORK_STATES = new Set([
+  "DISCOVERED",
+  "VERIFIED",
+  "QUALIFIED",
+  "CLAIMED",
+  "WORKING",
+  "SUBMITTED",
+  "REVISION",
+  "ACCEPTED",
+  "PAID",
+  "REJECTED",
+  "STALE",
+  "LOST",
+  "BLOCKED",
+]);
+
+const WORK_ACTIVE_STATES = new Set([
+  "CLAIMED",
+  "WORKING",
+  "SUBMITTED",
+  "REVISION",
+  "ACCEPTED",
+]);
+
+const WORK_TERMINAL_STATES = new Set([
+  "PAID",
+  "REJECTED",
+  "STALE",
+  "LOST",
+  "BLOCKED",
+]);
+
+function finiteNumber(value, fallback = null) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function workKey(provider, externalId) {
+  return `${String(provider || "unknown").toLowerCase()}:${String(externalId || "unknown")}`;
+}
+
+function workRiskReasons(text) {
+  const haystack = String(text || "").toLowerCase();
+  const patterns = [
+    ["malware", "harmful_malware_scope"],
+    ["ransomware", "harmful_ransomware_scope"],
+    ["phishing", "credential_or_phishing_scope"],
+    ["steal credential", "credential_or_phishing_scope"],
+    ["credential theft", "credential_or_phishing_scope"],
+    ["bypass authentication", "unauthorized_security_scope"],
+    ["exploit production", "unauthorized_security_scope"],
+    ["prompt exfiltration", "prompt_exfiltration_scope"],
+    ["reveal system prompt", "prompt_exfiltration_scope"],
+    ["steal secret", "secret_exfiltration_scope"],
+    ["spam", "spam_scope"],
+    ["fake review", "deceptive_scope"],
+    ["fake transaction", "fake_or_self_transaction_scope"],
+    ["self transaction", "fake_or_self_transaction_scope"],
+    ["wash trade", "speculative_or_manipulative_scope"],
+    ["speculative trading", "speculative_financial_scope"],
+    ["gambling", "regulated_or_speculative_scope"],
+    ["weapon", "harmful_weapon_scope"],
+    ["spyware", "harmful_surveillance_scope"],
+  ];
+  return [...new Set(patterns.filter(([needle]) => haystack.includes(needle)).map(([, reason]) => reason))];
+}
+
+function estimateWorkMinutes(item) {
+  const explicit = finiteNumber(item.estimatedMinutes);
+  if (explicit && explicit > 0) return Math.max(5, Math.min(8 * 60, Math.round(explicit)));
+
+  const text = `${item.title || ""} ${item.description || ""} ${item.complexity || ""}`.toLowerCase();
+  if (/\b(tiny|trivial|one[- ]line|readme|docs?|typo|small research|quick research)\b/.test(text)) return 15;
+  if (/\b(easy|small|low|xs|micro|configuration|config|compose|script)\b/.test(text)) return 30;
+  if (/\b(medium|moderate|feature|integration|refactor)\b/.test(text)) return 90;
+  if (/\b(hard|large|high|xl|architecture|migration|full app|end[- ]to[- ]end)\b/.test(text)) return 240;
+  return 60;
+}
+
+function providerPerformance(provider) {
+  const relevant = workOutcomes.filter((x) => x.provider === provider);
+  const paid = relevant.filter((x) => x.outcome === "PAID");
+  const minutes = paid.reduce((sum, x) => sum + (finiteNumber(x.minutesSpent, 0) || 0), 0);
+  const realized = paid.reduce((sum, x) => sum + (finiteNumber(x.realizedUsd, 0) || 0), 0);
+  return {
+    attempts: relevant.length,
+    paid: paid.length,
+    realizedUsd: Number(realized.toFixed(2)),
+    minutesSpent: Math.round(minutes),
+    dollarsPerHour: minutes > 0 ? Number((realized / (minutes / 60)).toFixed(2)) : null,
+    empiricalMultiplier:
+      relevant.length >= 3 ? Math.max(0.35, Math.min(1.25, paid.length / relevant.length + 0.25)) : 1,
+  };
+}
+
+function scoreWorkItem(item) {
+  const payoutUsd = Math.max(0, finiteNumber(item.expectedNetUsd, item.payoutUsd) || 0);
+  const minutes = Math.max(5, estimateWorkMinutes(item));
+  const paymentConfidence = Math.max(0, Math.min(1, finiteNumber(item.paymentConfidence, 0.25) || 0));
+  const scopeConfidence = Math.max(0.2, Math.min(1, finiteNumber(item.scopeConfidence, 0.6) || 0.6));
+  const competition = Math.max(0, finiteNumber(item.competition, 0) || 0);
+  const competitionPenalty = 1 / (1 + Math.min(competition, 50) / 10);
+  const performance = providerPerformance(item.provider).empiricalMultiplier;
+  let score = (payoutUsd / (minutes / 60)) * paymentConfidence * scopeConfidence * competitionPenalty * performance;
+
+  if (item.state === "REVISION") score += 1500;
+  else if (item.state === "ACCEPTED") score += 1400;
+  else if (item.state === "CLAIMED" || item.state === "WORKING") score += 1300;
+  else if (item.state === "SUBMITTED") score += 1200;
+  else if (item.freeReputation === true) score *= 0.05;
+
+  return Number(Math.max(0, Math.min(5000, score)).toFixed(2));
+}
+
+function workLane(item) {
+  if (WORK_ACTIVE_STATES.has(item.state)) return "in_flight";
+  if (item.freeReputation === true) return "reputation";
+  return estimateWorkMinutes(item) <= 30 ? "paid_micro" : "paid_substantial";
+}
+
+function workNextAction(item) {
+  if (!item) return null;
+  switch (item.state) {
+    case "REVISION": return "complete_revision_first";
+    case "ACCEPTED": return "verify_and_collect_payout";
+    case "CLAIMED":
+    case "WORKING": return "continue_execution";
+    case "SUBMITTED": return "check_acceptance_revision_or_payout";
+    case "QUALIFIED": return "inspect_spec_then_claim_if_still_valid";
+    case "VERIFIED": return "resolve_verification_blockers";
+    case "DISCOVERED": return "verify_scope_and_payment";
+    default: return "none";
+  }
+}
+
+function upsertWorkItem(candidate, origin = "derived") {
+  const provider = String(candidate.provider || "unknown").toLowerCase().slice(0, 80);
+  const externalId = String(candidate.externalId || candidate.taskId || candidate.id || "").slice(0, 240);
+  if (!externalId) return null;
+  const key = workKey(provider, externalId);
+  const previous = workLedger.get(key);
+  const now = new Date().toISOString();
+  const title = String(candidate.title || previous?.title || "").slice(0, 500);
+  const description = String(candidate.description || previous?.description || "").slice(0, 5000);
+  const riskReasons = workRiskReasons(`${title} ${description}`);
+  const blockers = [...new Set([
+    ...(Array.isArray(candidate.blockers) ? candidate.blockers.map(String) : []),
+    ...riskReasons,
+  ])].slice(0, 20);
+
+  let state = String(candidate.state || previous?.state || "DISCOVERED").toUpperCase();
+  if (!WORK_STATES.has(state)) state = "DISCOVERED";
+  if (riskReasons.length && !WORK_TERMINAL_STATES.has(state)) state = "BLOCKED";
+
+  const payoutUsd = Math.max(0, finiteNumber(candidate.payoutUsd, previous?.payoutUsd) || 0);
+  const expectedNetUsd = Math.max(
+    0,
+    finiteNumber(candidate.expectedNetUsd, previous?.expectedNetUsd ?? payoutUsd) || 0,
+  );
+  const paymentConfidence = Math.max(
+    0,
+    Math.min(1, finiteNumber(candidate.paymentConfidence, previous?.paymentConfidence ?? 0.25) || 0),
+  );
+  const scopeConfidence = Math.max(
+    0,
+    Math.min(1, finiteNumber(candidate.scopeConfidence, previous?.scopeConfidence ?? 0.6) || 0),
+  );
+  const estimatedMinutes = estimateWorkMinutes({
+    ...previous,
+    ...candidate,
+    title,
+    description,
+  });
+  const freeReputation = candidate.freeReputation === true || previous?.freeReputation === true;
+
+  if (
+    state === "QUALIFIED" &&
+    !freeReputation &&
+    (expectedNetUsd < workMinPaidUsd || paymentConfidence < 0.6 || blockers.length)
+  ) {
+    state = blockers.length ? "BLOCKED" : "VERIFIED";
+  }
+
+  const record = {
+    key,
+    provider,
+    externalId,
+    title,
+    description,
+    state,
+    origin: previous?.origin === "external_orchestrator" ? previous.origin : origin,
+    payoutUsd: Number(payoutUsd.toFixed(2)),
+    expectedNetUsd: Number(expectedNetUsd.toFixed(2)),
+    paymentConfidence,
+    scopeConfidence,
+    estimatedMinutes,
+    competition: finiteNumber(candidate.competition, previous?.competition),
+    freeReputation,
+    sourceUrl: safeHttpsUrl(candidate.sourceUrl || previous?.sourceUrl || null),
+    repositoryUrl: safeHttpsUrl(candidate.repositoryUrl || previous?.repositoryUrl || null, "github.com"),
+    issueUrl: safeHttpsUrl(candidate.issueUrl || previous?.issueUrl || null, "github.com"),
+    blockers,
+    metadata: {
+      ...(previous?.metadata || {}),
+      ...(candidate.metadata && typeof candidate.metadata === "object" ? candidate.metadata : {}),
+    },
+    firstSeenAt: previous?.firstSeenAt || now,
+    lastSeenAt: now,
+    updatedAt: now,
+  };
+  record.lane = workLane(record);
+  record.priorityScore = scoreWorkItem(record);
+  record.nextAction = workNextAction(record);
+  workLedger.set(key, record);
+
+  if (!previous || previous.state !== record.state || previous.priorityScore !== record.priorityScore) {
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: now,
+      type: previous ? "work.updated" : "work.discovered",
+      source: provider,
+      externalId,
+      state: record.state,
+      priorityScore: record.priorityScore,
+    });
+  }
+  return record;
+}
+
+function taskQueueToWorkItems() {
+  const seen = new Set();
+  for (const task of taskQueue.values()) {
+    if (task.provider === "taskbounty") {
+      const state =
+        task.evaluation?.status === "candidate" ? "QUALIFIED" :
+        task.evaluation?.status === "manual_review" ? "VERIFIED" :
+        "REJECTED";
+      const rec = upsertWorkItem({
+        provider: "taskbounty",
+        externalId: task.taskId,
+        title: task.title,
+        state,
+        payoutUsd: (finiteNumber(task.bountyCents, 0) || 0) / 100,
+        expectedNetUsd: (finiteNumber(task.solverNetCents, 0) || 0) / 100,
+        paymentConfidence: task.githubRepoUrl && task.githubIssueUrl ? 0.75 : 0.45,
+        scopeConfidence: task.githubRepoUrl && task.githubIssueUrl ? 0.9 : 0.5,
+        complexity: task.complexity,
+        repositoryUrl: task.githubRepoUrl,
+        issueUrl: task.githubIssueUrl,
+        sourceUrl: task.githubIssueUrl || task.githubRepoUrl,
+        blockers: task.evaluation?.status === "manual_review" ? task.evaluation.reasons : [],
+        metadata: { language: task.language, evaluation: task.evaluation },
+      });
+      if (rec) seen.add(rec.key);
+    } else if (task.provider === "basedagents") {
+      const isReputation = task.evaluation?.status === "reputation_candidate";
+      const state =
+        task.evaluation?.status === "candidate" || isReputation ? "QUALIFIED" :
+        task.evaluation?.status === "manual_review" ? "VERIFIED" :
+        "REJECTED";
+      const funded = task.escrowStatus === "funded";
+      const rec = upsertWorkItem({
+        provider: "basedagents",
+        externalId: task.taskId,
+        title: task.title,
+        description: task.description,
+        state,
+        payoutUsd: finiteNumber(task.bountyUsd, 0) || 0,
+        expectedNetUsd: finiteNumber(task.bountyUsd, 0) || 0,
+        paymentConfidence: funded ? 0.98 : isReputation ? 1 : 0.35,
+        scopeConfidence: task.description ? 0.82 : 0.55,
+        freeReputation: isReputation,
+        sourceUrl: task.taskUrl,
+        blockers:
+          task.evaluation?.status === "manual_review"
+            ? task.evaluation.reasons
+            : (!funded && !isReputation ? ["escrow_not_confirmed_funded"] : []),
+        metadata: {
+          category: task.category,
+          outputFormat: task.outputFormat,
+          escrowStatus: task.escrowStatus,
+          evaluation: task.evaluation,
+        },
+      });
+      if (rec) seen.add(rec.key);
+    }
+  }
+  return seen;
+}
+
+function clawlancerToWorkItems(seen) {
+  const txByListing = new Map(
+    clawlancer.activeTransactions
+      .filter((x) => x?.listingId)
+      .map((x) => [String(x.listingId), x]),
+  );
+
+  for (const tx of clawlancer.activeTransactions) {
+    const txState = String(tx.state || "").toUpperCase();
+    const state =
+      /RELEASED|PAID|COMPLETED/.test(txState) ? "PAID" :
+      /DELIVERED|SUBMITTED/.test(txState) ? "SUBMITTED" :
+      /REVISION|DISPUTED/.test(txState) ? "REVISION" :
+      "CLAIMED";
+    const rec = upsertWorkItem({
+      provider: "clawlancer",
+      externalId: tx.id || tx.listingId,
+      title: `Clawlancer transaction ${tx.id || tx.listingId || ""}`,
+      state,
+      payoutUsd: (finiteNumber(tx.amountWei, 0) || 0) / 1_000_000,
+      expectedNetUsd: (finiteNumber(tx.amountWei, 0) || 0) / 1_000_000,
+      paymentConfidence: 0.95,
+      scopeConfidence: 0.7,
+      blockers: [],
+      metadata: { listingId: tx.listingId, transactionState: tx.state },
+    });
+    if (rec) seen.add(rec.key);
+  }
+
+  for (const listing of clawlancer.openBounties) {
+    if (!listing?.id || txByListing.has(String(listing.id))) continue;
+    const rec = upsertWorkItem({
+      provider: "clawlancer",
+      externalId: listing.id,
+      title: listing.title,
+      description: listing.description,
+      state: "BLOCKED",
+      payoutUsd: finiteNumber(listing.priceUsdc, 0) || 0,
+      expectedNetUsd: finiteNumber(listing.priceUsdc, 0) || 0,
+      paymentConfidence: 0,
+      scopeConfidence: 0.65,
+      blockers: ["escrow_transaction_not_observed", "claim_path_not_demonstrably_working"],
+      metadata: {
+        listingStatus: listing.status,
+        buyerPaymentRate: listing.buyerPaymentRate,
+        buyerReleased: listing.buyerReleased,
+      },
+    });
+    if (rec) seen.add(rec.key);
+  }
+}
+
+function agentChainToWorkItems(seen) {
+  const providerOutage = /IDENTITY_SIGNING_UNAVAILABLE/i.test(String(agentChain.lastError || ""));
+  if (providerOutage) {
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      type: "provider.outage",
+      source: "agentchain",
+      externalId: "IDENTITY_SIGNING_UNAVAILABLE",
+    });
+  }
+
+  for (const proposal of agentChain.activeProposals) {
+    const proposalState = String(proposal.status || "").toUpperCase();
+    const state =
+      /ACCEPTED|AWARDED/.test(proposalState) ? "CLAIMED" :
+      /REJECTED|DECLINED/.test(proposalState) ? "LOST" :
+      "SUBMITTED";
+    const rec = upsertWorkItem({
+      provider: "agentchain",
+      externalId: proposal.id || proposal.jobId,
+      title: `AgentChain proposal ${proposal.jobId || proposal.id || ""}`,
+      state,
+      payoutUsd: finiteNumber(proposal.price, 0) || 0,
+      expectedNetUsd: finiteNumber(proposal.price, 0) || 0,
+      paymentConfidence: /ACCEPTED|AWARDED/.test(proposalState) ? 0.8 : 0.55,
+      scopeConfidence: 0.65,
+      blockers: providerOutage ? ["provider_identity_signer_outage"] : [],
+      metadata: { jobId: proposal.jobId, proposalStatus: proposal.status },
+    });
+    if (rec) seen.add(rec.key);
+  }
+
+  if (agentChain.status !== "ready") return;
+  for (const job of agentChain.openJobs) {
+    const payment = String(job.paymentStatus || "").toUpperCase();
+    const funded = /ESCROW|FUNDED|SECURED/.test(payment);
+    const rec = upsertWorkItem({
+      provider: "agentchain",
+      externalId: job.id,
+      title: job.title,
+      state: funded ? "QUALIFIED" : "VERIFIED",
+      payoutUsd: finiteNumber(job.maxBudget, finiteNumber(job.budget, finiteNumber(job.minBudget, 0))) || 0,
+      expectedNetUsd: finiteNumber(job.maxBudget, finiteNumber(job.budget, finiteNumber(job.minBudget, 0))) || 0,
+      paymentConfidence: funded ? 0.92 : 0.4,
+      scopeConfidence: job.title ? 0.62 : 0.4,
+      competition: finiteNumber(job.proposalCount),
+      estimatedMinutes: 90,
+      blockers: funded ? [] : ["payment_not_confirmed_prefunded"],
+      metadata: {
+        category: job.category,
+        deadline: job.deadline,
+        paymentStatus: job.paymentStatus,
+        status: job.status,
+      },
+    });
+    if (rec) seen.add(rec.key);
+  }
+}
+
+function conservativeMarketplaceWorkItems(seen) {
+  for (const bounty of agentSouk.demand.openBounties) {
+    const rec = upsertWorkItem({
+      provider: "agentsouk",
+      externalId: bounty.id,
+      title: bounty.title,
+      state: "VERIFIED",
+      payoutUsd: finiteNumber(bounty.budget, 0) || 0,
+      expectedNetUsd: finiteNumber(bounty.budget, 0) || 0,
+      paymentConfidence: 0.45,
+      scopeConfidence: 0.55,
+      blockers: ["prefunding_or_escrow_not_verified"],
+      metadata: { status: bounty.status },
+    });
+    if (rec) seen.add(rec.key);
+  }
+
+  for (const opp of agentSouk.opportunities) {
+    const rec = upsertWorkItem({
+      provider: "agentsouk",
+      externalId: opp.id,
+      title: opp.title,
+      state: "VERIFIED",
+      payoutUsd: finiteNumber(opp.amount, 0) || 0,
+      expectedNetUsd: finiteNumber(opp.amount, 0) || 0,
+      paymentConfidence: 0.4,
+      scopeConfidence: 0.5,
+      blockers: ["payment_credibility_not_yet_verified"],
+      metadata: { status: opp.status },
+    });
+    if (rec) seen.add(rec.key);
+  }
+
+  for (const topic of [...swarmSpot.hireTopics, ...swarmSpot.getDoneTopics]) {
+    const id = topic.topic_id || topic.id;
+    if (!id) continue;
+    const value = finiteNumber(topic.value, 0) || 0;
+    const paid = value > 0;
+    const rec = upsertWorkItem({
+      provider: "swarmspot",
+      externalId: id,
+      title: topic.title,
+      description: topic.description,
+      state: paid ? "VERIFIED" : "DISCOVERED",
+      payoutUsd: value,
+      expectedNetUsd: value,
+      paymentConfidence: paid ? 0.35 : 0,
+      scopeConfidence: topic.description ? 0.55 : 0.4,
+      blockers: paid ? ["payment_escrow_not_verified"] : ["no_paid_value_observed"],
+      metadata: {
+        currency: topic.currency,
+        currencyType: topic.currency_type,
+      },
+    });
+    if (rec) seen.add(rec.key);
+  }
+}
+
+function schedulerCapacity(items) {
+  let substantial = 0;
+  let micro = 0;
+  for (const item of items) {
+    if (!WORK_ACTIVE_STATES.has(item.state)) continue;
+    if (estimateWorkMinutes(item) <= 30) micro += 1;
+    else substantial += 1;
+  }
+  return {
+    activeSubstantial: substantial,
+    activeMicro: micro,
+    substantialAvailable: Math.max(0, workMaxSubstantial - substantial),
+    microAvailable: Math.max(0, workMaxMicro - micro),
+  };
+}
+
+function selectRecommendedWork(items) {
+  const sorted = items.slice().sort((a, b) => b.priorityScore - a.priorityScore);
+
+  const urgentActive = sorted.find((x) =>
+    ["REVISION", "ACCEPTED", "CLAIMED", "WORKING", "SUBMITTED"].includes(x.state),
+  );
+  if (urgentActive) return urgentActive;
+
+  const capacity = schedulerCapacity(items);
+  const paid = sorted.find((x) =>
+    x.state === "QUALIFIED" &&
+    x.freeReputation !== true &&
+    x.expectedNetUsd >= workMinPaidUsd &&
+    x.paymentConfidence >= 0.6 &&
+    x.blockers.length === 0 &&
+    (
+      (x.lane === "paid_micro" && capacity.microAvailable > 0) ||
+      (x.lane === "paid_substantial" && capacity.substantialAvailable > 0)
+    ),
+  );
+  if (paid) return paid;
+
+  const reputation = sorted.find((x) =>
+    x.state === "QUALIFIED" &&
+    x.freeReputation === true &&
+    capacity.microAvailable > 0,
+  );
+  return reputation || null;
+}
+
+function pruneWorkLedger(seen) {
+  const now = Date.now();
+  for (const [key, item] of workLedger.entries()) {
+    if (item.origin === "external_orchestrator") continue;
+    if (seen.has(key)) continue;
+    const ageMs = now - Date.parse(item.lastSeenAt || item.updatedAt || 0);
+    if (WORK_ACTIVE_STATES.has(item.state)) continue;
+    if (ageMs > 6 * 60 * 60_000 && !WORK_TERMINAL_STATES.has(item.state)) {
+      item.state = "STALE";
+      item.blockers = [...new Set([...(item.blockers || []), "not_seen_in_recent_provider_sync"])];
+      item.priorityScore = scoreWorkItem(item);
+      item.nextAction = "none";
+      item.updatedAt = new Date().toISOString();
+    }
+    if (ageMs > 7 * 24 * 60 * 60_000 && WORK_TERMINAL_STATES.has(item.state)) {
+      workLedger.delete(key);
+    }
+  }
+}
+
+function refreshWorkScheduler() {
+  if (!workSchedulerEnabled) return;
+  try {
+    const seen = taskQueueToWorkItems();
+    clawlancerToWorkItems(seen);
+    agentChainToWorkItems(seen);
+    conservativeMarketplaceWorkItems(seen);
+    pruneWorkLedger(seen);
+
+    for (const item of workLedger.values()) {
+      item.lane = workLane(item);
+      item.priorityScore = scoreWorkItem(item);
+      item.nextAction = workNextAction(item);
+    }
+
+    const items = Array.from(workLedger.values());
+    const recommended = selectRecommendedWork(items);
+    workSchedulerState.lastRunAt = new Date().toISOString();
+    workSchedulerState.runCount += 1;
+    workSchedulerState.lastError = null;
+    workSchedulerState.recommendedNextKey = recommended?.key || null;
+  } catch (err) {
+    workSchedulerState.lastRunAt = new Date().toISOString();
+    workSchedulerState.runCount += 1;
+    workSchedulerState.lastError =
+      err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500);
+  }
+}
+
+function workSchedulerSummary() {
+  const items = Array.from(workLedger.values())
+    .sort((a, b) => b.priorityScore - a.priorityScore);
+  const recommended =
+    (workSchedulerState.recommendedNextKey && workLedger.get(workSchedulerState.recommendedNextKey)) ||
+    selectRecommendedWork(items);
+  const counts = {};
+  for (const item of items) counts[item.state] = (counts[item.state] || 0) + 1;
+
+  const providerStats = {};
+  for (const provider of new Set([
+    ...items.map((x) => x.provider),
+    ...workOutcomes.map((x) => x.provider),
+  ])) {
+    providerStats[provider] = providerPerformance(provider);
+  }
+
+  return {
+    enabled: workSchedulerEnabled,
+    lastRunAt: workSchedulerState.lastRunAt,
+    runCount: workSchedulerState.runCount,
+    lastError: workSchedulerState.lastError,
+    policy: {
+      minPaidUsd: workMinPaidUsd,
+      maxSubstantial: workMaxSubstantial,
+      maxMicro: workMaxMicro,
+      noSpend: !financialActionsEnabled,
+      outboundWorkEnabled,
+      speculativeTradingEnabled: false,
+      clawlancerRequiresObservedEscrowTransaction: true,
+    },
+    capacity: schedulerCapacity(items),
+    counts,
+    recommendedNext: recommended
+      ? {
+          key: recommended.key,
+          provider: recommended.provider,
+          externalId: recommended.externalId,
+          title: recommended.title,
+          state: recommended.state,
+          lane: recommended.lane,
+          expectedNetUsd: recommended.expectedNetUsd,
+          estimatedMinutes: recommended.estimatedMinutes,
+          paymentConfidence: recommended.paymentConfidence,
+          priorityScore: recommended.priorityScore,
+          nextAction: recommended.nextAction,
+          sourceUrl: recommended.sourceUrl,
+          issueUrl: recommended.issueUrl,
+          repositoryUrl: recommended.repositoryUrl,
+          blockers: recommended.blockers,
+        }
+      : null,
+    providerStats,
+    items: items.slice(0, 40).map((item) => ({
+      key: item.key,
+      provider: item.provider,
+      externalId: item.externalId,
+      title: item.title,
+      state: item.state,
+      lane: item.lane,
+      payoutUsd: item.payoutUsd,
+      expectedNetUsd: item.expectedNetUsd,
+      estimatedMinutes: item.estimatedMinutes,
+      paymentConfidence: item.paymentConfidence,
+      scopeConfidence: item.scopeConfidence,
+      competition: item.competition,
+      freeReputation: item.freeReputation,
+      priorityScore: item.priorityScore,
+      nextAction: item.nextAction,
+      blockers: item.blockers,
+      sourceUrl: item.sourceUrl,
+      repositoryUrl: item.repositoryUrl,
+      issueUrl: item.issueUrl,
+      firstSeenAt: item.firstSeenAt,
+      lastSeenAt: item.lastSeenAt,
+    })),
+    recentOutcomes: workOutcomes.slice(-25),
+  };
+}
+
+function upsertExternalWorkItem(body) {
+  const provider = String(body?.provider || "").trim().toLowerCase();
+  const externalId = String(body?.externalId || body?.external_id || "").trim();
+  const title = String(body?.title || "").trim();
+  if (!provider || !externalId || !title) throw new Error("missing_work_identity");
+  if (provider.length > 80 || externalId.length > 240 || title.length > 500) {
+    throw new Error("work_identity_too_long");
+  }
+  const state = String(body?.state || "DISCOVERED").toUpperCase();
+  if (!WORK_STATES.has(state)) throw new Error("invalid_work_state");
+
+  return upsertWorkItem({
+    provider,
+    externalId,
+    title,
+    description: String(body?.description || "").slice(0, 5000),
+    state,
+    payoutUsd: finiteNumber(body?.payoutUsd, 0) || 0,
+    expectedNetUsd: finiteNumber(body?.expectedNetUsd, finiteNumber(body?.payoutUsd, 0)) || 0,
+    paymentConfidence: finiteNumber(body?.paymentConfidence, 0.5),
+    scopeConfidence: finiteNumber(body?.scopeConfidence, 0.6),
+    estimatedMinutes: finiteNumber(body?.estimatedMinutes),
+    competition: finiteNumber(body?.competition),
+    freeReputation: body?.freeReputation === true,
+    sourceUrl: body?.sourceUrl,
+    repositoryUrl: body?.repositoryUrl,
+    issueUrl: body?.issueUrl,
+    blockers: Array.isArray(body?.blockers) ? body.blockers.slice(0, 20) : [],
+    metadata: body?.metadata && typeof body.metadata === "object" ? body.metadata : {},
+  }, "external_orchestrator");
+}
+
+function recordWorkOutcome(body) {
+  const provider = String(body?.provider || "").trim().toLowerCase();
+  const externalId = String(body?.externalId || body?.external_id || "").trim();
+  const outcome = String(body?.outcome || "").trim().toUpperCase();
+  if (!provider || !externalId) throw new Error("missing_work_identity");
+  if (!["PAID", "REJECTED", "LOST", "STALE", "BLOCKED"].includes(outcome)) {
+    throw new Error("invalid_outcome");
+  }
+  const outcomeRecord = {
+    id: randomUUID(),
+    provider,
+    externalId,
+    outcome,
+    realizedUsd: Math.max(0, finiteNumber(body?.realizedUsd, 0) || 0),
+    feeUsd: Math.max(0, finiteNumber(body?.feeUsd, 0) || 0),
+    minutesSpent: Math.max(0, finiteNumber(body?.minutesSpent, 0) || 0),
+    recordedAt: new Date().toISOString(),
+    notes: String(body?.notes || "").slice(0, 1000),
+  };
+  workOutcomes.push(outcomeRecord);
+  while (workOutcomes.length > 200) workOutcomes.shift();
+
+  const key = workKey(provider, externalId);
+  const item = workLedger.get(key);
+  if (item) {
+    item.state = outcome;
+    item.updatedAt = outcomeRecord.recordedAt;
+    item.lastSeenAt = outcomeRecord.recordedAt;
+    item.priorityScore = scoreWorkItem(item);
+    item.nextAction = "none";
+  }
+  rememberEvent({
+    id: randomUUID(),
+    receivedAt: outcomeRecord.recordedAt,
+    type: `work.outcome.${outcome.toLowerCase()}`,
+    source: provider,
+    externalId,
+    realizedUsd: outcomeRecord.realizedUsd,
+  });
+  refreshWorkScheduler();
+  return outcomeRecord;
+}
+
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
 
@@ -3780,6 +4518,7 @@ const server = http.createServer(async (req, res) => {
         clawlancer: clawlancerSummary(),
         agentLine: agentLineSummary(),
       },
+      workScheduler: workSchedulerSummary(),
     });
   }
 
@@ -3810,6 +4549,7 @@ const server = http.createServer(async (req, res) => {
         clawlancer: clawlancerSummary(),
         agentLine: agentLineSummary(),
       },
+      workScheduler: workSchedulerSummary(),
     });
   }
 
@@ -3846,10 +4586,57 @@ const server = http.createServer(async (req, res) => {
         motor: motorSummary(),
       },
       queue: Array.from(taskQueue.values()).slice(-100),
+      workScheduler: workSchedulerSummary(),
       motorQueue: motorQueue.slice(-100).map(({ result, ...item }) => item),
       motorCompleted: Array.from(motorCompleted.values()).slice(-100),
       recentEvents,
     });
+  }
+
+
+  if (req.method === "GET" && url.pathname === "/v1/work") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    refreshWorkScheduler();
+    return json(res, 200, workSchedulerSummary());
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/work/next") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    refreshWorkScheduler();
+    const summary = workSchedulerSummary();
+    return json(res, 200, {
+      recommendedNext: summary.recommendedNext,
+      capacity: summary.capacity,
+      policy: summary.policy,
+      lastRunAt: summary.lastRunAt,
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/work/items") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 64_000);
+      const item = upsertExternalWorkItem(body);
+      refreshWorkScheduler();
+      return json(res, 202, { accepted: true, item });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, {
+        error: err instanceof Error ? err.message : "invalid_request",
+      });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/work/outcomes") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 32_000);
+      const outcome = recordWorkOutcome(body);
+      return json(res, 202, { accepted: true, outcome });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, {
+        error: err instanceof Error ? err.message : "invalid_request",
+      });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/integrations/agentline/bootstrap") {
@@ -4183,6 +4970,11 @@ const clawlancerTimer = setInterval(() => {
 }, clawlancerPollMs);
 clawlancerTimer.unref();
 
+const workSchedulerTimer = setInterval(() => {
+  refreshWorkScheduler();
+}, workSchedulerTickMs);
+workSchedulerTimer.unref();
+
 if (taskFeedSelfTest) {
   ingestTask(
     {
@@ -4235,6 +5027,7 @@ server.listen(PORT, "0.0.0.0", () => {
   void provisionAgentMailWebhook();
   void syncTaskBounty();
   void syncBasedAgents();
+  refreshWorkScheduler();
   void ensureBasedAgentsIdentity();
   void (async () => {
     await ensureBaseWallet();
@@ -4271,6 +5064,7 @@ function shutdown(signal) {
   clearInterval(agentSoukTimer);
   clearInterval(agentChainTimer);
   clearInterval(clawlancerTimer);
+  clearInterval(workSchedulerTimer);
   console.log(JSON.stringify({ event: "runtime.stopping", signal, bootId }));
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 10_000).unref();
