@@ -81,7 +81,7 @@ When documents disagree:
 
 1. \`AGENT_CURRENT.md\`;
 2. \`agent-memory/agent_current_frontier_v21.md\`;
-3. newest relevant RESULT / REPLICATED BASELINE;
+3. newest relevant RESULT / REPLICATED BASELINE (currently including `AGENT_COGNITIVE_TRANSFER_V0.md`);
 4. active experiment spec;
 5. historical specs/archive.
 
