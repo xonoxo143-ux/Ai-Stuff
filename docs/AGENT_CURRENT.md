@@ -8,30 +8,35 @@
 
 ## 0. Documentation contract
 
-This is the **only living project-state document**.
+This is the **only living project-state/build document**.
 
-After a meaningful research/build cycle:
+Research is deliberately separated into a paired module:
 
-1. update `AGENT_CURRENT.md` with the new current truth, decision, and next gate;
+- `AGENT_RESEARCH_FINDINGS.md` — **what the external scientific literature currently supports**;
+- `AGENT_RESEARCH_SYNTHESIS.md` — **what we infer may be possible when those findings are linked with our experiments**, including how that synthesis changes after tests.
+
+The boundary is strict: external evidence belongs in FINDINGS; project inference belongs in SYNTHESIS; adopted build decisions belong here.
+
+After a meaningful build cycle:
+
+1. update `AGENT_CURRENT.md` with the new project truth, decision, and next gate;
 2. create one experiment/result document only when durable technical detail is worth preserving;
-3. treat completed experiment/result documents as immutable evidence except for factual corrections.
+3. update SYNTHESIS if the result changes the integrated hypothesis;
+4. update FINDINGS only when the literature frontier itself changes.
 
-Do **not** maintain a second frontier, duplicate current-state summary, evidence ledger, or decision ledger in parallel.
+Completed experiment/result documents are immutable evidence except for factual corrections.
 
-Other Agent documents are one of:
+Do **not** maintain a second build frontier, duplicate current-state summary, evidence ledger, or decision ledger in parallel.
 
-- **result records** — durable evidence from a completed experiment;
-- **reference/history** — useful context, but not current state;
-- **infrastructure** — execution/deployment details, not cognitive direction.
+`AGENT_DOCS_INDEX.md` is a stable module map, not a per-cycle status file.
 
-`AGENT_DOCS_INDEX.md` is a stable map, not a per-cycle status file. Update it only if the documentation structure itself changes.
-
-Cold-start recovery rule:
+Modular recovery:
 
 ```text
-READ AGENT_CURRENT.md
-→ open only the result/reference docs it points to when deeper evidence is needed
-→ continue from the stated next gate
+build chat      → AGENT_CURRENT.md
+research chat   → AGENT_RESEARCH_FINDINGS.md + AGENT_RESEARCH_SYNTHESIS.md
+experiment chat → AGENT_CURRENT.md + the relevant result file
+full project    → all three living modules + result files only as needed
 ```
 
 ## 1. Task anchor
