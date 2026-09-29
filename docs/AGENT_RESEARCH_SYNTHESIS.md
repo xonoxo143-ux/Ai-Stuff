@@ -32,6 +32,34 @@ A dedicated research chat should normally load **FINDINGS + SYNTHESIS together**
 
 ---
 
+## Strategic scope correction — whole-agent objective
+
+The compositional-OOD work produced useful causal information, but it began to dominate the research agenda beyond its role in the actual project.
+
+The project target is not:
+
+> maximize performance on synthetic compositional reasoning.
+
+It is:
+
+> build a self-contained, from-scratch conversational agent that can move across topics, remember, reason, retrieve knowledge, and generate each response from its own learned machinery.
+
+Current whole-agent audit shows larger missing capabilities than the latest cognition benchmark:
+
+1. the from-scratch perception/cognition/production stack is not yet closed into the runtime;
+2. the language/semantic interface is still bounded/toy-scale;
+3. broad knowledge acquisition/retrieval is not integrated with the homegrown language system;
+4. multi-turn topic switching and thread resumption are not yet demonstrated by the homegrown stack.
+
+Therefore:
+
+> compositional generalization remains an important diagnostic stress test, but it is **not currently the primary research target**.
+
+The research loop should now prefer questions whose answers plausibly unlock the whole conversational system: from-scratch language/state interfaces, memory-conditioned generation, broad knowledge access without a pretrained LLM, and integrated multi-turn control.
+
+Research on isolated cognition should regain priority only when a whole-agent failure points back to it.
+
+---
 ## Current integrated model
 
 ### S1. The missing thing is probably not “a better monolithic core”
