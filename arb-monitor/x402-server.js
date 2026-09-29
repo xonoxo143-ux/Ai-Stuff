@@ -4,6 +4,8 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 
 const PORT = Number(process.env.PORT || 3000);
+const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || "https://browser-worker-v2-production.up.railway.app";
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "oldcraft541@agentmail.to";
 const PAY_TO = process.env.PAY_TO;
 const PRICE = process.env.PRICE_USD || "$0.01";
 const SOURCE_URL = process.env.SOURCE_URL || "https://browser-worker-production-c691.up.railway.app/api/scan";
@@ -78,27 +80,33 @@ app.get("/api/scan", async (_req, res) => {
 });
 
 app.get("/openapi.json", (_req, res) => {
-  const base = "https://browser-worker-v2-production.up.railway.app";
   res.json({
     openapi: "3.1.0",
     info: {
       title: "SELF-ROOT BTC Arb Monitor x402 API",
-      version: "0.1.0",
-      description: "Pay-per-call market-data API for matched Kalshi and Polymarket US BTC 15-minute BRTI contracts. x402 v2, Base mainnet USDC."
+      version: "0.2.0",
+      description: "Pay-per-call market-data API for matched Kalshi and Polymarket US BTC 15-minute BRTI contracts. x402 v2, Base mainnet USDC.",
+      "x-guidance": "Use GET /api/scan when you need the current fee-adjusted cross-venue comparison for matching Kalshi and Polymarket US 15-minute BTC BRTI contracts. The endpoint costs $0.01 USDC via x402 on Base and returns market data only; it never executes trades.",
+      contact: { email: CONTACT_EMAIL }
     },
-    servers: [{ url: base }],
+    servers: [{ url: PUBLIC_ORIGIN }],
     paths: {
       "/api/scan": {
         get: {
           operationId: "paidBtcArbScan",
           summary: "Buy the current BTC cross-venue market scan",
-          description: "Costs " + PRICE + " USDC via x402 on Base. Unpaid requests return HTTP 402 with PAYMENT-REQUIRED.",
+          description: "Returns matched contract metadata, displayed book depth, estimated fees, and the best observed two-leg cross-venue route. Quotes can change before execution.",
+          tags: ["Prediction markets", "Market data", "Arbitrage research"],
+          "x-payment-info": {
+            price: { mode: "fixed", currency: "USD", amount: "0.010000" },
+            protocols: [{ x402: {} }]
+          },
           responses: {
             "200": {
               description: "Paid current market scan",
               content: { "application/json": { schema: { type: "object" } } }
             },
-            "402": { description: "x402 payment required" },
+            "402": { description: "Payment Required" },
             "502": { description: "Upstream market monitor unavailable" }
           }
         }
@@ -107,6 +115,7 @@ app.get("/openapi.json", (_req, res) => {
         get: {
           operationId: "health",
           summary: "Free health check",
+          security: [],
           responses: { "200": { description: "Healthy" } }
         }
       }
@@ -121,6 +130,31 @@ app.get("/openapi.json", (_req, res) => {
       }
     }
   });
+});
+
+app.get("/.well-known/x402", (_req, res) => {
+  res.json({
+    version: 1,
+    resources: [PUBLIC_ORIGIN + "/api/scan"],
+    instructions: "Machine-payable BTC 15-minute Kalshi vs Polymarket US BRTI market-data scan. See /openapi.json for pricing and schema."
+  });
+});
+
+app.get("/llms.txt", (_req, res) => {
+  res.type("text/plain").send([
+    "# SELF-ROOT BTC Arb Monitor x402 API",
+    "",
+    "Machine-payable market-data API for matching Kalshi and Polymarket US 15-minute BTC BRTI contracts.",
+    "",
+    "## Endpoints",
+    "- GET /api/scan — $0.01 USDC via x402 on Base mainnet; current fee-adjusted cross-venue scan",
+    "- GET /openapi.json — machine-readable OpenAPI 3.1 discovery document",
+    "- GET /.well-known/x402 — x402 discovery compatibility document",
+    "- GET /health — free liveness check",
+    "",
+    "The API never places trades and does not promise quote persistence or profit.",
+    "Contact: " + CONTACT_EMAIL
+  ].join("\n"));
 });
 
 app.listen(PORT, "0.0.0.0", () => {
