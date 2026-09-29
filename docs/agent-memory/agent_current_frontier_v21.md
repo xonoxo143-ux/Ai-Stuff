@@ -134,28 +134,61 @@ question
 
 Use \`docs/AGENT_RESEARCH_TERMINOLOGY_MAP.md\` to translate our informal questions into research vocabulary.
 
-## Next gate
+## Transfer gate result
 
-**Transfer / learning-to-learn.**
+Cognitive Transfer v0 completed successfully across three seeds.
 
-Test a genuinely new sixth family.
+Held-out composition:
 
-Compare:
+```text
+relation traversal
+→ memory lookup
+→ inferred rule transform
+```
 
-1. fresh core;
-2. current shared factor core adapted to the new family;
-3. explicit reusable-computation / compositional meta-learning baseline.
+At 1024 task-6 updates:
 
-Measure zero-shot behavior and examples/updates to a fixed OOD target.
+```text
+fresh                 55.5% IID   28.0% OOD
+ordinary transfer      96.0% IID   40.5% OOD
+frozen-how             23.3% IID   21.0% OOD
+```
 
-The result must be large enough to matter. Example heuristic:
+Other key results:
 
-\`\`\`text
-2000 → 1700 examples   stop / low leverage
-2000 → 500             interesting
-2000 → 100             major
-strong zero/few-shot   major
-\`\`\`
+```text
+zero-shot task-6 OOD                 8.7%
+old-task OOD before transfer        69.7%
+old-task OOD after full fine-tuning  7.1%
+old-task loss                       62.6 points
+frozen-how trainable params         1,095
+```
+
+Decision:
+
+- ordinary transfer is real but too small/incomplete to pass the high-leverage gate;
+- the frozen reusable-"how" adapter failed;
+- ordinary full fine-tuning catastrophically forgets old skills;
+- current failure is dominated by compositional OOD generalization: ordinary transfer fits task 6 to 96% IID but reaches only 40.5% OOD.
+
+Do not tune this core for another few points.
+
+## Current next gate
+
+Literature first, then one discriminating build around:
+
+> **systematic compositional OOD generalization of already-learned operations**
+
+Search neighboring mechanisms:
+
+- neural algorithmic reasoning / processor transfer;
+- modular neural networks / modular meta-learning;
+- program induction / learned execution;
+- variable binding / role-filler representations;
+- task/operator graphs;
+- learned sequencing/routing of reusable operators.
+
+The next mechanism must beat the current factor-core baseline by enough to matter.
 
 ## Developmental track
 
@@ -181,32 +214,3 @@ READ CURRENT DOCS
 → update frontier/evidence/decisions
 \`\`\`
 
-
-## Transfer gate launched — 2026-09-29
-
-Literature search completed before build.
-
-Closest mechanisms:
-
-- compositional meta-learning;
-- probabilistic task inference;
-- what/how decomposition with reusable recurrent components;
-- generalist neural algorithmic processors.
-
-Cognitive Transfer v0 now tests a genuinely new **cross-family composition**:
-
-\`\`\`text
-relation traversal
-→ memory lookup
-→ rule transform
-\`\`\`
-
-Three arms:
-
-1. fresh factor core;
-2. ordinary pretrained-core fine-tuning;
-3. frozen pretrained "how" core + <2k-parameter task/context adapter.
-
-Learning curves run from 0 through 1024 task-6 updates.
-
-This experiment is explicitly kill-oriented: a small fine-tuning advantage is not enough. The project is looking for a large reduction in learning cost or strong zero/few-shot composition.
