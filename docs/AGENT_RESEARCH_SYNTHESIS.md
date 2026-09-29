@@ -443,3 +443,110 @@ The present best hypothesis is narrower than before:
 The next job is research, not architecture expansion:
 
 > identify the strongest demonstrated mechanisms for **depth/length-generalizing learned execution**, then design one cheap test that can distinguish a genuinely invariant operator from a short-horizon heuristic.
+
+## Developmental synthesis S9 — guided self-construction
+
+The project now has a stronger interpretation of "develop selectively":
+
+> We should hand-build the developmental laws and external evaluator, while allowing increasingly large portions of useful computation to be authored by the agent's own computational genome.
+
+The current synthesis is not blind evolution and not unrestricted source rewriting.
+
+```text
+immutable experimental physics
+    ↓
+stable parent / archive
+    ↓
+candidate computational mutations
+    ↓
+automatic evaluation + ablation
+    ↓
+promotion only when capability or efficiency materially changes
+    ↓
+compression / library learning
+    ↓
+new reusable primitive
+```
+
+Human/project research remains active. Literature-derived mechanisms enter as candidate mutations or diagnostic prostheses rather than permanent architectural commandments.
+
+### Why the archive matters
+
+PowerPlay's known greedy failure mode and Darwin Gödel Machine's archive results point in the same direction: a single latest-only lineage is too easy to trap in small local improvements.
+
+Current project hypothesis:
+
+> preserve a tree/archive of useful but different computational genomes; select both for quality and for stepping-stone diversity.
+
+### Why compression is not enough
+
+DreamCoder/Babble/Stitch support extracting reusable abstractions from solved programs, but prospective-compression work suggests that a primitive can be valuable for future composition even when it was rare in the past.
+
+Current project hypothesis:
+
+> generate primitive proposals from both repeated/compressible structures and compact whole skills; let held-out prospective utility decide which survive.
+
+### Why this connects to "what matters"
+
+The promotion criterion should be causal rather than correlational:
+
+- remove the candidate;
+- rerun capability/efficiency tests;
+- keep it only when its presence changes reachable performance or cost;
+- preserve the failure conditions and dependencies.
+
+This is a concrete implementation path for the earlier project concept that a structure "matters" when intervention on it changes future capability.
+
+### Local Developmental Nursery v0 result
+
+A Python-standard-library-only nursery was built and run in the local container.
+
+Generation-0 substrate:
+- 9 primitive stack-machine instructions;
+- bounded program synthesis;
+- solved-program traces;
+- self-authored macro primitives;
+- descendant archive;
+- external immutable validation;
+- final untouched composition holdout.
+
+Initial hidden motif set:
+- fixed primitive library: 0/5 final held-out compositions under the short-program constraint;
+- evolved three-macro genome: 5/5.
+
+A three-motif-family stress pass exposed a failure:
+- two families: 5/5;
+- third family: 1/5.
+
+Failure analysis:
+- retrospective compression and a narrow candidate queue preferred frequent past fragments;
+- a less-frequent but prospectively valuable operation was never given a fair promotion test.
+
+Research-backed revision:
+- propose both frequent compression candidates and compact whole solved procedures;
+- preserve structurally diverse archive branches;
+- let validation decide prospective utility.
+
+On the previously failing family, the revised nursery reached 5/5 final held-out compositions and promoted the three useful procedures without the missing procedure being manually inserted.
+
+### What this result does and does not support
+
+Supported:
+- a tiny local system can author new reusable executable operations from experience;
+- those operations can unlock compositions unavailable under the same active program-depth limit;
+- research-guided developmental laws can repair a discovered failure without hand-coding the target skill;
+- this loop runs comfortably without a pretrained model, GPU service, or external training infrastructure.
+
+Not supported yet:
+- open-domain intelligence;
+- language;
+- neural self-development;
+- reasoning-per-FLOP superiority;
+- asymptotically constant active compute as stored capability grows;
+- automatic invention of fundamentally new representation languages.
+
+### Revised high-leverage question
+
+> Can stored computational capability grow by 10×–100× while the active working set/search cost stays nearly bounded, and can the developmental system learn the addressing structure needed to make that true?
+
+This directly links self-construction to the project's broader hypothesis: store broadly, activate narrowly, develop selectively.
