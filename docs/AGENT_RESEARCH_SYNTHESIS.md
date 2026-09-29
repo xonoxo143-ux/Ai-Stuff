@@ -6,15 +6,13 @@
 
 ## Purpose
 
-This file answers a different question from FINDINGS:
+This file answers:
 
 > **When the external findings are linked together with our own experiments, what architecture or mechanism appears possible — and how does that belief change when we test it?**
 
-This is allowed to hypothesize.
+This file is allowed to hypothesize.
 
 It must **never disguise synthesis as established science**.
-
-Inputs:
 
 ```text
 external literature
@@ -32,198 +30,410 @@ AGENT_CURRENT.md only if the mechanism survives
 
 A dedicated research chat should normally load **FINDINGS + SYNTHESIS together**.
 
+---
+
 ## Current integrated model
 
-### S1. Reusable computation probably needs to be learned as reusable computation
+### S1. The missing thing is probably not “a better monolithic core”
 
-The external literature repeatedly succeeds when training encourages decomposition, reusable mechanisms, task inference, or routing.
-
-Our own transfer experiment did **not** recover strong reusable computation simply by:
+Our largest cognitive gain came from changing internal organization:
 
 ```text
-train one shared core on five tasks
-→ freeze it
-→ add a tiny adapter
-→ expect unseen composition
+flat MLP          23.9% OOD
+factor one-pass   59.8% OOD
 ```
 
-That suggests a stronger hypothesis:
-
-> reusable operations may need to become identifiable/specialized **during learning**, rather than being extracted after ordinary multitask training.
-
-**Confidence:** medium-high.
-
-### S2. Factorized relational representation is useful, but the current shared processor is not enough
-
-Our flat→factor change produced the largest cognitive-core gain so far:
+But the shared factor processor later showed:
 
 ```text
-23.9% OOD → 59.8% OOD
+task-6 transfer IID   96.0%
+task-6 transfer OOD   40.5%
 ```
 
-So explicit relational organization earned its place.
+It can fit a new composition but does not reliably extrapolate it.
 
-But Cognitive Transfer v0 showed:
+External research independently keeps finding that systematic reuse depends on decomposition, specialization, binding, routing, and the training distribution.
 
-```text
-ordinary transfer task-6 IID   96.0%
-ordinary transfer task-6 OOD   40.5%
-```
+**Current synthesis:**
 
-The system can fit the new composition but does not reliably extrapolate it.
-
-Working synthesis:
-
-> keep explicit relational/entity structure, but do not assume one undifferentiated message-passing processor will become a compositional reasoning engine by scale or fine-tuning alone.
+> Keep a structured relational state, but stop expecting one undifferentiated learned processor to become a general compositional engine merely through multitask exposure.
 
 **Confidence:** high.
 
-### S3. Recurrent depth is an execution resource, not the missing architecture
+---
 
-Our core improved strongly from one to four recurrent steps and then saturated.
+### S2. Reusable computation probably has to become identifiable during learning
 
-External work also shows useful reusable recurrent dynamics.
+Our failed frozen-HOW experiment assumed that ordinary multitask training had already embedded reusable computation in a form that a tiny adapter could access.
 
-Therefore recurrence remains valuable as:
+That assumption failed:
 
-- iterative execution;
-- working-state evolution;
-- variable compute;
-- a substrate in which reusable motifs may live.
+```text
+fresh final OOD        28.0%
+frozen-how final OOD   21.0%
+```
 
-But recurrence alone did not solve transfer or systematic composition.
+The literature gives a coherent explanation: reusable components often appear only when the training regime **forces specialization/reuse** through compositional curricula, routing pressure, competition, predictive structure, low-rank componentization, or explicit task inference.
+
+**Revised synthesis:**
+
+> Do not train a generic processor first and search for modules afterward. Train the system under conditions where reusable computation is useful during acquisition.
 
 **Confidence:** high.
 
-### S4. Global full fine-tuning is incompatible with the developmental goal
+---
 
-Cognitive Transfer v0 reduced old-task OOD from about:
+### S3. There are four distinct problems that must not be collapsed into “modularity”
+
+The research frontier separates:
 
 ```text
-69.7% → 7.1%
+1. DECOMPOSITION
+   What reusable computations exist?
+
+2. BINDING / STATE
+   What entities, variables and roles are those computations acting on?
+
+3. ROUTING / SEQUENCING
+   Which computation acts next, and where?
+
+4. EXECUTION / PLASTICITY
+   How is the selected computation executed repeatedly without rewriting everything else?
 ```
 
-while adapting to task 6.
+A model can succeed at one and fail at another.
 
-That makes ordinary whole-core fine-tuning unacceptable as the main mechanism for a continually developing agent.
+Our previous transfer experiment mostly tested whether useful decomposition already existed inside a shared processor. It did **not** independently test binding or routing.
 
-External modular/continual-learning work independently points toward local modules, task-conditioned composition, parameter isolation, or inference over reusable pieces.
+**Current synthesis:**
+
+> Future tests should isolate these variables rather than comparing vaguely “modular” versus “non-modular” architectures.
 
 **Confidence:** very high.
 
-### S5. The strongest current possibility is an operator system, not another monolithic core
+---
 
-Linking the evidence produces this candidate:
+### S4. The factor graph is currently our best candidate for the binding/state layer
 
-```text
-structured world / entity state
-          ↓
-task/context inference
-          ↓
-learned routing / sequencing
-          ↓
-reusable learned operators
-          ↓
-iterative execution / working state
-          ↓
-result
-```
+The factor representation gave a step-change gain and naturally preserves:
 
-The operators do not need to be symbolic rules. They may be:
+- entities;
+- relations;
+- event/query roles;
+- shared identity;
+- local message paths.
 
-- small recurrent dynamical motifs;
-- learned message-passing functions;
-- low-rank components;
-- specialized neural modules;
-- other bounded learned transformations.
+Recent variable-binding work shows that even generic neural architectures can learn addressable binding mechanisms, but our factor representation already supplies an explicit relational scaffold that has paid rent experimentally.
 
-The critical property is not their implementation. It is that **the same operation can be selected and recomposed in a new context without rewriting the entire system**.
+**Current synthesis:**
 
-**Confidence:** medium. This is a synthesis, not yet a project result.
+> For the next gate, hold the factor-state representation fixed. Do not change representation and execution simultaneously.
 
-## What changed over our tests
+This lets us ask whether the failure lives in the processor/routing layer.
 
-### Stage A — recurrent developmental ecology
+**Confidence:** high.
 
-Earlier work suggested that repeated local computation, specialization, sparse execution, and developmental structure could matter.
+---
 
-Useful pieces survived, but no evidence justified making the entire chatbot one homogeneous recurrent-cell ecology.
+### S5. Routing is now the strongest new candidate bottleneck
 
-**Revision:** preserve local/developmental ideas; drop architecture religion.
+The research refresh changed this substantially.
 
-### Stage B — language organs separated from cognition
+Multiple independent lines report that successful composition depends not just on having reusable pieces but on learning **which piece to use, on which state, in which order**.
 
-From-scratch language tests showed different architectures winning perception and production.
-
-**Revision:** language interface and cognition need not share one architecture.
-
-### Stage C — factor organization produced a step change
-
-Flat representation failed badly relative to factorized relational organization.
-
-**Revision:** internal organization/inductive bias became a primary axis.
-
-### Stage D — recurrent thought helped, then saturated
-
-More repeated execution unlocked capabilities, especially memory, but gains largely saturated near four steps.
-
-**Revision:** allocate thought when useful; do not confuse deeper recurrence with better general reasoning.
-
-### Stage E — shared-core transfer gate failed the high-leverage test
-
-Ordinary transfer improved task-6 OOD from 28.0% to 40.5%, but:
-
-- zero-shot transfer was weak;
-- frozen-how adaptation fell below fresh training;
-- OOD remained poor despite 96% IID;
-- full fine-tuning catastrophically forgot old tasks.
-
-**Old synthesis weakened:** “a shared multitask processor may already contain a frozen general HOW that a tiny adapter can expose.”
-
-**New synthesis:** reusable computation likely has to be **formed and addressed explicitly during training**, and composition/routing itself must be learned and tested OOD.
-
-## Current proposed next discriminating experiment
-
-Do not build a large new agent yet.
-
-Compare the current factor core against a small **operator-composition core** designed to test the synthesis directly.
-
-The candidate should separate:
+That matches our failure pattern:
 
 ```text
-representation/state
-operator bank
-router/sequencer
-execution loop
+96% IID
+40.5% OOD
 ```
 
-Training should expose primitive operations and some compositions while withholding other compositions.
+A shared processor can memorize/fit the composed task, but it does not necessarily learn a reusable execution sequence.
 
-The decisive tests are:
+**Current synthesis:**
 
-1. unseen operator combinations;
-2. longer composition depth than training;
-3. transfer learning speed;
-4. old-skill retention;
-5. ability to add a new operator without globally rewriting old ones.
+> The next core should explicitly represent an execution path rather than forcing one processor to implicitly emulate every operation.
 
-### Kill condition
+**Confidence:** medium-high.
 
-If explicit learned operators/routing do not produce a **large** OOD or transfer advantage over the factor-core baseline, do not keep polishing modularity because it is fashionable.
+---
 
-### Success condition
+### S6. Recurrent depth remains useful, but as an executor
 
-A result becomes architecturally important if it gives something like:
+Our own depth probe:
 
-- ~20+ OOD points;
-- several-fold reduction in adaptation updates;
-- strong unseen composition with little/no parameter update;
-- substantially better retention while adding capabilities;
-- a qualitatively absent capability.
+```text
+1 step   38.1%
+2 steps  51.2%
+4 steps  62.0%
+6 steps  63.0%
+8 steps  62.8%
+```
+
+External work also supports iterative execution, but the strongest recent OOD results combine recurrence with structured latent state, algorithmic supervision, task inference, or error correction.
+
+**Current synthesis:**
+
+> Recurrence is a clock/execution resource. The interesting question is **what operation is repeated or selected at each step**, not whether recurrence exists.
+
+**Confidence:** high.
+
+---
+
+### S7. Global full fine-tuning is incompatible with the developmental goal
+
+Our transfer result:
+
+```text
+old-task OOD before transfer   69.7%
+old-task OOD after transfer     7.1%
+loss                           62.6 points
+```
+
+This is decisive.
+
+A developing agent cannot use global full-network adaptation as its default way to add a skill.
+
+The external literature's modular, task-inference, local-component and parameter-isolation mechanisms all attack this same problem from different directions.
+
+**Current synthesis:**
+
+> Long-lived capability should reside in reusable components whose selection/composition can change faster than the components themselves.
+
+**Confidence:** very high.
+
+---
+
+### S8. The strongest current architecture possibility is now a four-layer cognitive loop
+
+Not a final architecture — a research hypothesis:
+
+```text
+STRUCTURED STATE / BINDINGS
+(factor/entity graph)
+          ↓
+CONTROL / TASK INFERENCE
+(what needs to happen?)
+          ↓
+ROUTER / SEQUENCER
+(which learned operation acts next?)
+          ↓
+OPERATOR BANK
+(reusable learned transformations)
+          ↓
+ITERATIVE EXECUTION
+(update state and repeat)
+          ↺
+```
+
+The operators may be:
+
+- small message-passing networks;
+- recurrent dynamical motifs;
+- low-rank learned transformations;
+- specialized subnetworks;
+- other bounded learned functions.
+
+They do **not** need to be symbolic rules.
+
+The defining property is:
+
+> an operation remains individually addressable enough to be reused in a novel execution sequence without globally rewriting the network.
+
+**Confidence:** medium.
+
+---
+
+## What changed over the project
+
+### Stage A — developmental recurrent ecology
+
+Early experiments showed that sparse execution, shallow recurrence, specialization and local developmental structure can matter.
+
+**Revision:** keep those mechanisms as options; do not force the whole agent into one cell ecology.
+
+### Stage B — language separated from cognition
+
+Different architectures won perception and production.
+
+**Revision:** language organs and cognition may be separate learned systems.
+
+### Stage C — relational organization produced the first large cognitive jump
+
+Factor organization massively beat a flat core.
+
+**Revision:** representational inductive bias became a primary architectural variable.
+
+### Stage D — more thought helped, then saturated
+
+Repeated computation unlocked some capabilities but mostly saturated around four steps.
+
+**Revision:** recurrence is conditional compute, not general intelligence by itself.
+
+### Stage E — shared-core transfer failed
+
+The shared processor showed modest transfer, weak zero-shot composition, poor OOD extrapolation and catastrophic forgetting.
+
+**Old hypothesis weakened:**
+
+> ordinary multitask learning may create a hidden general HOW that can be frozen and cheaply redeployed.
+
+**Revised hypothesis:**
+
+> reusable computation probably needs to be made identifiable **during training**, and composition requires learned binding/routing rather than a tiny adapter over a generic frozen processor.
+
+### Stage F — 2026-09-29 research refresh
+
+The literature review split the vague idea of “modularity” into four independently testable mechanisms:
+
+```text
+decomposition
+binding/state
+routing/sequencing
+execution/plasticity
+```
+
+It also elevated two constraints:
+
+- training coverage/distribution can determine whether apparent composition is genuine;
+- successful modularity requires functional specialization, not just structural separation.
+
+**Revision:**
+
+> The next experiment should hold state representation fixed and isolate whether explicit reusable operators + sequencing solve the failure.
+
+---
+
+## Next experimental hypothesis
+
+### Hypothesis H1 — explicit reusable operators can beat a shared processor on unseen composition
+
+Hold constant:
+
+- factor/entity state representation;
+- task families;
+- parameter budget as closely as practical;
+- training/evaluation budgets.
+
+Change only the execution organization.
+
+#### Baseline A — shared factor processor
+
+Current Cognitive Core v0 style:
+
+```text
+state → same processor → state → same processor → ...
+```
+
+#### Diagnostic B — oracle-routed operator bank
+
+Use several learned operator modules, but provide the correct operator identity/sequence during training **and evaluation**.
+
+Purpose:
+
+> establish whether explicit decomposition has enough representational/execution capacity to solve the held-out compositions at all.
+
+This is an **upper-bound diagnostic**, not a candidate final agent.
+
+#### Candidate C — learned-routed operator bank
+
+Same learned operators, but the router/sequencer must infer the next operator from task/state context.
+
+Purpose:
+
+> test whether routing can generalize to withheld operation sequences.
+
+### Why use an oracle arm?
+
+Because otherwise a failure is ambiguous:
+
+```text
+operator architecture failed
+OR
+router failed
+OR
+operators never specialized
+```
+
+The oracle arm separates those.
+
+If B cannot produce a large gain, stop. There is little reason to invest in automatic module discovery/routing.
+
+If B succeeds but C fails, routing is the bottleneck.
+
+If B and C succeed, we have earned the next test: **remove explicit operator supervision and ask whether specialization can emerge automatically**.
+
+---
+
+## Training/evaluation design
+
+Train on primitive operations plus selected compositions.
+
+Withhold:
+
+1. specific operator combinations;
+2. longer sequence lengths;
+3. some role/entity permutations.
+
+Evaluate separately:
+
+```text
+IID known compositions
+OOD unseen combinations
+OOD longer depth
+OOD binding permutations
+old-task retention
+adaptation cost for one new operator
+```
+
+The benchmark must prevent trivial coverage leakage.
+
+---
+
+## High-leverage gate
+
+The candidate does **not** survive for a small positive result.
+
+Strong evidence would be at least one of:
+
+- ~20+ OOD points over the shared factor baseline;
+- strong unseen composition at near-IID accuracy;
+- several-fold fewer updates for a new composition;
+- near-zero adaptation for a novel sequence of known operators;
+- adding one new operator without materially degrading old ones.
+
+### Kill conditions
+
+Stop the branch if:
+
+- oracle operator decomposition barely beats the shared core;
+- learned routing collapses to memorized sequence templates;
+- performance disappears under longer composition depth;
+- binding permutations break the model;
+- routing overhead erases the capability/efficiency gain.
+
+---
+
+## If H1 passes
+
+Only then test **automatic operator discovery**.
+
+Candidate training signals from the literature:
+
+- competition / winner-take-most allocation;
+- modular routing pressure;
+- predictive/self-supervised dynamics;
+- compositional meta-training;
+- compound examples containing reusable pieces;
+- slow operator weights + faster routing/context learning.
+
+The key question becomes:
+
+> Can the system discover the operator vocabulary itself instead of being told what the reusable pieces are?
+
+---
 
 ## Research-to-build promotion rule
-
-A research idea moves through four states:
 
 ```text
 EXTERNAL FINDING
@@ -232,37 +442,54 @@ EXTERNAL FINDING
 → SURVIVING BUILD DECISION
 ```
 
-FINDINGS owns state 1.
+FINDINGS owns external science.
 
-This document owns states 2–3.
+This document owns synthesis and experimental hypotheses.
 
-`AGENT_CURRENT.md` owns state 4.
+`AGENT_CURRENT.md` changes only after experimental survival.
 
-This prevents an exciting paper, or an exciting inference, from silently becoming architecture.
+---
 
-## Evolution log format
+## Evolution log
 
-When a meaningful test changes the model, append one compact record:
+### 2026-09-29 — after Cognitive Transfer v0
 
-```text
-DATE / TEST
-Prior synthesis:
-Prediction:
-Result:
-What survived:
-What failed:
-Revised synthesis:
-Next discriminating question:
-```
+**Prior synthesis:** a shared multitask factor processor might contain reusable computation accessible by cheap adaptation.
 
-Do not erase failed reasoning. Compress it after it has taught us something.
+**Prediction:** frozen-HOW adaptation should substantially beat learning task 6 from scratch.
+
+**Result:** frozen-HOW underperformed fresh training; ordinary fine-tuning gave only modest OOD transfer and destroyed old-task performance.
+
+**What survived:** factor state organization; recurrence as useful compute.
+
+**What failed:** hidden reusable-HOW assumption; global fine-tuning as developmental mechanism.
+
+**Revised synthesis:** reusable computation must likely become more identifiable/specialized during training.
+
+### 2026-09-29 — after research phase 1
+
+**Prior synthesis:** build an operator-composition core.
+
+**New evidence:** modularity itself is insufficient; literature separates specialization, binding, routing, training coverage and iterative execution. Routing and task inference repeatedly appear as explicit mechanisms.
+
+**What survived:** operator-system direction.
+
+**What changed:** the next experiment must not confound operator representation with routing or automatic module discovery.
+
+**Revised synthesis:** first establish an oracle-decomposition upper bound, then test learned routing, then — only if both pass — test automatic discovery.
+
+**Next discriminating question:**
+
+> Does explicit operator decomposition produce a large compositional-OOD gain over the current shared factor processor, and if so, can a learned router recover most of that gain?
+
+---
 
 ## Current synthesis frontier
 
 The present best hypothesis is:
 
-> General compositional reuse may require learned **operations that remain individually addressable**, plus learned **routing/sequencing** that can recombine them over structured state, while plasticity is localized enough to avoid destroying old operations.
+> A general cognitive core may be better modeled as **structured bound state + reusable learned operations + learned routing/sequencing + iterative execution**, with slower plasticity in operations than in control/routing.
 
-The next job of research is to find the strongest existing implementations and failure modes of that idea.
+The immediate goal is **not** to believe this architecture.
 
-The next job of experimentation is to try to kill it cheaply.
+The immediate goal is to build the cheapest experiment capable of killing it.
