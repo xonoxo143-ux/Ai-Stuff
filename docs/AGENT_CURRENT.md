@@ -724,3 +724,76 @@ Priority mechanism families:
 - explicit uncertainty so unknown future consequence triggers search rather than false confidence.
 
 The whole-agent target remains unchanged.
+
+## 1E. Conditional reasoning probe — promising, not promoted
+
+The project tested whether every decision needs the expensive future-reachability mechanism identified in Gate 1D.
+
+### Structured future-distance representation
+
+A quasimetric-style temporal-distance model improved deep toy composition:
+
+```text
+myopic       13.5%
+quasimetric  20.5%
+```
+
+The gain is below the project's high-leverage threshold and cost increased. Do not tune this model.
+
+### Adaptive computation upper bound
+
+A perfect diagnostic trigger doubled solve rate on a small sample:
+
+```text
+cheap-only   20%
+adaptive     40%
+```
+
+while escalating to expensive search on only ~25% of decisions.
+
+This supports the **principle** of conditional reasoning depth.
+
+### Learned trigger
+
+A tiny metacontroller recovered the solve-rate improvement on another small sample:
+
+```text
+cheap-only       16%
+learned trigger  24%
+perfect trigger  24%
+```
+
+but escalated too often:
+
+```text
+learned   ~39% of decisions
+perfect   ~19%
+```
+
+The sample is too small and the gain too modest for architectural promotion.
+
+### Current next question
+
+Do not tune the trigger.
+
+Research/build next around:
+
+> **Can expensive successful reasoning be compiled into reusable computation and metacontrol so repeated classes of problems become cheaper over the agent's lifetime?**
+
+The desired developmental cycle is now:
+
+```text
+cheap attempt
+→ uncertainty / failure
+→ expensive search
+→ successful trajectory
+→ causal validation
+→ compile reusable capability
+→ store cold
+→ learn when to retrieve it
+→ future problem solved with less active compute
+```
+
+A successful gate should show both:
+1. capability retained or increased;
+2. cost per repeated problem class falls materially after consolidation.
