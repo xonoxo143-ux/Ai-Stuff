@@ -14,13 +14,18 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.15.2";
+const VERSION = "0.15.3";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
 const motorAgentToken = process.env.MOTOR_AGENT_TOKEN || "";
 const motorBootstrapToken = process.env.MOTOR_BOOTSTRAP_TOKEN || "";
 const agentMailWebhookToken = process.env.AGENTMAIL_WEBHOOK_TOKEN || "";
+const agentMailApiKey = process.env.AGENTMAIL_API_KEY || "";
+const agentMailWebhookProvision = process.env.AGENTMAIL_WEBHOOK_PROVISION === "true";
+const agentMailWebhookClientId =
+  process.env.AGENTMAIL_WEBHOOK_CLIENT_ID || "self-root-motor-v1";
+
 const agentMailCommandSenders = new Set(
   String(process.env.AGENTMAIL_COMMAND_SENDERS || agentEmail)
     .split(",")
@@ -306,12 +311,116 @@ function completeMotorCommand(id, ok, result) {
   return item;
 }
 
+const agentMailWebhookState = {
+  status: "not_started",
+  webhookId: null,
+  enabled: false,
+  lastError: null,
+  updatedAt: null,
+};
+
+async function agentMailRequest(path, { method = "GET", body = null } = {}) {
+  if (!agentMailApiKey) throw new Error("agentmail_api_key_missing");
+  const headers = {
+    accept: "application/json",
+    authorization: `Bearer ${agentMailApiKey}`,
+  };
+  if (body !== null) headers["content-type"] = "application/json";
+  const response = await fetch(`https://api.agentmail.to${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let payload = {};
+  try {
+    payload = raw ? JSON.parse(raw) : {};
+  } catch {
+    payload = { raw: raw.slice(0, 1500) };
+  }
+  if (!response.ok) {
+    const error = new Error(`agentmail_http_${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function provisionAgentMailWebhook() {
+  if (!agentMailWebhookProvision) {
+    agentMailWebhookState.status = "disabled";
+    return false;
+  }
+  if (!agentMailApiKey || !agentMailWebhookToken) {
+    agentMailWebhookState.status = "not_configured";
+    agentMailWebhookState.lastError = "missing_api_key_or_delivery_token";
+    return false;
+  }
+  try {
+    agentMailWebhookState.status = "provisioning";
+    const path = `/v0/inboxes/${encodeURIComponent(agentEmail)}/webhooks`;
+    const payload = await agentMailRequest(path, {
+      method: "POST",
+      body: {
+        url: `${publicRuntimeBaseUrl}/integrations/agentmail/webhook`,
+        event_types: ["message.received"],
+        client_id: agentMailWebhookClientId,
+        headers: {
+          "x-self-root-webhook-token": agentMailWebhookToken,
+        },
+      },
+    });
+    agentMailWebhookState.status = "ready";
+    agentMailWebhookState.webhookId = payload.webhook_id || null;
+    agentMailWebhookState.enabled = payload.enabled === true;
+    agentMailWebhookState.lastError = null;
+    agentMailWebhookState.updatedAt = new Date().toISOString();
+    rememberEvent({
+      id: randomUUID(),
+      receivedAt: agentMailWebhookState.updatedAt,
+      type: "agentmail.webhook_ready",
+      source: "agentmail",
+      externalId: agentMailWebhookState.webhookId,
+    });
+    console.log(JSON.stringify({
+      event: "agentmail.webhook_ready",
+      webhookId: agentMailWebhookState.webhookId,
+      enabled: agentMailWebhookState.enabled,
+      clientId: agentMailWebhookClientId,
+    }));
+    return true;
+  } catch (err) {
+    agentMailWebhookState.status = "error";
+    agentMailWebhookState.lastError = err instanceof Error ? err.message : String(err);
+    agentMailWebhookState.updatedAt = new Date().toISOString();
+    console.error(JSON.stringify({
+      event: "agentmail.webhook_error",
+      error: agentMailWebhookState.lastError,
+      status: err?.status || null,
+      detail: err?.payload?.detail || err?.payload?.message || null,
+    }));
+    return false;
+  }
+}
+
 function extractAgentMailMotorAction(payload) {
   if (!payload || payload.event_type !== "message.received") return null;
   const message = payload.message || {};
   const inbox = String(message.inbox_id || "").toLowerCase();
-  if (inbox !== agentEmail.toLowerCase()) return null;
+  const recipients = [
+    ...(Array.isArray(message.to) ? message.to : [message.to]),
+    ...(Array.isArray(message.cc) ? message.cc : [message.cc]),
+  ]
+    .filter(Boolean)
+    .map((x) => String(x).trim().toLowerCase());
+  if (inbox !== agentEmail.toLowerCase() && !recipients.includes(agentEmail.toLowerCase())) {
+    return null;
+  }
+  const fromUnderscore = Array.isArray(message.from_) ? message.from_[0] : message.from_;
   const senderRaw = String(
+    fromUnderscore ||
     message.from?.email ||
     message.from_address ||
     message.from ||
@@ -3656,6 +3765,12 @@ const server = http.createServer(async (req, res) => {
       lastTickAt,
       stripe: stripeAdapter.summary(),
       motor: motorSummary(),
+      agentMailIngress: {
+        apiKeyConfigured: Boolean(agentMailApiKey),
+        webhookDeliveryTokenConfigured: Boolean(agentMailWebhookToken),
+        provisionEnabled: agentMailWebhookProvision,
+        ...agentMailWebhookState,
+      },
       taskFeeds: {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
@@ -3679,6 +3794,12 @@ const server = http.createServer(async (req, res) => {
       operatingFloatTargetUsd,
       eventIngressConfigured: Boolean(eventToken),
       motor: motorSummary(),
+      agentMailIngress: {
+        apiKeyConfigured: Boolean(agentMailApiKey),
+        webhookDeliveryTokenConfigured: Boolean(agentMailWebhookToken),
+        provisionEnabled: agentMailWebhookProvision,
+        ...agentMailWebhookState,
+      },
       stripe: stripeAdapter.summary(),
       taskFeeds: {
         taskBounty: taskFeedSummary(),
@@ -4111,6 +4232,7 @@ server.listen(PORT, "0.0.0.0", () => {
       }));
     }
   }
+  void provisionAgentMailWebhook();
   void syncTaskBounty();
   void syncBasedAgents();
   void ensureBasedAgentsIdentity();
