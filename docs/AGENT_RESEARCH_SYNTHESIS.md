@@ -758,3 +758,93 @@ The strongest current architecture-level hypothesis is now:
 > retrieval should propose operations by behavioral/effect address, while selection should depend on **predicted reachable futures**, not immediate similarity or immediate error reduction.
 
 The unresolved invention problem is making that future-consequence estimate cheap, reusable, and able to generalize to deeper unseen compositions.
+
+## Developmental synthesis S12 — conditional deep reasoning
+
+### Quasimetric consequence gate
+
+After the generic goal-conditioned value MLP failed, a directed temporal-distance representation was tested.
+
+The model was constrained so its state-goal score had an asymmetric quasimetric-like form and was trained from multi-step developmental transition distances.
+
+Fresh deep tasks:
+
+```text
+myopic selection       13.5%
+quasimetric selection  20.5%
+```
+
+This is a positive direction but only +7 points and it used substantially more candidate-selection steps.
+
+Decision:
+- preserve the evidence that temporal structure helps;
+- do not tune or promote this particular quasimetric model.
+
+### Adaptive-compute upper bound
+
+The next test asked whether expensive future search must run constantly.
+
+A perfect diagnostic trigger used the expensive reachability oracle only when the cheap myopic choice would leave the goal unreachable and another retrieved candidate preserved reachability.
+
+Small deep-task sample:
+
+```text
+cheap-only solve rate        20%
+adaptive upper-bound         40%
+expensive escalations        ~25% of decisions
+```
+
+This is high-leverage evidence that conditional deep reasoning could improve capability without making every decision expensive.
+
+### Learned metacontroller probe
+
+A tiny logistic metacontroller was trained only on cheap observable signals:
+- address confidence/margin;
+- immediate improvement;
+- candidate disagreement/spread.
+
+Small fresh sample:
+
+```text
+cheap-only          16%
+learned trigger     24%
+perfect trigger     24%
+```
+
+But:
+
+```text
+learned escalation fraction   ~39%
+perfect escalation fraction   ~19%
+```
+
+The learned trigger recovered the sample's solve-rate gain but was not selective enough, and the test set was too small for promotion.
+
+### Revised synthesis
+
+The current best hypothesis is no longer one uniform reasoner.
+
+```text
+cheap effect-addressed proposal
+        ↓
+cheap local consequence check
+        ↓
+confidence / value-of-computation gate
+      ↙                         ↘
+act cheaply                perform deeper search
+                               ↓
+                    use result + compile experience
+```
+
+The next important question is developmental:
+
+> Can expensive reasoning episodes train or compile structures that make the same class of future decisions cheap?
+
+If yes, computation becomes an investment: hard problems temporarily cost more, but repeated reasoning is converted into new dormant capabilities and better metacontrol.
+
+That directly links:
+- self-authored computation;
+- dormant capability storage;
+- behavioral addressing;
+- future reachability;
+- adaptive compute.
