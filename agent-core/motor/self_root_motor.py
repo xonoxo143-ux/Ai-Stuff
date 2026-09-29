@@ -23,6 +23,8 @@ SECRETS_DIR = ROOT / "secrets"
 TOKEN_FILE = SECRETS_DIR / "motor_token"
 URL_FILE = MOTOR_DIR / "runtime_url"
 LOG_FILE = MOTOR_DIR / "motor.log"
+STATE_DIR = ROOT / "state"
+STATE_SNAPSHOT_FILE = STATE_DIR / "agent-core-snapshot-v1.json"
 
 POLL_SECONDS = 5
 HTTP_TIMEOUT = 20
@@ -145,11 +147,46 @@ def handle_browser_profile_status() -> dict:
     }
 
 
+def handle_state_snapshot_read(_payload=None) -> dict:
+    if not STATE_SNAPSHOT_FILE.exists():
+        return {"exists": False, "snapshot": None}
+    raw = STATE_SNAPSHOT_FILE.read_bytes()
+    if len(raw) > 1_048_576:
+        return {"exitCode": 1, "error": "snapshot_too_large"}
+    snapshot = json.loads(raw.decode("utf-8"))
+    return {
+        "exists": True,
+        "snapshot": snapshot,
+        "bytes": len(raw),
+        "path": str(STATE_SNAPSHOT_FILE),
+    }
+
+
+def handle_state_snapshot_write(payload=None) -> dict:
+    snapshot = payload.get("snapshot") if isinstance(payload, dict) else None
+    if not isinstance(snapshot, dict):
+        return {"exitCode": 2, "error": "invalid_snapshot_payload"}
+    raw = (json.dumps(snapshot, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+    if len(raw) > 1_048_576:
+        return {"exitCode": 3, "error": "snapshot_too_large", "bytes": len(raw)}
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_DIR / f".{STATE_SNAPSHOT_FILE.name}.{os.getpid()}.tmp"
+    with tmp.open("wb") as f:
+        f.write(raw)
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, STATE_SNAPSHOT_FILE)
+    return {"written": True, "bytes": len(raw), "path": str(STATE_SNAPSHOT_FILE)}
+
+
 HANDLERS = {
     "system.ping": handle_system_ping,
     "continuity.verify": handle_continuity_verify,
     "continuity.status": handle_continuity_status,
     "browser.profile.status": handle_browser_profile_status,
+    "state.snapshot.read": handle_state_snapshot_read,
+    "state.snapshot.write": handle_state_snapshot_write,
 }
 
 
@@ -159,7 +196,7 @@ def execute(command: dict) -> tuple[bool, dict]:
     if handler is None:
         return False, {"error": "action_not_implemented", "action": action}
     try:
-        result = handler()
+        result = handler(command.get("payload")) if action.startswith("state.snapshot.") else handler()
         ok = not isinstance(result, dict) or result.get("exitCode", 0) == 0
         return ok, result
     except subprocess.TimeoutExpired as exc:
