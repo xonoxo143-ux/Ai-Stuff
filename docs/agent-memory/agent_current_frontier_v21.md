@@ -287,3 +287,47 @@ with three bridge controls:
 - soft probability state.
 
 This is designed to localize whether closed-loop failure comes from perception, state discretization, or production rather than judging only final text.
+
+
+## Cognitive Core v0 started
+
+The build has now moved into the missing non-language cognition layer rather than continuing to optimize the language boundary.
+
+A common five-family benchmark now covers:
+
+- multi-hop directed relations;
+- ordered mutable state;
+- graph reachability;
+- rule induction;
+- associative memory.
+
+Every family uses the same slot/symbol representation and answer vocabulary, with exact oracle checks for IID and OOD examples.
+
+The first viable processor is a recurrent factor graph with persistent symbol nodes and role-typed messages between symbol nodes and fact/event/query slots.
+
+Important local failures before this formulation:
+
+- explicit all-pairs slot MLP was too slow;
+- recurrent all-slot attention left transitive relation reasoning at chance;
+- same-symbol slot adjacency also left relation reasoning at chance.
+
+Local single-seed factor-graph results are promising but not yet durable evidence.
+
+Matched 250-update shared run:
+
+one-pass factor: 73.5% IID mean, 54.2% OOD mean.
+6-step recurrent factor: 76.2% IID mean, 66.2% OOD mean.
+
+The same recurrent model evaluated at different thought depths gave:
+
+1 step: 38.0% OOD mean.
+2 steps: 48.6%.
+4 steps: 63.4%.
+6 steps: 63.4%.
+8 steps: 63.4%.
+
+A transitive-relation specialist reached 100% IID / 97.5% OOD with recurrence versus 100% / 91.5% with one pass.
+
+The rigorous GitHub gate now compares shared baselines, specialist ceilings, input reinjection, and thought depth across multiple seeds.
+
+If the result replicates, the next high-information test is transfer: train on four families and measure adaptation speed on the fifth against a fresh core and a specialist.
