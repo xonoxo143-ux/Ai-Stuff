@@ -14,13 +14,21 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.15.1";
+const VERSION = "0.15.2";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
 const motorAgentToken = process.env.MOTOR_AGENT_TOKEN || "";
 const motorBootstrapToken = process.env.MOTOR_BOOTSTRAP_TOKEN || "";
 const agentMailWebhookToken = process.env.AGENTMAIL_WEBHOOK_TOKEN || "";
+const agentMailCommandSenders = new Set(
+  String(process.env.AGENTMAIL_COMMAND_SENDERS || agentEmail)
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean),
+);
+const motorSelfTestAction = String(process.env.MOTOR_SELF_TEST_ACTION || "").trim().toLowerCase();
+
 const motorCommandTtlMs = Math.max(
   60_000,
   Math.min(Number(process.env.MOTOR_COMMAND_TTL_MS || 15 * 60_000), 24 * 60 * 60_000),
@@ -192,6 +200,9 @@ function motorSummary() {
     pending: pending.length,
     leased: leased.length,
     completedRemembered: motorCompleted.size,
+    lastCompleted: Array.from(motorCompleted.values()).slice(-1).map(
+      ({ id, action, status, completedAt }) => ({ id, action, status, completedAt }),
+    )[0] || null,
   };
 }
 
@@ -300,6 +311,15 @@ function extractAgentMailMotorAction(payload) {
   const message = payload.message || {};
   const inbox = String(message.inbox_id || "").toLowerCase();
   if (inbox !== agentEmail.toLowerCase()) return null;
+  const senderRaw = String(
+    message.from?.email ||
+    message.from_address ||
+    message.from ||
+    "",
+  ).trim().toLowerCase();
+  const senderMatch = senderRaw.match(/<([^>]+)>/);
+  const sender = (senderMatch ? senderMatch[1] : senderRaw).trim().toLowerCase();
+  if (!agentMailCommandSenders.has(sender)) return null;
   const subject = String(message.subject || "").trim();
   const match = subject.match(/^SELF-ROOT COMMAND:\s*([a-z0-9._-]+)\s*$/i);
   if (!match) return null;
@@ -4072,6 +4092,25 @@ server.listen(PORT, "0.0.0.0", () => {
       taskFeed: taskFeedSummary(),
     }),
   );
+  if (motorSelfTestAction && motorAllowedActions.has(motorSelfTestAction)) {
+    try {
+      const command = enqueueMotorCommand(
+        motorSelfTestAction,
+        "runtime.self_test",
+        `boot:${bootId}:${motorSelfTestAction}`,
+      );
+      console.log(JSON.stringify({
+        event: "motor.self_test_queued",
+        commandId: command.id,
+        action: command.action,
+      }));
+    } catch (err) {
+      console.error(JSON.stringify({
+        event: "motor.self_test_error",
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
+  }
   void syncTaskBounty();
   void syncBasedAgents();
   void ensureBasedAgentsIdentity();
