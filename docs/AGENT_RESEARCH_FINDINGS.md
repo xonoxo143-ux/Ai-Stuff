@@ -274,3 +274,64 @@ Material changes:
 - predictive learning added as an emerging route for spontaneously discovering reusable dynamics.
 
 The current frontier is now mature enough for a separate synthesis pass.
+
+## Developmental self-construction research refresh — 2026-09-29
+
+New research question:
+
+> What mechanisms let a small system progressively author reusable computation without blind whole-program search, catastrophic drift, or a pretrained LLM inside the agent?
+
+### F18. Empirical self-modification works better with an archive than latest-only hill climbing
+
+Darwin Gödel Machine (Zhang et al., 2025; revised 2026, arXiv:2505.22954) iteratively modifies an agent's own code, evaluates descendants empirically, and keeps an archive of prior agents as stepping stones. Its reported coding-agent performance rose from 20.0% to 50.0% on SWE-bench and 14.2% to 30.7% on Polyglot; ablations in the paper support both self-modification and open-ended archive exploration as contributors.
+
+Limitation for this project: DGM uses frozen pretrained foundation models to propose code changes. The relevant transferable mechanism is the archive + empirical validation loop, not the pretrained model.
+
+### F19. Evaluator-guided code evolution can discover nontrivial algorithms
+
+AlphaEvolve (Novikov et al., 2025, arXiv:2506.13131) evolves executable code against automated evaluators and reports discoveries/optimizations in mathematics and computing. This supports treating executable programs plus objective evaluators as a viable search substrate.
+
+Limitation for this project: AlphaEvolve also uses large pretrained language models as mutation generators.
+
+### F20. Library learning provides a concrete route from solved programs to new reusable primitives
+
+DreamCoder (Ellis et al., 2021, DOI: 10.1145/3453483.3454080) alternates program synthesis with library learning, progressively extracting reusable abstractions that make later synthesis faster and deeper.
+
+This is directly relevant to a self-authoring computational genome: repeated solved structures can become new first-class operations rather than remaining long instruction sequences.
+
+### F21. Purely syntactic abstraction mining is brittle; equivalence-aware library learning is materially stronger
+
+Babble (Cao et al., 2023, DOI: 10.1145/3571207) uses e-graphs, equality saturation and anti-unification to learn abstractions modulo equational theories. Its reported evaluations show better compression than DreamCoder on tested domains and substantially faster library learning.
+
+Stitch / Top-Down Synthesis for Library Learning (Bowers et al., 2023, DOI: 10.1145/3571234) provides another efficient compression-oriented library-learning route with strong guarantees for its single-abstraction search.
+
+Implication from the external evidence only: retaining alternative equivalent programs or equivalence classes is important when useful abstractions can be hidden by superficial syntactic variation.
+
+### F22. Retrospective compression is not identical to future usefulness
+
+Prospective Compression in Human Abstraction Learning (Cano et al., 2026, arXiv:2605.09985) explicitly studies online library learning under non-stationary future task demands and contrasts retrospective compression of past programs with prospective abstraction selection.
+
+This supports treating frequency/compression as one proposal signal rather than the sole criterion for whether a new primitive should exist.
+
+### F23. Greedy continual skill acquisition has a known long-horizon failure mode
+
+PowerPlay (Schmidhuber, 2013, DOI: 10.3389/fpsyg.2013.00313) proposed continually extending a solver with new skills or cheaper solutions while preserving previous skills. The paper also identifies a drawback directly relevant here: greedy preference for the simplest next improvement can sacrifice larger long-term gains.
+
+This is a reason to preserve diverse stepping stones and occasionally test high-upside changes rather than only accepting the easiest local improvement.
+
+### F24. Modularity helps continual learning, but module selection and overlap remain separate problems
+
+Continual-learning work on local module composition and sparse/modular architectures supports isolating updates and recombining reusable components, while also showing that modularity alone does not remove routing, overlap, or specialization problems.
+
+External-science summary for the developmental track:
+
+```text
+empirical evaluator
++ archive of diverse descendants
++ program/library learning
++ equivalence-aware abstraction
++ prospective as well as retrospective utility
++ continual causal re-evaluation
+```
+
+is better supported than blind whole-program mutation or single-lineage hill climbing.
