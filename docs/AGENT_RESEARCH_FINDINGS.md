@@ -380,3 +380,35 @@ Provisional external-science implication:
 > For reusable computation, an address can be based on **what a component does under informative probes**, and the system can potentially learn which probes make components distinguishable.
 
 This is closer to goal/effect-conditioned retrieval than static semantic similarity.
+
+## Goal-conditioned consequence research refresh — 2026-09-29
+
+Research question:
+
+> If an operation can look locally useful but destroy future solvability, what established mechanisms represent downstream consequence rather than immediate similarity/progress?
+
+### F29. Goal-conditioned value functions explicitly represent long-horizon usefulness relative to a goal
+
+Universal Value Function Approximators (Schaul et al., ICML 2015) extend value functions from V(s) to V(s,g), allowing one learned estimator to generalize over both states and goals.
+
+This is directly relevant to selecting computation by expected future usefulness rather than immediate state-distance reduction.
+
+### F30. Successor features separate dynamics/consequences from changing objectives
+
+Successor Features (Barreto et al., NeurIPS 2017; extended ICML 2018) factor expected future feature occupancy from task reward and combine reusable policies through generalized policy improvement.
+
+The relevant transferable idea is not an RL-specific commitment. It is the separation:
+
+```text
+what future states/features this computation tends to enable
+                    ×
+what the current goal values
+```
+
+instead of scoring an operation only by immediate effect.
+
+### F31. Long-horizon goal-conditioned systems often need explicit planning structure
+
+Successor Feature Landmarks and related goal-conditioned planning work combine learned future representations with higher-level graph/planning structures for long-horizon tasks.
+
+External evidence therefore supports treating downstream reachability as a distinct mechanism rather than assuming one-step similarity or one-step causal improvement will compose automatically.
