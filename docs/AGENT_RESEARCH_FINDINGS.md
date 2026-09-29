@@ -335,3 +335,48 @@ empirical evaluator
 ```
 
 is better supported than blind whole-program mutation or single-lineage hill climbing.
+
+## Dormant-capability addressing research refresh — 2026-09-29
+
+Research question:
+
+> Can total stored capability grow much faster than active retrieval work and RAM residency?
+
+### F25. Hierarchical navigable search can make lookup grow much slower than corpus size
+
+Malkov & Yashunin's HNSW (IEEE TPAMI 2020, DOI: 10.1109/TPAMI.2018.2889473) uses a hierarchical proximity graph and reports logarithmic search-complexity scaling in its setting while preserving high approximate-nearest-neighbor quality.
+
+This supports a general architectural principle relevant here: a large cold capability store need not be globally scanned if it has a navigable hierarchical address structure.
+
+### F26. SSD-resident vector indices demonstrate that large stores can stay mostly cold
+
+DiskANN (Subramanya et al., NeurIPS 2019) demonstrated billion-point nearest-neighbor search on a single machine with SSD-backed index/data and bounded RAM.
+
+SPANN (Chen et al., NeurIPS 2021, arXiv:2111.08566) uses a memory/disk hybrid: centroid/navigation information stays resident while large posting lists live on disk, with query-aware pruning of unnecessary disk accesses.
+
+Starling (ACM SIGMOD/PACMMOD 2024, DOI: 10.1145/3639269) likewise optimizes disk-resident graph layout and block search to reduce I/O.
+
+The externally supported conclusion is not that one specific ANN system should become our cognition architecture. It is that:
+- large addressable stores can be mostly disk-resident;
+- a small hot navigation structure can locate cold entries;
+- query cost can depend much more on local search difficulty than on total stored bytes.
+
+### F27. Sparse expert models validate capacity/active-compute decoupling but routing remains a failure point
+
+Sparse mixture-of-experts work, including Expert Choice Routing (Zhou et al., NeurIPS 2022, arXiv:2202.09368), shows that total parameter capacity can grow without activating all parameters per input.
+
+However, routing quality, load balance, redundancy and specialization remain separate constraints. This supports sparse activation as a capacity mechanism but does not solve how a general agent should construct the right address.
+
+### F28. Program synthesis suggests functional/behavioral addresses rather than human labels
+
+BUSTLE (Odena et al., ICLR 2021) guides bottom-up program search using semantic information from executing intermediate programs, including property signatures derived from behavior.
+
+Neural-Guided Deductive Search (Kalyan et al., ICLR 2018, arXiv:1804.01186) similarly uses current synthesis state/specification to prioritize branches while retaining deductive correctness.
+
+Neural Program Synthesis with Query (Huang et al., 2022, arXiv:2205.07857) explicitly identifies hand-designed input/output examples as privileged information and learns informative probes in a functional space.
+
+Provisional external-science implication:
+
+> For reusable computation, an address can be based on **what a component does under informative probes**, and the system can potentially learn which probes make components distinguishable.
+
+This is closer to goal/effect-conditioned retrieval than static semantic similarity.
