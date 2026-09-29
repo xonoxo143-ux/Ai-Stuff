@@ -1,7 +1,7 @@
 # Agent Cognitive Transfer v0
 
 **Date:** 2026-09-29  
-**Status:** ACTIVE EXPERIMENT  
+**Status:** RESULT / HIGH-LEVERAGE TRANSFER GATE FAILED  
 **Question:** did Cognitive Core v0 learn reusable computation, or merely five tasks at once?
 
 ## Literature gate
@@ -120,11 +120,82 @@ all arms fail OOD
 → task/representation or core organization is inadequate; do not infer anything about transfer
 \`\`\`
 
+## Result — three seeds
+
+Workflow run: `36628203554`  
+Artifact: `Agent-Cognitive-Transfer-V0`
+
+Mean results:
+
+```text
+                                 step 0 OOD   step 1024 IID   step 1024 OOD
+fresh core                            5.5%           55.5%           28.0%
+ordinary pretrained transfer          9.0%           96.0%           40.5%
+frozen-how adapter                   10.3%           23.3%           21.0%
+```
+
+Additional measurements:
+
+```text
+mean pretrained old-task OOD              69.7%
+mean old-task OOD after ordinary transfer  7.1%
+mean old-task delta                       -62.6 points
+mean zero-shot task-6 OOD                  8.7%
+frozen-how trainable parameters            1,095
+```
+
+Only one ordinary-transfer seed reached 50% OOD, at 512 updates. No arm reached 70% OOD.
+
+## Interpretation
+
+The high-leverage gate is **not passed**.
+
+Ordinary pretraining does help task-6 fitting:
+
+```text
+fresh final OOD      28.0%
+ordinary transfer    40.5%
+```
+
+but the gain is modest relative to the project's threshold, highly incomplete on OOD composition, and purchased with catastrophic forgetting of the original five families.
+
+The frozen-how arm does not show reusable computation that a tiny context/readout adapter can redeploy. Its final OOD is below the fresh baseline.
+
+The strongest diagnostic is the IID/OOD split:
+
+```text
+ordinary transfer IID   96.0%
+ordinary transfer OOD   40.5%
+```
+
+So the current core can learn the new composed training family but does not robustly extrapolate that composition to longer relation depth.
+
+This means the experiment cannot support the claim that Cognitive Core v0 contains a generally reusable frozen "how" substrate. It also means ordinary full fine-tuning is not an acceptable lifelong-learning mechanism.
+
+## Decision
+
+Do **not** tune Cognitive Core v0 for incremental transfer gains.
+
+Do **not** build a more elaborate frozen-how adapter on the assumption that this result was nearly successful.
+
+Keep the factor-graph representation as a useful baseline because its earlier flat→factor gain remains large, but demote the current shared processor as a candidate for general compositional transfer.
+
 ## Next move
 
-Only if transfer is large:
+Return to the literature gate before another build.
 
-1. localize what transferred;
-2. stress symbol/encoding/depth changes;
-3. test old-task retention;
-4. connect the surviving mechanism back to language for turn-to-turn task switching.
+The next high-information question is:
+
+> What representation/execution mechanism produces strong **compositional OOD generalization** when already-learned operations must be chained in a new way?
+
+Search especially:
+
+- systematic compositional generalization;
+- neural algorithmic reasoning and processor transfer;
+- modular neural networks / modular meta-learning;
+- program induction / learned execution;
+- variable binding and role-filler representations;
+- task/operator graphs;
+- routing or sequencing of learned operators.
+
+The next experiment should discriminate a materially stronger compositional mechanism from the current factor-core baseline. It should not be another small adapter or recurrence-tuning cycle.
