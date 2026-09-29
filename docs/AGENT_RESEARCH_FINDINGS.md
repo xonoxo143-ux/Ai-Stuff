@@ -438,3 +438,31 @@ The externally supported principle is:
 > computation should be allocated according to expected value, not fixed depth.
 
 This does not imply that existing metareasoning algorithms directly solve open-ended AI reasoning.
+
+## Active falsification / reliable compilation refresh — 2026-09-29
+
+Research question:
+
+> How should a self-constructing agent decide that a newly synthesized procedure is specified well enough to become durable code?
+
+### F34. Counterexample-guided synthesis turns failed verification into better specifications
+
+Solar-Lezama's CEGIS formulation (Program Synthesis by Sketching, 2008; later Program Sketching, DOI: 10.1007/s10009-012-0249-7) alternates:
+1. synthesize a candidate from the examples/counterexamples known so far;
+2. attempt to falsify the candidate with a validator;
+3. add a discovered counterexample to the specification;
+4. resynthesize.
+
+The important mechanism is that a failed candidate does not merely die: its counterexample removes an entire family of similarly wrong candidates.
+
+### F35. Active synthesis can ask the question that most reduces program ambiguity
+
+Neural Program Synthesis with Query (Huang et al., 2022, arXiv:2205.07857) treats fixed, hand-designed input/output examples as privileged information and learns to generate informative queries.
+
+Barnaby et al. (2025), Active Learning for Neurosymbolic Program Synthesis, DOI: 10.1145/3763102, repeatedly refines a hypothesis space with targeted questions and terminates when the surviving programs are observationally indistinguishable. The reported system identifies the ground-truth program on 98% of its evaluated benchmarks with fewer than five interaction rounds on average, while earlier active-learning techniques reached at most 65% in that neurosymbolic setting.
+
+External-science implication:
+
+> A developing system should not equate “fits current evidence” with “safe to compile.” It can actively search for a discriminating observation and spend additional evidence only when multiple behaviorally distinct hypotheses remain.
+
+This connects naturally to library learning: synthesis proposes reusable computation; active falsification determines whether it is sufficiently identified to enter the durable library.
