@@ -180,3 +180,33 @@ READ CURRENT DOCS
 → integrate only what materially survives
 → update frontier/evidence/decisions
 \`\`\`
+
+
+## Transfer gate launched — 2026-09-29
+
+Literature search completed before build.
+
+Closest mechanisms:
+
+- compositional meta-learning;
+- probabilistic task inference;
+- what/how decomposition with reusable recurrent components;
+- generalist neural algorithmic processors.
+
+Cognitive Transfer v0 now tests a genuinely new **cross-family composition**:
+
+\`\`\`text
+relation traversal
+→ memory lookup
+→ rule transform
+\`\`\`
+
+Three arms:
+
+1. fresh factor core;
+2. ordinary pretrained-core fine-tuning;
+3. frozen pretrained "how" core + <2k-parameter task/context adapter.
+
+Learning curves run from 0 through 1024 task-6 updates.
+
+This experiment is explicitly kill-oriented: a small fine-tuning advantage is not enough. The project is looking for a large reduction in learning cost or strong zero/few-shot composition.
