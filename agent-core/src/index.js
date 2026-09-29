@@ -14,10 +14,18 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createStripeAdapter } from "./stripe-adapter.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.14.11";
+const VERSION = "0.15.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
+const motorAgentToken = process.env.MOTOR_AGENT_TOKEN || "";
+const motorBootstrapToken = process.env.MOTOR_BOOTSTRAP_TOKEN || "";
+const agentMailWebhookToken = process.env.AGENTMAIL_WEBHOOK_TOKEN || "";
+const motorCommandTtlMs = Math.max(
+  60_000,
+  Math.min(Number(process.env.MOTOR_COMMAND_TTL_MS || 15 * 60_000), 24 * 60 * 60_000),
+);
+
 const financialActionsEnabled = process.env.FINANCIAL_ACTIONS_ENABLED === "true";
 const outboundWorkEnabled = process.env.OUTBOUND_WORK_ENABLED === "true";
 const operatingFloatTargetUsd = Number(process.env.OPERATING_FLOAT_TARGET_USD || 100);
@@ -150,6 +158,159 @@ let tickCount = 0;
 let lastTickAt = startedAt;
 const recentEvents = [];
 const taskQueue = new Map();
+const motorQueue = [];
+const motorCompleted = new Map();
+const motorAllowedActions = new Set([
+  "system.ping",
+  "continuity.verify",
+  "continuity.status",
+  "browser.profile.status",
+]);
+
+function motorAuthorized(req) {
+  if (!motorAgentToken) return false;
+  const auth = req.headers.authorization || "";
+  return auth === `Bearer ${motorAgentToken}`;
+}
+
+function motorBootstrapAuthorized(req) {
+  if (!motorBootstrapToken) return false;
+  const auth = req.headers.authorization || "";
+  return auth === `Bearer ${motorBootstrapToken}`;
+}
+
+function motorSummary() {
+  const now = Date.now();
+  const pending = motorQueue.filter((item) => item.status === "pending" && Date.parse(item.expiresAt) > now);
+  const leased = motorQueue.filter((item) => item.status === "leased" && Date.parse(item.expiresAt) > now);
+  return {
+    configured: Boolean(motorAgentToken),
+    bootstrapEnabled: Boolean(motorBootstrapToken),
+    agentMailWebhookConfigured: Boolean(agentMailWebhookToken),
+    allowedActions: Array.from(motorAllowedActions),
+    pending: pending.length,
+    leased: leased.length,
+    completedRemembered: motorCompleted.size,
+  };
+}
+
+function pruneMotorQueue() {
+  const now = Date.now();
+  for (let i = motorQueue.length - 1; i >= 0; i -= 1) {
+    const item = motorQueue[i];
+    if (Date.parse(item.expiresAt) <= now || ["completed", "failed", "expired"].includes(item.status)) {
+      if (Date.parse(item.expiresAt) <= now && !["completed", "failed"].includes(item.status)) {
+        item.status = "expired";
+      }
+      if (now - Date.parse(item.createdAt) > 24 * 60 * 60_000) motorQueue.splice(i, 1);
+    }
+  }
+  if (motorQueue.length > 128) motorQueue.splice(0, motorQueue.length - 128);
+  if (motorCompleted.size > 128) {
+    const oldest = Array.from(motorCompleted.keys()).slice(0, motorCompleted.size - 128);
+    for (const key of oldest) motorCompleted.delete(key);
+  }
+}
+
+function enqueueMotorCommand(action, source = "operator", externalId = null) {
+  pruneMotorQueue();
+  if (!motorAllowedActions.has(action)) {
+    throw new Error("motor_action_not_allowed");
+  }
+  const duplicate = externalId
+    ? motorQueue.find((item) => item.externalId === externalId && item.action === action)
+    : null;
+  if (duplicate) return duplicate;
+
+  const createdAt = new Date().toISOString();
+  const command = {
+    id: randomUUID(),
+    action,
+    source: String(source || "unknown").slice(0, 120),
+    externalId: externalId ? String(externalId).slice(0, 240) : null,
+    createdAt,
+    expiresAt: new Date(Date.now() + motorCommandTtlMs).toISOString(),
+    status: "pending",
+    leasedAt: null,
+    completedAt: null,
+    result: null,
+  };
+  motorQueue.push(command);
+  rememberEvent({
+    id: randomUUID(),
+    receivedAt: createdAt,
+    type: "motor.command_queued",
+    source: command.source,
+    externalId: command.externalId || command.id,
+  });
+  return command;
+}
+
+function leaseMotorCommand() {
+  pruneMotorQueue();
+  const now = Date.now();
+  for (const item of motorQueue) {
+    if (item.status === "leased" && item.leasedAt && now - Date.parse(item.leasedAt) > 60_000) {
+      item.status = "pending";
+      item.leasedAt = null;
+    }
+  }
+  const item = motorQueue.find(
+    (entry) => entry.status === "pending" && Date.parse(entry.expiresAt) > now,
+  );
+  if (!item) return null;
+  item.status = "leased";
+  item.leasedAt = new Date().toISOString();
+  return {
+    id: item.id,
+    action: item.action,
+    createdAt: item.createdAt,
+    expiresAt: item.expiresAt,
+  };
+}
+
+function completeMotorCommand(id, ok, result) {
+  const item = motorQueue.find((entry) => entry.id === id);
+  if (!item) return null;
+  item.status = ok ? "completed" : "failed";
+  item.completedAt = new Date().toISOString();
+  item.result = typeof result === "string"
+    ? result.slice(0, 16_000)
+    : JSON.stringify(result ?? null).slice(0, 16_000);
+  motorCompleted.set(item.id, {
+    id: item.id,
+    action: item.action,
+    status: item.status,
+    completedAt: item.completedAt,
+    result: item.result,
+  });
+  rememberEvent({
+    id: randomUUID(),
+    receivedAt: item.completedAt,
+    type: ok ? "motor.command_completed" : "motor.command_failed",
+    source: "smolmachine",
+    externalId: item.id,
+  });
+  return item;
+}
+
+function extractAgentMailMotorAction(payload) {
+  if (!payload || payload.event_type !== "message.received") return null;
+  const message = payload.message || {};
+  const inbox = String(message.inbox_id || "").toLowerCase();
+  if (inbox !== agentEmail.toLowerCase()) return null;
+  const subject = String(message.subject || "").trim();
+  const match = subject.match(/^SELF-ROOT COMMAND:\s*([a-z0-9._-]+)\s*$/i);
+  if (!match) return null;
+  const action = match[1].toLowerCase();
+  if (!motorAllowedActions.has(action)) return null;
+  return {
+    action,
+    externalId: String(payload.event_id || message.message_id || "").slice(0, 240) || null,
+    source: "agentmail.message.received",
+  };
+}
+
 
 const feedState = {
   provider: "taskbounty",
@@ -3473,6 +3634,7 @@ const server = http.createServer(async (req, res) => {
       startedAt,
       lastTickAt,
       stripe: stripeAdapter.summary(),
+      motor: motorSummary(),
       taskFeeds: {
         taskBounty: taskFeedSummary(),
         basedAgents: basedAgentsSummary(),
@@ -3495,6 +3657,7 @@ const server = http.createServer(async (req, res) => {
       outboundWorkEnabled,
       operatingFloatTargetUsd,
       eventIngressConfigured: Boolean(eventToken),
+      motor: motorSummary(),
       stripe: stripeAdapter.summary(),
       taskFeeds: {
         taskBounty: taskFeedSummary(),
@@ -3538,8 +3701,11 @@ const server = http.createServer(async (req, res) => {
         circle: "not_configured_in_runtime",
         stripe: stripeAdapter.summary(),
         continuityJournal: "adapter_pending",
+        motor: motorSummary(),
       },
       queue: Array.from(taskQueue.values()).slice(-100),
+      motorQueue: motorQueue.slice(-100).map(({ result, ...item }) => item),
+      motorCompleted: Array.from(motorCompleted.values()).slice(-100),
       recentEvents,
     });
   }
@@ -3680,6 +3846,98 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "POST" && url.pathname === "/v1/motor/bootstrap") {
+    if (!motorBootstrapAuthorized(req)) return json(res, 401, { error: "unauthorized" });
+    if (!motorAgentToken) return json(res, 503, { error: "motor_not_configured" });
+    return json(res, 200, {
+      motorToken: motorAgentToken,
+      runtimeBaseUrl: publicRuntimeBaseUrl,
+      allowedActions: Array.from(motorAllowedActions),
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/motor/poll") {
+    if (!motorAuthorized(req)) return json(res, 401, { error: "unauthorized" });
+    const command = leaseMotorCommand();
+    return json(res, 200, { command });
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/motor/ack") {
+    if (!motorAuthorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 32_768);
+      const id = String(body?.id || "").trim();
+      const ok = body?.ok === true;
+      if (!id) return json(res, 400, { error: "missing_command_id" });
+      const item = completeMotorCommand(id, ok, body?.result ?? null);
+      if (!item) return json(res, 404, { error: "command_not_found" });
+      return json(res, 200, {
+        accepted: true,
+        command: {
+          id: item.id,
+          action: item.action,
+          status: item.status,
+          completedAt: item.completedAt,
+        },
+      });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/motor/enqueue") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 8192);
+      const action = String(body?.action || "").trim().toLowerCase();
+      const command = enqueueMotorCommand(
+        action,
+        typeof body?.source === "string" ? body.source : "operator",
+        typeof body?.externalId === "string" ? body.externalId : null,
+      );
+      return json(res, 202, {
+        accepted: true,
+        command: {
+          id: command.id,
+          action: command.action,
+          status: command.status,
+          expiresAt: command.expiresAt,
+        },
+      });
+    } catch (err) {
+      if (err?.message === "motor_action_not_allowed") {
+        return json(res, 400, { error: "motor_action_not_allowed" });
+      }
+      return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/integrations/agentmail/webhook") {
+    if (!agentMailWebhookToken) {
+      return json(res, 503, { error: "agentmail_webhook_not_configured" });
+    }
+    const supplied = req.headers["x-self-root-webhook-token"] || "";
+    if (supplied !== agentMailWebhookToken) {
+      return json(res, 401, { error: "unauthorized" });
+    }
+    try {
+      const body = await readJson(req, 1_048_576);
+      const parsed = extractAgentMailMotorAction(body);
+      if (!parsed) return json(res, 200, { accepted: false, reason: "not_a_motor_command" });
+      const command = enqueueMotorCommand(parsed.action, parsed.source, parsed.externalId);
+      return json(res, 202, {
+        accepted: true,
+        command: {
+          id: command.id,
+          action: command.action,
+          status: command.status,
+        },
+      });
+    } catch (err) {
+      return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
+    }
+  }
+
   if (req.method === "POST" && url.pathname === "/v1/events") {
     if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
     try {
@@ -3702,7 +3960,23 @@ const server = http.createServer(async (req, res) => {
         externalId: typeof body.externalId === "string" ? body.externalId.slice(0, 240) : null,
       };
       rememberEvent(event);
-      return json(res, 202, { accepted: true, event });
+      let motorCommand = null;
+      if (body.type === "email.received" && typeof body.command === "string") {
+        try {
+          motorCommand = enqueueMotorCommand(
+            body.command.trim().toLowerCase(),
+            event.source || "v1.events",
+            event.externalId,
+          );
+        } catch {}
+      }
+      return json(res, 202, {
+        accepted: true,
+        event,
+        motorCommand: motorCommand
+          ? { id: motorCommand.id, action: motorCommand.action, status: motorCommand.status }
+          : null,
+      });
     } catch (err) {
       return json(res, err.message === "payload_too_large" ? 413 : 400, { error: "invalid_request" });
     }
