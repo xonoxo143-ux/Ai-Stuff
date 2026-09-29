@@ -63,16 +63,30 @@ const paidRoutes = {
 
 app.use(paymentMiddleware(paidRoutes, resourceServer));
 
-app.get("/api/scan", async (_req, res) => {
+app.get("/api/scan", async (req, res) => {
   try {
     const upstream = await fetch(SOURCE_URL, {
-      headers: { "user-agent": "SELF-ROOT-x402/0.1" },
+      headers: { "user-agent": "SELF-ROOT-x402/0.2" },
       signal: AbortSignal.timeout(8000),
     });
     const text = await upstream.text();
     res.status(upstream.status);
-    res.set("content-type", upstream.headers.get("content-type") || "application/json");
     res.set("cache-control", "no-store");
+
+    const requestId =
+      typeof req.query.request_id === "string"
+        ? req.query.request_id.slice(0, 64)
+        : null;
+
+    if ((upstream.headers.get("content-type") || "").includes("application/json")) {
+      try {
+        const payload = JSON.parse(text);
+        if (requestId) payload.requestId = requestId;
+        return res.json(payload);
+      } catch {}
+    }
+
+    res.set("content-type", upstream.headers.get("content-type") || "text/plain");
     res.send(text);
   } catch (err) {
     res.status(502).json({ ok: false, error: "upstream_unavailable" });
@@ -97,6 +111,15 @@ app.get("/openapi.json", (_req, res) => {
           summary: "Buy the current BTC cross-venue market scan",
           description: "Returns matched contract metadata, displayed book depth, estimated fees, and the best observed two-leg cross-venue route. Quotes can change before execution.",
           tags: ["Prediction markets", "Market data", "Arbitrage research"],
+          parameters: [
+            {
+              name: "request_id",
+              in: "query",
+              required: false,
+              description: "Optional client correlation identifier, echoed as requestId in the JSON response.",
+              schema: { type: "string", minLength: 1, maxLength: 64 }
+            }
+          ],
           "x-payment-info": {
             price: { mode: "fixed", currency: "USD", amount: "0.010000" },
             protocols: [{ x402: {} }]
