@@ -4,6 +4,14 @@ This branch contains the **versioned implementation** for SELF-ROOT's operationa
 
 The durable agent is not this repository and not any one model invocation. The durable agent is the **SELF-ROOT homunculus anchored at AgentMail**.
 
+## Project boundary
+
+This branch documents the **AgentMail / SELF-ROOT operational agent**.
+
+A separate project is exploring a **homegrown intelligent conversational agent built from scratch**. That research project is not Agent Core, is not SELF-ROOT's continuity substrate, and should not be silently merged into this architecture.
+
+In this repository, terms such as "replaceable model worker", "reasoning worker", and "episodic execution worker" refer to components SELF-ROOT may use to perform bounded work. They are architecture roles, not references to the separate homegrown-agent project.
+
 ## Identity model
 
 ```text
