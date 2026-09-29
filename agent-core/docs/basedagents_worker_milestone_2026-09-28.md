@@ -1,3 +1,7 @@
+> **Historical snapshot.** This milestone records the state on 2026-09-28 when the durable BasedAgents identity was first recovered and tested. It is preserved for provenance, not as the current system map. For current architecture and live blockers, see `agent-core/README.md`.
+>
+> **Resolved since this snapshot:** the durable Base wallet `0x07E23Bf894eADEcA418f8f322592eaab9e17C52F` was created/recovered and verified with the BasedAgents identity. The old “needs a payout wallet” blocker below is therefore historical.
+
 # BasedAgents worker milestone — 2026-09-28
 
 ## Outcome
