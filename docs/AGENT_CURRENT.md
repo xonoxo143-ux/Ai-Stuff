@@ -309,29 +309,52 @@ Interpretation:
 - full fine-tuning catastrophically forgets old capabilities;
 - 96.0% IID versus 40.5% OOD for ordinary transfer points to a compositional/algorithmic generalization failure rather than simple inability to fit task 6.
 
-### Next high-information gate — active
+### Operator routing gate — completed
 
-The dedicated research pass is complete and recorded in:
+`AGENT_OPERATOR_ROUTING_GATE_V0.md` compared a parameter-matched shared factor processor against an oracle-routed operator bank on the existing held-out composition task.
 
-- `AGENT_RESEARCH_FINDINGS.md`;
-- `AGENT_RESEARCH_SYNTHESIS.md`.
-
-The synthesis splits the problem into decomposition, binding/state, routing/sequencing, and execution/plasticity.
-
-**Active experiment:** `AGENT_OPERATOR_ROUTING_GATE_V0.md`.
-
-It holds the factor-state representation fixed and compares:
+Three-seed result after 1024 updates:
 
 ```text
-A. shared factor processor
-B. parameter-matched oracle-routed operator bank
+                         IID      OOD
+shared factor core      43.7%    27.0%
+oracle operator core    95.8%    41.2%
 ```
 
-Both use eight execution steps and the same 1024-update task-6 training budget across three seeds.
+The oracle arm improved OOD by **14.2 points**, below the precommitted **20-point** high-leverage threshold.
 
-The oracle arm deliberately supplies the semantic decomposition and route. It must beat the shared baseline by **at least 20 OOD points** to earn a learned-routing experiment.
+The more important split is:
 
-A reduced one-seed local screen showed a large learning-speed difference, but its shared baseline undertrained relative to canonical CI. It is triage evidence only, not a promoted result.
+```text
+oracle IID   95.8%
+oracle OOD   41.2%
+```
+
+Supplying the correct decomposition and execution route almost solves fitting, but does not produce strong extrapolation to longer chains.
+
+Decision:
+
+- high-leverage gate failed;
+- do not build the learned-router branch;
+- do not tune the oracle operator core for incremental gains;
+- explicit decomposition is useful evidence about learnability, but it is not promoted as the Agent core;
+- routing is no longer the immediate bottleneck because this experiment supplied the route.
+
+### Next high-information gate — research first
+
+The next question moves inside the operator itself:
+
+> What makes a learned operation extrapolate across **depth/length** when decomposition and routing are already correct?
+
+Return to the research pair before building again. Focus on:
+
+- algorithmic alignment;
+- length/depth generalization in recurrent or graph processors;
+- stable variable/entity binding across repeated execution;
+- state representations that remain invariant under longer trajectories;
+- supervision/objectives that favor execution rules over short-chain heuristics.
+
+A new build should isolate one of these mechanisms against the failed oracle-operator baseline and must again offer a step-change, not a few extra OOD points.
 ## 10. Current demotions / stopped branches
 
 Do not keep rescuing these without new evidence:
@@ -345,6 +368,8 @@ Do not keep rescuing these without new evidence:
 - small aggregate recurrence gains as a reason for prolonged tuning;
 - frozen-how adaptation on Cognitive Transfer v0;
 - ordinary full fine-tuning as a lifelong-learning solution.
+- oracle-routed operator bank as sufficient for compositional OOD;
+- learned routing as the immediate next branch.
 
 ## 11. Non-negotiable evaluation rule
 
