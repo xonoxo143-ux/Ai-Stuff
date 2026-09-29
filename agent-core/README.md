@@ -121,7 +121,7 @@ Current live implementation:
 
 - Railway service: `browser-worker-wNUX`
 - runtime: `continuity-agent-core`
-- current deployed release: **v0.14.11**
+- current deployed release: **v0.15.2**
 - deployment source is pinned to a specific Git commit
 - public healthcheck path: `/health`
 - outbound work: enabled
@@ -192,28 +192,71 @@ The first real external-dollar path is active:
 
 Stripe live payments and pricing are configured separately. Stripe Dashboard browser login is not required for the Railway bounty.
 
-## Main missing motor pathway
+## Motor pathway — live
 
-The highest-value architectural gap is not another account or another machine. It is the action channel from the homunculus to its persistent runtime:
+The bounded machine motor is now installed and verified.
+
+```text
+Agent Core / authenticated ingress
+      |
+      v
+bounded motor queue
+      |
+      v
+mach-187357670b1349d2a59ab423272af52e
+      |
+      +--> system.ping
+      +--> continuity.verify
+      +--> continuity.status
+      +--> browser.profile.status
+```
+
+Machine-side daemon:
+
+- `/workspace/continuity/motor/self_root_motor.py`
+- permanent machine token: `/workspace/continuity/secrets/motor_token`
+- runtime locator: `/workspace/continuity/motor/runtime_url`
+
+End-to-end verification completed on 2026-09-29 UTC:
+
+- `system.ping` completed successfully;
+- `continuity.verify` completed successfully.
+
+There is intentionally **no arbitrary remote-shell action** in the motor protocol.
+
+The one-time installer bootstrap was disabled after successful installation. The permanent token remains only in managed runtime secret storage and the machine's owner-only secrets directory.
+
+### Remaining ingress gap
+
+The remaining missing link is the direct **AgentMail → Agent Core** webhook registration.
+
+Agent Core already exposes a signed `message.received` ingress. Mail with an exact subject of:
+
+```text
+SELF-ROOT COMMAND: <allowlisted-action>
+```
+
+can be translated into a bounded motor command, and the sender policy currently trusts only `oldcraft541@agentmail.to`.
+
+Once the AgentMail provider webhook is registered to that ingress, the full path becomes:
 
 ```text
 SELF-ROOT / AgentMail
       |
       v
-authenticated bounded command/wake receiver
+message.received webhook
       |
       v
-mach-187357670b1349d2a59ab423272af52e
-      |
-      +--> /workspace/continuity/kernel
-      |
-      +--> /workspace/browser/profile
+Agent Core bounded ingress
       |
       v
-browser / tools / external services
+motor queue
+      |
+      v
+persistent smolmachine
 ```
 
-Do **not** create a second agent to solve this. Extend the existing SELF-ROOT system.
+Do **not** create a second agent or a broad account-wide machine-exec credential to solve this.
 
 ## Recovery sequence for a new worker
 
