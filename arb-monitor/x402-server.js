@@ -32,7 +32,8 @@ app.get("/", (_req, res) => {
   res.type("text/plain").send([
     "SELF-ROOT BTC Arb Monitor — x402 API",
     "",
-    "GET /api/scan costs " + PRICE + " USDC over x402 on Base.",
+    "GET /api/btc-kalshi-polymarket-arbitrage costs " + PRICE + " USDC over x402 on Base.",
+    "GET /api/scan redirects to the canonical route.",
     "GET /openapi.json describes the API.",
     "GET /health is free.",
     "",
