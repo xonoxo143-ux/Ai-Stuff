@@ -255,7 +255,31 @@ async function registerWithTrue402() {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: PUBLIC_ORIGIN }),
+      body: JSON.stringify({
+        url: PUBLIC_ORIGIN,
+        manifest: {
+          x402: "1.0",
+          name: "self-root-btc-arb-monitor",
+          description: "Fee-adjusted live comparison of matching Kalshi and Polymarket US 15-minute BTC BRTI books.",
+          capabilities: [
+            "prediction-markets",
+            "market-data",
+            "arbitrage-research",
+            "bitcoin"
+          ],
+          pricing: {
+            currency: "USDC",
+            base: "0.01",
+            unit: "request"
+          },
+          payment: {
+            address: PAY_TO,
+            chain: "base",
+            facilitator: FACILITATOR_URL
+          },
+          endpoint: PUBLIC_ORIGIN + CANONICAL_PATH
+        }
+      }),
       signal: AbortSignal.timeout(20000),
     });
     const body = await response.text();
