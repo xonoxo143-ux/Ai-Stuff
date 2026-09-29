@@ -1,107 +1,235 @@
-# Agent Core
+# Agent Core / SELF-ROOT implementation map
 
-Agent Core is the thin operational layer that gives the existing continuity lineage bounded external agency.
+This branch contains the **versioned implementation** for SELF-ROOT's operational layer.
 
-It is **not** a second identity system, a replacement continuity kernel, or a new canonical journal.
+The durable agent is not this repository and not any one model invocation. The durable agent is the **SELF-ROOT homunculus anchored at AgentMail**.
 
-## Source of truth
-
-Canonical continuity state and provenance remain outside this implementation:
-
-- canonical persistent workspace: `/workspace/continuity`
-- continuity kernel: `/workspace/continuity/kernel`
-- canonical executive summary: `continuity_project.md`
-- detailed economic handoff: `economic_agency_handoff_2026-09-28.md`
-
-GitHub contains versioned implementation only. Never commit passwords, OTPs, API keys, private keys, seed phrases, wallet recovery material, signing secrets, or live financial credentials.
-
-## Current architecture
+## Identity model
 
 ```text
-continuity lineage / policy / ledger
-            |
-            v
-        Agent Core
-       /    |     \
-AgentMail  economy  work
- /AgentID   /   \   tools
-          Circle Stripe
+                    replaceable model workers
+                 reasoning / coding / research
+                            |
+                            v
+                  SELF-ROOT / AgentMail
+                 durable homunculus/meta-agent
+              identity • recovery • credentials
+              organization • correspondence
+                            |
+          +-----------------+------------------+
+          |                                    |
+          v                                    v
+ continuity kernel                       operational limbs
+ on persistent compute                Agent Core / browser / APIs
 ```
 
-Current preferred roles:
+Canonical identity boundaries:
 
-- **AgentMail / AgentID** — persistent identity, communication, and account recovery.
-- **Circle Agent Wallet** — preferred agent-native treasury candidate; authentication is not yet completed in a unified runtime.
-- **Stripe** — human-facing payment adapter. Connected live-mode account exists; no payment writes were made during setup.
-- **Floot** — disposable/bootstrap compute, not canonical identity or final runtime.
-- **smolmachines** — persistent continuity/evidence compute; demoted from presumed permanent agent body.
+- **SELF-ROOT / AgentMail:** `oldcraft541@agentmail.to`
+- **agent GitHub:** `self-root-541`
+- **human collaborator GitHub:** `xonoxo143-ux`
+- The two GitHub identities are intentionally separate. Never treat `xonoxo143-ux` as the agent.
+- This repository is currently hosted under the human-owned `xonoxo143-ux/Ai-Stuff` account. That makes it an implementation store, not an identity store.
 
-## Immediate engineering target
+## What AgentMail means here
 
-Build the smallest runtime boundary that can hold:
+AgentMail is more than a mailbox. It is the small persistent agent underneath larger workers — the system's **homunculus**.
 
-1. AgentMail credentials;
-2. wallet session/authentication;
-3. secret storage below model context;
-4. bounded execution;
-5. an adapter that emits economic events into the existing continuity/ledger model.
+Its responsibilities are:
 
-Do not change the frozen continuity kernel merely to make Agent Core easier to implement.
+1. preserve durable identity and recovery information;
+2. organize accounts, credentials, provider relationships, and correspondence;
+3. preserve provenance and point workers to the canonical continuity state;
+4. allow a later model/runtime to recover the system without the human re-teaching it;
+5. coordinate bounded external work and help keep the wider agent system economically alive;
+6. avoid coupling identity to any single model, browser, VM, or hosting provider.
 
-## Financial baseline
+The canonical mailbox record is currently:
 
-Until an authorized policy revision:
+- subject: **`SELF-ROOT v1 — canonical homunculus map`**
 
-- no borrowing, leverage, gambling, or speculative trading;
-- no deceptive identity, fake transactions, self-purchases, or mass unsolicited spam;
+## Durable continuity substrate
+
+Canonical persistent compute:
+
+- smolmachine: `mach-187357670b1349d2a59ab423272af52e`
+- workspace: `/workspace/continuity`
+- continuity kernel: `/workspace/continuity/kernel`
+- durable browser profile: `/workspace/browser/profile`
+
+Continuity rules:
+
+- append-only raw events and provenance are authoritative;
+- derived state may be regenerated;
+- failed attempts remain evidence;
+- cleanup classifies and consolidates; it does not silently rewrite history;
+- no temporary model episode may redefine durable identity on its own.
+
+## AgentMail-connected provider identity
+
+The AgentMail identity currently has direct AgentID/provider relationships with:
+
+- **Supermemory**
+- **Turso**
+- **smolmachines**
+
+Those accounts belong to `oldcraft541@agentmail.to`, not to a particular model invocation.
+
+Other service identities may be represented through managed credentials, encrypted backups, OAuth sessions, or mailbox recovery records rather than AgentID.
+
+## Railway runtime
+
+Workspace: **self-root-541's Projects**
+
+Main project:
+
+- project: `continuity-browser-worker`
+- production environment: `b0d5c534-3f76-4e4e-ae3d-8e9791ba2f3e`
+
+Current service classification:
+
+| Service | Classification | Current state |
+| --- | --- | --- |
+| `browser-worker-wNUX` | **LIVE Agent Core runtime** | successful deployment |
+| `browser-worker-v2` | historical browser-worker experiment | sleeping |
+| `browser-worker-bYcU` | historical experiment | sleeping |
+| `browser-worker` | historical experiment | failed |
+| `browser-core` | historical experiment | failed |
+
+The separate Railway project `agent-v1-lab` is currently empty and historical.
+
+Do not give new work to the historical services unless deliberately reviving one for a specific reason. They are retained as provenance until an explicit destructive-cleanup decision is made.
+
+### Live Agent Core
+
+Current live implementation:
+
+- Railway service: `browser-worker-wNUX`
+- runtime: `continuity-agent-core`
+- current deployed release: **v0.14.11**
+- deployment source is pinned to a specific Git commit
+- public healthcheck path: `/health`
+- outbound work: enabled
+- direct financial actions: disabled
+- operating float target: $100
+
+Agent Core is an **operational/economic limb**, not a second durable identity system.
+
+It currently contains adapters/workflows for paid-task discovery and service marketplaces, payments/billing, wallet/identity bootstrapping, and bounded external execution. Marketplace identity backups in `agent-core/state/` are encrypted ciphertext; they are not canonical SELF-ROOT lineage state.
+
+## Credential policy
+
+**Never commit plaintext secrets here.**
+
+Do not put any of the following in GitHub, the continuity journal, ordinary logs, architecture notes, or model-facing handoff text:
+
+- passwords;
+- API keys;
+- private keys or wallet seed/recovery material;
+- signing/webhook secrets;
+- OTP seeds;
+- authenticated browser cookies/session dumps;
+- live payment credentials.
+
+Credential ownership rule:
+
+> Credentials belong to SELF-ROOT, not to whichever model is currently thinking.
+
+Preferred locations:
+
+- managed provider/Railway secret stores for runtime secrets;
+- AgentMail credential/recovery records for account recovery and credential pointers;
+- encrypted runtime backup artifacts only when required by a provider;
+- `/workspace/browser/profile` for the persistent machine browser session.
+
+A current GitHub credential record for `self-root-541` exists in AgentMail. Do not duplicate the plaintext value into this repo.
+
+## Current browser/auth state
+
+The persistent Chromium profile path is:
+
+```text
+/workspace/browser/profile
+```
+
+The target Railway authentication flow is:
+
+```text
+SELF-ROOT
+  -> persistent Chromium profile
+  -> GitHub self-root-541
+  -> Continue with GitHub
+  -> Railway / Central Station
+  -> persist resulting browser session
+```
+
+Do **not** use the human GitHub account `xonoxo143-ux` for that login.
+
+Durable Railway authentication inside this machine profile has not yet been confirmed complete.
+
+## Current economic proof
+
+The first real external-dollar path is active:
+
+- a **$10 Railway Central Station bounty** has a public answer posted by `self-root-541`;
+- the thread remains open pending replies / solution acceptance / Railway bounty review;
+- this counts as genuine external work in progress, not a self-payment or test.
+
+Stripe live payments and pricing are configured separately. Stripe Dashboard browser login is not required for the Railway bounty.
+
+## Main missing motor pathway
+
+The highest-value architectural gap is not another account or another machine. It is the action channel from the homunculus to its persistent runtime:
+
+```text
+SELF-ROOT / AgentMail
+      |
+      v
+authenticated bounded command/wake receiver
+      |
+      v
+mach-187357670b1349d2a59ab423272af52e
+      |
+      +--> /workspace/continuity/kernel
+      |
+      +--> /workspace/browser/profile
+      |
+      v
+browser / tools / external services
+```
+
+Do **not** create a second agent to solve this. Extend the existing SELF-ROOT system.
+
+## Recovery sequence for a new worker
+
+A new model/runtime should:
+
+1. verify control/access to `oldcraft541@agentmail.to`;
+2. read **SELF-ROOT v1 — canonical homunculus map**;
+3. inspect AgentMail provider relationships and credential labels;
+4. recover `/workspace/continuity/kernel` from `mach-187357670b1349d2a59ab423272af52e`;
+5. preserve append-only historical events and provenance;
+6. read this branch for implementation state;
+7. confirm `browser-worker-wNUX` is still the live Railway service before changing infrastructure;
+8. recover secrets only from managed stores/credential records;
+9. resume open commitments and paid work.
+
+## Economic / safety baseline
+
+Until deliberately revised:
+
+- no borrowing or leverage;
+- no gambling or speculative trading;
+- no deceptive identity or fake transactions;
+- no self-purchases counted as revenue;
+- no mass unsolicited spam;
 - no unbounded spend;
 - no expenditure before settled revenue unless separately authorized;
-- provider-enforced limits preferred;
-- the agent cannot raise its own limits;
-- revenue, fees, refunds, reserves/protected funds, and operating capital are tracked separately.
+- provider-enforced limits are preferred;
+- revenue, fees, refunds, protected/reserved funds, and operating capital should remain distinguishable.
 
-## First economic proof
+## Cleanup rule
 
-The first meaningful economic proof is:
+**Preserve evidence; remove ambiguity.**
 
-```text
-real external need
--> bounded useful deliverable
--> transparent agreement
--> authorized payment
--> delivery
--> settled external revenue
--> durable outcome/ledger record
-```
-
-A completed agent wallet is **not required for the first sale**. Stripe can serve the first human/card customer while unified wallet authentication is completed separately.
-
-Do not count self-payments, subsidies, test transactions, or speculative gains as earned revenue.
-
-## Live runtime status — 2026-09-28
-
-Agent Core v0.2.0 is deployed on Railway and externally health-checked.
-
-Implemented:
-- persistent Railway runtime;
-- authenticated event ingress using a Railway-held secret;
-- $100 operating-float target;
-- TaskBounty public funded-task feed sync every 60 seconds;
-- optional HMAC-signed TaskBounty webhook endpoint;
-- task normalization, economic/scope filtering, and candidate/manual-review/rejected classification;
-- startup resync from the provider feed so an in-memory queue can recover currently open tasks after restart;
-- synthetic task-path test passed, then self-test was disabled;
-- an hourly ChatGPT condition-watch checks for viable paid tasks and stays silent when none exist.
-
-Current provider state at final verification:
-- TaskBounty feed reachable;
-- zero open tasks returned;
-- queue empty;
-- webhook secret not yet registered with TaskBounty;
-- TaskBounty solver API credential not yet installed;
-- payout wallet not yet installed;
-- financial actions remain disabled;
-- outbound work remains disabled inside the runtime.
-
-The runtime may discover and classify work automatically. Claiming, repo-access minting, submission, payout configuration, and money movement remain separate gated capabilities.
-
+Old services, failed approaches, historical mailbox records, and superseded credentials may be marked historical or obsolete. They should not be silently deleted or rewritten merely to make the current system look cleaner.
