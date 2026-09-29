@@ -797,3 +797,93 @@ cheap attempt
 A successful gate should show both:
 1. capability retained or increased;
 2. cost per repeated problem class falls materially after consolidation.
+
+## 1F. Reasoning amortization + active falsification — promoted
+
+A core developmental hypothesis now clears the project's high-leverage bar:
+
+> **pay for hard reasoning once, validate what was discovered, compile it into cold capability, and avoid paying the same reasoning cost again.**
+
+### Reasoning amortization replication
+
+Three independent 40-class runs:
+
+```text
+compiled after fixed validation   92.5%–95%
+compiled correctness on hit       100%
+first search expansions           mean 322–393
+repeat expansions incl fallback   mean 7–27
+search reduction                  ~12×–55×
+median latency reduction          ~167×–242×
+```
+
+Novel classes produced zero false cache hits.
+
+The remaining 5–7.5% failure was caused by under-specified behavioral evidence: seven probes sometimes admitted multiple programs with different unseen behavior.
+
+### Active falsification repair
+
+A 21,845-program bounded hypothesis space was used to test whether the agent could identify when evidence was insufficient.
+
+Starting from the same seven probes, it selected an additional probe only when surviving hypotheses disagreed.
+
+Three-seed result:
+
+```text
+fixed-probe generalization      92.5%–95.0%
+active-probe generalization    100.0%
+compiled fraction              100.0%
+compiled correctness           100.0%
+mean extra probes / skill       0.275–0.475
+median extra probes             0
+maximum extra probes            2
+```
+
+Across 36 novel classes:
+- zero false cache hits;
+- 100% first-encounter identification;
+- 100% compilation;
+- 100% second-encounter correctness.
+
+### Promoted developmental law
+
+Durable self-modification should require:
+
+```text
+reason/search
+→ propose computation
+→ actively seek a distinguishing counterexample
+→ acquire only the missing evidence
+→ revise if falsified
+→ compile only after ambiguity is removed
+→ store cold
+→ retrieve and execute cheaply later
+```
+
+This supersedes the weaker rule “works on held-out examples, therefore compile.”
+
+### Next integrated developmental gate
+
+Do not optimize this toy synthesizer further.
+
+Combine the surviving mechanisms into one lifetime test:
+
+1. novel problems initially require expensive reasoning;
+2. successful procedures are actively falsified;
+3. validated procedures enter a growing cold skill store;
+4. effect-based addressing retrieves them later;
+5. unfamiliar/ambiguous cases still escalate to search;
+6. as the skill store grows by at least 10×, measure:
+   - accumulated capability;
+   - average active search expansions;
+   - bytes/pages touched;
+   - cache hit precision;
+   - false reuse;
+   - extra falsification probes;
+   - cost on genuinely novel tasks.
+
+The desired result is not merely a faster cache.
+
+It is a developmental scaling law:
+
+> **more total capability, less repeated reasoning, and little growth in active work per thought.**
