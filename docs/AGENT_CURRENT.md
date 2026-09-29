@@ -654,3 +654,73 @@ The next high-leverage question is:
 > Can the agent construct the address from **current state + desired effect**, then retrieve and compose useful executable modules without being told their identity?
 
 Build the next gate with behavioral/functional module signatures rather than arbitrary random vectors.
+
+## 1D. Effect Address + Reachability Gate v0
+
+A second developmental/addressing gate tested whether module identity can be inferred from behavior rather than supplied directly.
+
+### Behavioral addressing result
+
+12,800 executable modules were indexed by behavioral signatures.
+
+A tiny from-scratch address model learned from developmental traces:
+
+```text
+(current behavior, desired behavior)
+→ address of next useful computation
+```
+
+Held-out developmental states:
+
+```text
+top-1 correct next operation   99.6%
+top-8                         100.0%
+```
+
+Deeper OOD composition traces:
+
+```text
+top-1   68.5%
+top-8   88.5%
+```
+
+Behavior/effect addressing is therefore retained as a promising mechanism.
+
+### Immediate-causality rule rejected
+
+Choosing among retrieved candidates by which operation improves the target most immediately does not generalize to deep compositions.
+
+A future-reachability oracle, holding retrieval fixed, produced a large capability jump in the diagnostic sample:
+
+```text
+6.25% → 30.0% solved
+```
+
+Therefore:
+- immediate improvement != mattering;
+- mattering must include future reachability / downstream consequence.
+
+### Tiny learned value replacement rejected
+
+A small goal-conditioned value network trained from shallow developmental consequences did not recover the oracle gain:
+
+```text
+myopic       29%
+learned V    19%
+```
+
+Do not tune this branch for a few points.
+
+### Next high-leverage gate
+
+Research before build:
+
+> What compact learned structure can predict the **future affordances/reachability created by a computation**, generalize across goals, and compose over longer horizons without expensive tree search?
+
+Priority mechanism families:
+- successor features / successor-like computational representations;
+- reusable option/skill consequence models;
+- planning over compressed learned operations;
+- explicit uncertainty so unknown future consequence triggers search rather than false confidence.
+
+The whole-agent target remains unchanged.
