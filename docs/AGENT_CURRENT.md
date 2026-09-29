@@ -257,7 +257,7 @@ The thresholds are triage heuristics, not laws. The standard is: **does this mat
 
 Before an expensive experimental branch:
 
-\`\`\`text
+```text
 state the question
 → search our wording
 → search neighboring terminology
@@ -266,17 +266,14 @@ state the question
 → search known failure modes / ablations
 → identify the strongest relevant baseline
 → build only the unresolved discriminating test
-\`\`\`
+```
 
-Use \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\` as a reference when useful. New active terminology belongs here or in the experiment result that introduced it; the map no longer requires routine synchronization.
+Use the paired living research module:
 
-Important current mappings include:
+- `AGENT_RESEARCH_FINDINGS.md` — current external scientific frontier;
+- `AGENT_RESEARCH_SYNTHESIS.md` — integrated project inference and experimental hypotheses.
 
-- "think longer with the same brain" → recurrent depth, looped networks/Transformers, adaptive computation, iterative refinement;
-- "reuse learned computation on new tasks" → compositional meta-learning, learning-to-learn, modular skill composition, what/how separation;
-- "facts/entities connected by shared identity" → factor graphs, graph networks, message passing, relational inductive bias;
-- "same processor across problem families" → neural algorithmic reasoning, shared processors, systematic/generalization benchmarks.
-
+Do not promote a research idea into this file until it survives a discriminating experiment.
 ## 9. Transfer gate — completed
 
 Cognitive Transfer v0 tested a genuinely new sixth family:
@@ -312,25 +309,29 @@ Interpretation:
 - full fine-tuning catastrophically forgets old capabilities;
 - 96.0% IID versus 40.5% OOD for ordinary transfer points to a compositional/algorithmic generalization failure rather than simple inability to fit task 6.
 
-### Next high-information gate
+### Next high-information gate — active
 
-Do **not** localize or optimize the small transfer effect yet.
+The dedicated research pass is complete and recorded in:
 
-Research first:
+- `AGENT_RESEARCH_FINDINGS.md`;
+- `AGENT_RESEARCH_SYNTHESIS.md`.
 
-> What mechanism gives strong compositional OOD generalization when familiar operations must be chained in a genuinely new way?
+The synthesis splits the problem into decomposition, binding/state, routing/sequencing, and execution/plasticity.
 
-Primary neighboring terms:
+**Active experiment:** `AGENT_OPERATOR_ROUTING_GATE_V0.md`.
 
-- systematic compositional generalization;
-- neural algorithmic reasoning / processor transfer;
-- modular neural networks and modular meta-learning;
-- program induction / learned execution;
-- variable binding / role-filler representations;
-- task/operator graphs and learned operator sequencing.
+It holds the factor-state representation fixed and compares:
 
-The next build must compare a materially stronger compositional mechanism against the current factor-core baseline.
+```text
+A. shared factor processor
+B. parameter-matched oracle-routed operator bank
+```
 
+Both use eight execution steps and the same 1024-update task-6 training budget across three seeds.
+
+The oracle arm deliberately supplies the semantic decomposition and route. It must beat the shared baseline by **at least 20 OOD points** to earn a learned-routing experiment.
+
+A reduced one-seed local screen showed a large learning-speed difference, but its shared baseline undertrained relative to canonical CI. It is triage evidence only, not a promoted result.
 ## 10. Current demotions / stopped branches
 
 Do not keep rescuing these without new evidence:
