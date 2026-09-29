@@ -1,0 +1,70 @@
+name: Agent Operator Routing Gate V0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "experiment/agent-v1-developmental-ecology"
+    paths:
+      - "agent-model/agent_cognition/operator_gate.py"
+      - "agent-model/tests/test_agent_operator_routing_gate_v0.py"
+      - "docs/AGENT_OPERATOR_ROUTING_GATE_V0.md"
+      - ".github/workflows/agent-operator-routing-gate-v0.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-operator-routing-gate-v0
+  cancel-in-progress: true
+
+jobs:
+  operator-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU training stack
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            --index-url https://download.pytorch.org/whl/cpu \
+            "torch>=2.4,<3"
+          python -m pip install "numpy>=1.26,<3" "pytest>=8"
+          python -m pip install -e agent-model --no-deps
+
+      - name: Validate cognition package syntax
+        run: |
+          set -euo pipefail
+          python -m compileall -q agent-model/agent_cognition
+
+      - name: Validate operator gate contracts
+        run: |
+          set -euo pipefail
+          pytest agent-model/tests/test_agent_operator_routing_gate_v0.py
+
+      - name: Run three-seed operator-routing gate
+        working-directory: agent-model
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/operator-routing-gate-v0
+          python -m agent_cognition.operator_gate \
+            --seeds 11,22,33 \
+            --checkpoints 0,128,256,512,768,1024 \
+            --batch-size 32 \
+            --eval-count 200 \
+            --threads 4 \
+            --output /tmp/operator-routing-gate-v0/result.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Operator-Routing-Gate-V0
+          path: /tmp/operator-routing-gate-v0/
+          retention-days: 30
