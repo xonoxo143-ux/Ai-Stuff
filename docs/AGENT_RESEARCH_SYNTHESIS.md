@@ -652,3 +652,109 @@ Program-synthesis work on property signatures and learned query selection gives 
 Next gate:
 
 > Replace arbitrary module vectors with executable modules whose addresses are derived from observed behavior. Test whether unseen tasks can retrieve and compose useful modules from a goal specification without being given module identity.
+
+## Developmental synthesis S11 — effect addresses work locally; myopic mattering fails
+
+### Effect-address Gate v0
+
+The arbitrary-vector addressing test was replaced with executable unary modules whose addresses were derived from observed input/output behavior on probes.
+
+A tiny from-scratch address MLP was trained from developmental traces to map:
+
+```text
+current behavior + desired behavior
+→ predicted behavioral address of the next useful operation
+```
+
+The cold library contained 12,800 executable modules.
+
+On held-out developmental trace states:
+
+```text
+correct next operation top-1   99.6%
+correct next operation top-8  100.0%
+```
+
+On deeper OOD composition traces:
+
+```text
+top-1   68.5%
+top-8   88.5%
+```
+
+This is positive evidence that computation can be addressed by learned behavioral consequence rather than a human module ID, but the address model degrades with composition depth.
+
+### Myopic causal selection failure
+
+The active agent then retrieved eight candidates and executed each one to see which produced the largest immediate movement toward the target.
+
+This failed badly on deeper tasks.
+
+Reason:
+
+> operations that improve the target metric immediately can move the system into states from which the goal is no longer reachable.
+
+This revises the project's meaning of "what matters":
+
+```text
+not:
+    immediate favorable causal change
+
+but:
+    causal contribution to desirable reachable futures
+```
+
+### Future-reachability oracle diagnostic
+
+Holding the address model fixed, a bounded future-reachability oracle was used only as a diagnostic prosthesis.
+
+On one deep-task sample:
+
+```text
+myopic selector              6.25% solved
+future-reachability oracle  30.00% solved
+```
+
+On tasks solvable by the original useful-operation teacher:
+
+```text
+5.6% → 66.7%
+```
+
+The oracle also found alternative solutions using modules originally classified as distractors.
+
+This is a high-leverage localization result: downstream reachability materially changes capability.
+
+### Cheap learned UVFA-like approximation — failed
+
+A tiny goal-conditioned value MLP was then trained from developmental consequence labels to replace the expensive oracle.
+
+Fresh deep-task sample:
+
+```text
+myopic selector        29% solved
+learned value selector 19% solved
+```
+
+Teacher-solvable subset:
+
+```text
+myopic   32%
+learned  36%
+```
+
+The learned value model also consumed more candidate-selection steps.
+
+Decision:
+- do not promote this value network;
+- do not tune it for incremental gains;
+- preserve the oracle result as evidence that future reachability is the real missing variable;
+- research mechanisms that represent reusable downstream consequences more structurally, especially successor-like representations, planning over reusable options, and developmental curricula that expose long-horizon consequences.
+
+### Current synthesis
+
+The strongest current architecture-level hypothesis is now:
+
+> retrieval should propose operations by behavioral/effect address, while selection should depend on **predicted reachable futures**, not immediate similarity or immediate error reduction.
+
+The unresolved invention problem is making that future-consequence estimate cheap, reusable, and able to generalize to deeper unseen compositions.
