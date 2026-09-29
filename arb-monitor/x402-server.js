@@ -187,6 +187,33 @@ app.get("/llms.txt", (_req, res) => {
   ].join("\n"));
 });
 
+async function registerWithX402Scan() {
+  const endpoint = "https://www.x402scan.com/api/trpc/public.resources.registerFromOrigin";
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-trpc-source": "nextjs-react"
+      },
+      body: JSON.stringify({ json: { origin: PUBLIC_ORIGIN } }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const body = await response.text();
+    console.log(JSON.stringify({
+      event: "x402scan_registration",
+      status: response.status,
+      ok: response.ok,
+      body: body.slice(0, 4000)
+    }));
+  } catch (err) {
+    console.log(JSON.stringify({
+      event: "x402scan_registration_error",
+      error: err instanceof Error ? err.message : String(err)
+    }));
+  }
+}
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(JSON.stringify({
     event: "listening",
@@ -196,4 +223,5 @@ app.listen(PORT, "0.0.0.0", () => {
     price: PRICE,
     facilitator: FACILITATOR_URL
   }));
+  setTimeout(() => { void registerWithX402Scan(); }, 1500);
 });
