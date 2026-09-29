@@ -239,7 +239,8 @@ async function tick(){
     document.querySelector('#edge').className='kpi '+(best?.positiveAfterFees?'good':'');
     const rows=(d.routes||[]).map(x=>'<p><b>'+x.name+'</b><br>combined cost: '+fmt(x.combinedCostPerPair)+' · est. fees: '+fmt(x.estimatedFees)+' · est. net: <span class="'+(x.positiveAfterFees?'good':'')+'">'+fmt(x.estimatedNet)+'</span></p>').join('');
     document.querySelector('#details').innerHTML =
-      'Kalshi: <code>'+d.kalshi.ticker+'</code><br>Polymarket US: <code>'+d.polymarketUS.slug+'</code><br>Observed: '+new Date(d.observedAt).toLocaleTimeString()+'<hr>'+\n      (rows||'One or both books are not currently available. The monitor will keep retrying.');
+      'Kalshi: <code>'+d.kalshi.ticker+'</code><br>Polymarket US: <code>'+d.polymarketUS.slug+'</code><br>Observed: '+new Date(d.observedAt).toLocaleTimeString()+'<hr>'+
+      (rows||'One or both books are not currently available. The monitor will keep retrying.');
   }catch(e){
     document.querySelector('#status').textContent='Retrying';
     document.querySelector('#details').textContent=String(e);
