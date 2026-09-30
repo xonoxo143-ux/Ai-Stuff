@@ -1405,3 +1405,38 @@ When the agent authors a useful new computational module, successful uses of tha
 Conversely, repeated language that cannot be mapped to successful computation becomes a direct signal that the current cognitive library is missing something.
 
 Do not build this solely because the idea is elegant. The active whole-agent `chatbot-v0` failure map must decide whether broad perception is actually the first bottleneck.
+
+## Developmental synthesis S21 — passive grounding failure motivates active experiments
+
+Execution-Grounded Language v0 tested whether language could be mapped to latent executable programs using only input/output consequences rather than gold semantic programs.
+
+Results:
+
+```text
+seed 0   perfect
+seed 1   9/10 atomic meanings, 2/3 connectors, ~52% unseen composition
+seed 2   perfect
+overall gate: FAIL
+```
+
+The failed seed is consistent with observational aliasing: different candidate programs can agree on an unlucky set of passive examples. For example, `ABS(x)` and `NEG(x)` agree for all negative `x`.
+
+The learner correctly avoided premature promotion when evidence remained ambiguous.
+
+### Revised developmental law
+
+Do not merely wait for more random evidence.
+
+> When multiple candidate meanings survive, deliberately choose an input/context where their predicted consequences differ most.
+
+This turns the language learner into an active experimenter:
+
+```text
+candidate meanings
+→ find discriminating context/input
+→ query environment / observe consequence
+→ eliminate inconsistent meanings
+→ repeat until sufficiently identified
+```
+
+This is now being tested in Active Execution-Grounded Language v1.
