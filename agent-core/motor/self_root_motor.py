@@ -28,7 +28,11 @@ TOKEN_FILE = SECRETS_DIR / "motor_token"
 URL_FILE = MOTOR_DIR / "runtime_url"
 LOG_FILE = MOTOR_DIR / "motor.log"
 STATE_DIR = ROOT / "state"
-STATE_SNAPSHOT_FILE = STATE_DIR / "agent-core-snapshot-v1.json"
+EVIDENCE_DIR = ROOT / "evidence"
+EVIDENCE_LEDGER_FILE = EVIDENCE_DIR / "evidence-ledger-v1.jsonl"
+EVIDENCE_INDEX_FILE = EVIDENCE_DIR / "event-index-v1.json"
+STATE_SNAPSHOT_FILE = STATE_DIR / "materialized-work-state-v1.json"
+LEGACY_STATE_SNAPSHOT_FILE = STATE_DIR / "agent-core-snapshot-v1.json"
 
 POLL_SECONDS = 5
 HTTP_TIMEOUT = 20
@@ -91,31 +95,175 @@ def handle_system_ping() -> dict:
     }
 
 
+def _load_evidence_index() -> dict:
+    if not EVIDENCE_INDEX_FILE.exists():
+        return {"schema": 1, "events": {}, "count": 0, "headHash": None}
+    try:
+        value = json.loads(EVIDENCE_INDEX_FILE.read_text(encoding="utf-8"))
+        if not isinstance(value, dict) or not isinstance(value.get("events"), dict):
+            raise ValueError("invalid_index")
+        return value
+    except Exception:
+        return {"schema": 1, "events": {}, "count": 0, "headHash": None}
+
+
+def _write_evidence_index(index: dict) -> None:
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = EVIDENCE_DIR / f".{EVIDENCE_INDEX_FILE.name}.{os.getpid()}.tmp"
+    raw = (json.dumps(index, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+    with tmp.open("wb") as f:
+        f.write(raw)
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, EVIDENCE_INDEX_FILE)
+
+
+def _validate_evidence_event(event) -> dict:
+    if not isinstance(event, dict):
+        raise ValueError("invalid_evidence_event")
+    required = [
+        "schema_version",
+        "event_id",
+        "correlation_id",
+        "event_type",
+        "occurred_at",
+        "recorded_at",
+        "source",
+        "payload",
+        "provenance",
+    ]
+    for key in required:
+        if key not in event:
+            raise ValueError(f"missing_evidence_{key}")
+    if event.get("schema_version") != "1.0":
+        raise ValueError("unsupported_evidence_schema")
+    if not isinstance(event.get("payload"), dict) or not isinstance(event.get("provenance"), dict):
+        raise ValueError("invalid_evidence_payload")
+    if not event.get("provenance", {}).get("event_hash"):
+        raise ValueError("missing_evidence_event_hash")
+    return event
+
+
+def handle_evidence_ledger_append(payload=None) -> dict:
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if events is None and isinstance(payload, dict) and isinstance(payload.get("event"), dict):
+        events = [payload["event"]]
+    if not isinstance(events, list) or not events or len(events) > 50:
+        return {"exitCode": 2, "error": "invalid_evidence_batch"}
+    index = _load_evidence_index()
+    accepted = 0
+    duplicates = 0
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    with EVIDENCE_LEDGER_FILE.open("a", encoding="utf-8") as ledger:
+        for raw in events:
+            event = _validate_evidence_event(raw)
+            event_id = str(event["event_id"])
+            event_hash = str(event["provenance"]["event_hash"])
+            existing = index["events"].get(event_id)
+            if existing:
+                if existing != event_hash:
+                    return {"exitCode": 3, "error": "evidence_event_id_hash_conflict", "eventId": event_id}
+                duplicates += 1
+                continue
+            ledger.write(json.dumps(event, separators=(",", ":"), ensure_ascii=False) + "\n")
+            ledger.flush()
+            os.fsync(ledger.fileno())
+            index["events"][event_id] = event_hash
+            index["count"] = int(index.get("count") or 0) + 1
+            index["headHash"] = event_hash
+            accepted += 1
+    _write_evidence_index(index)
+    return {
+        "exitCode": 0,
+        "accepted": accepted,
+        "duplicates": duplicates,
+        "count": index.get("count", 0),
+        "headHash": index.get("headHash"),
+        "path": str(EVIDENCE_LEDGER_FILE),
+    }
+
+
+def handle_evidence_ledger_status(_payload=None) -> dict:
+    index = _load_evidence_index()
+    return {
+        "exists": EVIDENCE_LEDGER_FILE.exists(),
+        "count": index.get("count", 0),
+        "headHash": index.get("headHash"),
+        "bytes": EVIDENCE_LEDGER_FILE.stat().st_size if EVIDENCE_LEDGER_FILE.exists() else 0,
+        "path": str(EVIDENCE_LEDGER_FILE),
+        "materializedStatePath": str(STATE_SNAPSHOT_FILE),
+        "legacySnapshotExists": LEGACY_STATE_SNAPSHOT_FILE.exists(),
+    }
+
+
+def handle_evidence_ledger_read(payload=None) -> dict:
+    after_seq = int((payload or {}).get("afterSeq") or 0)
+    limit = max(1, min(int((payload or {}).get("limit") or 50), 100))
+    if not EVIDENCE_LEDGER_FILE.exists():
+        return {"events": [], "nextSeq": after_seq, "hasMore": False}
+    events = []
+    seq = 0
+    with EVIDENCE_LEDGER_FILE.open("r", encoding="utf-8") as ledger:
+        for line in ledger:
+            if not line.strip():
+                continue
+            seq += 1
+            if seq <= after_seq:
+                continue
+            if len(events) >= limit:
+                break
+            event = json.loads(line)
+            _validate_evidence_event(event)
+            events.append(event)
+    index = _load_evidence_index()
+    next_seq = after_seq + len(events)
+    return {
+        "events": events,
+        "nextSeq": next_seq,
+        "hasMore": next_seq < int(index.get("count") or 0),
+        "count": index.get("count", 0),
+        "headHash": index.get("headHash"),
+    }
+
+
 def handle_continuity_verify() -> dict:
-    verifier = ROOT / "verify.py"
-    if not verifier.exists():
-        return {"exitCode": 127, "error": f"missing {verifier}"}
-    return run_process(["python3", str(verifier)], timeout=180)
+    status = handle_evidence_ledger_status()
+    index = _load_evidence_index()
+    indexed_count = int(index.get("count") or 0)
+    actual_count = 0
+    parse_errors = 0
+    if EVIDENCE_LEDGER_FILE.exists():
+        with EVIDENCE_LEDGER_FILE.open("r", encoding="utf-8") as ledger:
+            for line in ledger:
+                if not line.strip():
+                    continue
+                try:
+                    _validate_evidence_event(json.loads(line))
+                    actual_count += 1
+                except Exception:
+                    parse_errors += 1
+    return {
+        "exitCode": 0 if parse_errors == 0 and actual_count == indexed_count else 1,
+        "architecture": "evidence-ledger-v1",
+        "ledger": status,
+        "indexedCount": indexed_count,
+        "actualCount": actual_count,
+        "parseErrors": parse_errors,
+        "legacyVerifierExists": (ROOT / "verify.py").exists(),
+    }
 
 
 def handle_continuity_status() -> dict:
     kernel = ROOT / "kernel"
-    files = []
-    if kernel.exists():
-        for p in sorted(kernel.iterdir())[:100]:
-            try:
-                files.append({
-                    "name": p.name,
-                    "type": "dir" if p.is_dir() else "file",
-                    "size": p.stat().st_size if p.is_file() else None,
-                })
-            except OSError:
-                pass
+    evidence_status = handle_evidence_ledger_status()
     return {
+        "architecture": "evidence-ledger-v1",
         "workspaceExists": ROOT.exists(),
-        "kernelExists": kernel.exists(),
-        "kernelEntries": files,
-        "verifyExists": (ROOT / "verify.py").exists(),
+        "evidence": evidence_status,
+        "materializedStateExists": STATE_SNAPSHOT_FILE.exists(),
+        "legacyKernelExists": kernel.exists(),
+        "legacyVerifyExists": (ROOT / "verify.py").exists(),
         "browserProfileExists": Path("/workspace/browser/profile").exists(),
     }
 
@@ -152,9 +300,10 @@ def handle_browser_profile_status() -> dict:
 
 
 def handle_state_snapshot_read(_payload=None) -> dict:
-    if not STATE_SNAPSHOT_FILE.exists():
+    source = STATE_SNAPSHOT_FILE if STATE_SNAPSHOT_FILE.exists() else LEGACY_STATE_SNAPSHOT_FILE
+    if not source.exists():
         return {"exists": False, "snapshot": None}
-    raw = STATE_SNAPSHOT_FILE.read_bytes()
+    raw = source.read_bytes()
     if len(raw) > 1_048_576:
         return {"exitCode": 1, "error": "snapshot_too_large"}
     snapshot = json.loads(raw.decode("utf-8"))
@@ -162,7 +311,8 @@ def handle_state_snapshot_read(_payload=None) -> dict:
         "exists": True,
         "snapshot": snapshot,
         "bytes": len(raw),
-        "path": str(STATE_SNAPSHOT_FILE),
+        "path": str(source),
+        "legacy": source == LEGACY_STATE_SNAPSHOT_FILE,
     }
 
 
@@ -519,6 +669,9 @@ HANDLERS = {
     "browser.profile.status": handle_browser_profile_status,
     "state.snapshot.read": handle_state_snapshot_read,
     "state.snapshot.write": handle_state_snapshot_write,
+    "evidence.ledger.append": handle_evidence_ledger_append,
+    "evidence.ledger.status": handle_evidence_ledger_status,
+    "evidence.ledger.read": handle_evidence_ledger_read,
     "work.execute": handle_work_execute,
 }
 
@@ -529,7 +682,7 @@ def execute(command: dict) -> tuple[bool, dict]:
     if handler is None:
         return False, {"error": "action_not_implemented", "action": action}
     try:
-        result = handler(command.get("payload")) if action.startswith("state.snapshot.") or action == "work.execute" else handler()
+        result = handler(command.get("payload")) if action.startswith("state.snapshot.") or action.startswith("evidence.ledger.") or action == "work.execute" else handler()
         ok = not isinstance(result, dict) or result.get("exitCode", 0) == 0
         return ok, result
     except subprocess.TimeoutExpired as exc:
