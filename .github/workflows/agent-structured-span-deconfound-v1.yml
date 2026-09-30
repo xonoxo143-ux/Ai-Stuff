@@ -1,0 +1,33 @@
+name: Agent Structured Span Deconfound Gate v1
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_language/structured_span_deconfound_gate_v1.py'
+      - '.github/workflows/agent-structured-span-deconfound-v1.yml'
+  workflow_dispatch:
+
+jobs:
+  deconfound:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: python -m pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run three-seed deconfounded gate
+        run: |
+          python agent-model/agent_language/structured_span_deconfound_gate_v1.py \
+            --seeds 0,1,2 \
+            --steps 1200 \
+            --out structured_span_deconfound_v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Structured-Span-Deconfound-V1
+          path: structured_span_deconfound_v1.json
