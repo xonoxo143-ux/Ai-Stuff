@@ -1462,3 +1462,33 @@ Remaining automatic failures:
 - `logic_01` — constraint/information-gain puzzle.
 
 Manual/open-ended benchmark families still fail at perception and remain unsolved.
+
+## 1R. Grounded Percentage Algebra v1 — promoted
+
+A weakly grounded percentage-word-problem solver learned the meanings of change verbs from numeric consequences, then mapped unseen chained problems to symbolic factors and solved them algebraically.
+
+Learned lexical semantics:
+
+```text
+discounts / reduces / cuts      → multiplicative decrease
+raises / increases / boosts     → multiplicative increase
+```
+
+Three seeds:
+
+```text
+held-out random chained problems   100% (300/300 per seed)
+chatbot-v0 math_01                  100% ($100)
+```
+
+Benchmark derivation:
+
+```text
+Original price: $100. Check: $100 × 0.8 × 1.2 = $96.
+```
+
+### Decision
+
+Promote language→equation/program→symbolic executor for objective math word problems when the semantics can be grounded and verified.
+
+This mechanism is now ready for whole-agent integration.
