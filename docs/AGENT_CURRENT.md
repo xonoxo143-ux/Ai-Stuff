@@ -1240,3 +1240,52 @@ This is now a language-specific replication of the broader project principle:
 Do not keep extending the controlled construction benchmark by default.
 
 The next highest-leverage target returns to Whole-Agent Closure: connect the surviving construction parser, persistent structured memory/cognition, and homegrown pointer/copy producer into one self-contained multi-turn conversational loop.
+
+## 1M. Whole-Agent Closure v0 — integration launched
+
+The first self-contained conversational loop using only surviving homegrown mechanisms has been implemented and launched in GitHub Actions.
+
+Implementation:
+`agent-model/agent_runtime/whole_agent_closure_gate_v0.py`
+
+Workflow:
+`.github/workflows/agent-whole-agent-closure-v0.yml`
+
+GitHub Actions run:
+`36656054633`
+
+Architecture under test:
+
+```text
+raw user bytes
+→ learned developmental construction grammar
+→ typed operation / slot bindings
+→ existing AgentRuntime capability contract
+→ durable SQLite semantic memory
+→ response state
+→ learned autoregressive pointer/copy GRU
+→ raw assistant text
+```
+
+No OpenAI-compatible or pretrained language backend is present in this inference path.
+
+The closure script deliberately reuses the existing runtime and SQLite memory contracts rather than creating a parallel agent shell.
+
+Gate conversation tests:
+- completely unseen argument strings;
+- nested learned language wrappers;
+- persistent set/retrieve behavior;
+- topic switching between independent stored facts;
+- overwrite/update;
+- runtime + memory-object restart with only the SQLite file retained;
+- thread resumption after restart;
+- unknown-memory response;
+- exact output copied through the learned producer rather than a lexical template.
+
+Pass condition:
+- all 7 turns exact on all 3 seeds;
+- producer scaffold generation exact for every response-state type;
+- memory survives runtime restart;
+- no external/pretrained language backend.
+
+Do not promote the closure result until the external run completes. A pass establishes end-to-end plumbing, not broad conversational intelligence. The existing `chatbot-v0` mixed-domain benchmark remains the next whole-agent capability probe after closure.
