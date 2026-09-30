@@ -952,3 +952,70 @@ Return to **Whole-Agent Closure**:
 > map bytes/language + conversational context into a structured goal/effect state; use that state to select/compose homegrown computation; feed the resulting state into the homegrown producer.
 
 The nursery should now serve as developmental infrastructure for the conversational agent, not become the objective itself.
+
+## 1H. Guided frontier + pointer-language gates — 2026-09-29
+
+Two new mechanisms cleared meaningful gates; two related input-binding designs failed.
+
+### Novel reasoning: learned proposal + explicit frontier
+
+On unseen 4–7-step toy compositions with 12,800 stored candidate modules:
+
+```text
+myopic learned rollout      18.10% solved
+guided frontier, width 6    42.14%
+guided frontier, width 18   53.10%
+```
+
+Three-seed mean, 140 tasks/seed.
+
+This is a 2.93× capability increase without changing the learned proposer.
+
+Decision:
+- promote **proposal + bounded explicit frontier** as the current novel-reasoning pattern;
+- do not promote fixed beam width as final architecture;
+- use variable test-time compute;
+- successful expensive reasoning should still be compiled/cold-stored so repeated problems return to cheap execution.
+
+### Language production: pointer/copy producer
+
+A 19,789-parameter recurrent producer learns ordinary output bytes plus four COPY(role) actions.
+
+Three-seed result:
+
+```text
+IID exact                        100%
+all lexical values unseen        100%
+mixed known/unseen lexical       100%
+mean training time               ~14.4 s
+```
+
+The hot producer does not need to memorize names/entities/content that already exist in structured state.
+
+Decision:
+- promote pointer/copy production for the next integrated language gate;
+- exact content remains structured/cold; linguistic scaffolding stays hot.
+
+### Language perception: current span binders failed
+
+Per-byte role tagging and independent role start/end pointers were both rejected.
+
+Best all-unseen-lexical exact result among them: 10.8%.
+
+Do not tune.
+
+### Next high-leverage gate
+
+Research/build:
+
+> **structured span composition for perception** — parse an utterance into action/query structure plus role-bearing spans, with explicit structural constraints, so arbitrary unseen byte strings can be bound into internal state.
+
+Success criterion should include:
+- held-out paraphrase structure;
+- entirely unseen entity/value strings;
+- exact span binding;
+- multi-turn memory use;
+- no fixed lexical classifier;
+- end-to-end connection to the surviving COPY(role) producer.
+
+The whole-agent target remains the authority. Synthetic reasoning gates stay diagnostic.
