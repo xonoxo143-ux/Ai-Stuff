@@ -9,6 +9,7 @@
 
 ## OpenAssistant OASST1
 - Purpose: real multi-turn conversational language.
+- V0 builder keeps English, reviewed, non-deleted records and excludes rows marked synthetic.
 - Source: https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/2023-04-12_oasst_ready.messages.jsonl.gz
 - License: Apache-2.0.
 - Ready-messages SHA-256: 286a6e9a5a413b3272ae9c0b5a20d327983dea1c24342ae28cb244a6da65185c

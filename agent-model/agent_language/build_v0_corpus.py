@@ -33,6 +33,8 @@ def load_oasst(path: Path) -> tuple[list[bytes], list[bytes]]:
             row = json.loads(line)
             if row.get("lang") != "en" or row.get("deleted"):
                 continue
+            if row.get("synthetic"):
+                continue
             if row.get("review_result") is False:
                 continue
             messages[row["message_id"]] = row
@@ -240,8 +242,29 @@ def main() -> None:
     train_budgets = {k: int(train_total * v) for k, v in weights.items()}
     valid_budgets = {k: int(valid_total * v) for k, v in weights.items()}
 
+    wiki_train = wiki_train_path.read_bytes()
+    wiki_valid = wiki_valid_path.read_bytes()
+    train_streams = {
+        "prose": tagged("prose", wiki_train.decode("utf-8", errors="ignore")),
+        "dialogue": b"".join(dialogue_train),
+        "reasoning": b"".join(reason_train),
+        "planner": b"".join(plan_train),
+    }
+    valid_streams = {
+        "prose": tagged("prose", wiki_valid.decode("utf-8", errors="ignore")),
+        "dialogue": b"".join(dialogue_valid),
+        "reasoning": b"".join(reason_valid),
+        "planner": b"".join(plan_valid),
+    }
+    stream_paths = {}
+    for split, streams in (("train", train_streams), ("valid", valid_streams)):
+        for kind, payload in streams.items():
+            path = out / f"{split}_{kind}.bin"
+            path.write_bytes(payload)
+            stream_paths[f"{split}_{kind}"] = path
+
     train = build_split(
-        wiki=wiki_train_path.read_bytes(),
+        wiki=wiki_train,
         dialogue=dialogue_train,
         reasoning=reason_train,
         planner=plan_train,
@@ -249,7 +272,7 @@ def main() -> None:
         seed=args.seed,
     )
     valid = build_split(
-        wiki=wiki_valid_path.read_bytes(),
+        wiki=wiki_valid,
         dialogue=dialogue_valid,
         reasoning=reason_valid,
         planner=plan_valid,
@@ -279,6 +302,12 @@ def main() -> None:
         "dialogue_train_records": len(dialogue_train),
         "dialogue_valid_records": len(dialogue_valid),
         "generated_overlap_records": len(overlap),
+        "stream_bytes": {
+            key: path.stat().st_size for key, path in stream_paths.items()
+        },
+        "stream_sha256": {
+            key: sha256_file(path) for key, path in stream_paths.items()
+        },
         "sources": {
             "wikitext_train_sha256": sha256_file(wiki_train_path),
             "wikitext_valid_sha256": sha256_file(wiki_valid_path),

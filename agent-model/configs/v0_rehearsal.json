@@ -1,18 +1,60 @@
 {
   "seed": 20260930,
-  "train_file": "data/v0/train.bin",
+  "train_streams": {
+    "prose": "data/v0/train_prose.bin",
+    "dialogue": "data/v0/train_dialogue.bin",
+    "reasoning": "data/v0/train_reasoning.bin",
+    "planner": "data/v0/train_planner.bin"
+  },
   "valid_file": "data/v0/valid.bin",
   "sequence_length": 64,
-  "batch_size": 2,
+  "batch_size": 8,
   "steps": 12,
+  "curriculum": [
+    {
+      "name": "language_foundation",
+      "end_step": 6,
+      "weights": {
+        "prose": 0.75,
+        "dialogue": 0.25
+      }
+    },
+    {
+      "name": "conversation_bridge",
+      "end_step": 9,
+      "weights": {
+        "prose": 0.45,
+        "dialogue": 0.4,
+        "reasoning": 0.1,
+        "planner": 0.05
+      }
+    },
+    {
+      "name": "cognitive_integration",
+      "end_step": 12,
+      "weights": {
+        "prose": 0.3,
+        "dialogue": 0.3,
+        "reasoning": 0.2,
+        "planner": 0.2
+      }
+    }
+  ],
   "learning_rate": 0.0015,
   "weight_decay": 0.01,
   "grad_clip": 1,
-  "checkpoint_every": 4,
-  "eval_every": 4,
+  "checkpoint_every": 3,
+  "eval_every": 3,
   "eval_steps": 2,
   "threads": 1,
   "deterministic": true,
   "sample_bytes": 64,
-  "sample_prompt": "<|dialogue|>\nUser: Why should I verify a surprising result?\nAssistant:"
+  "speed_sample_bytes": 16,
+  "sample_prompt": "<|dialogue|>\nUser: Why should I verify a surprising result?\nAssistant:",
+  "valid_streams": {
+    "prose": "data/v0/valid_prose.bin",
+    "dialogue": "data/v0/valid_dialogue.bin",
+    "reasoning": "data/v0/valid_reasoning.bin",
+    "planner": "data/v0/valid_planner.bin"
+  }
 }

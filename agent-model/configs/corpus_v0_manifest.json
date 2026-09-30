@@ -8,6 +8,26 @@
     "wikitext_train_sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57",
     "wikitext_valid_sha256": "4cd0f6876d07a413aa911261ff6d363c72d757d47f0fdd6015702014c89cb9c7"
   },
+  "stream_bytes": {
+    "train_dialogue": 15008780,
+    "train_planner": 4464083,
+    "train_prose": 10940759,
+    "train_reasoning": 2914695,
+    "valid_dialogue": 1684792,
+    "valid_planner": 436412,
+    "valid_prose": 1146856,
+    "valid_reasoning": 165923
+  },
+  "stream_sha256": {
+    "train_dialogue": "7b19776b9cc1c53493fa00ab72afcb3d13e6deff04c0b7fac1ec4d3604b508ec",
+    "train_planner": "a2b5667939831dd617aeb19d1b0ae4e7e61ba808ddc573ce021bd4f00bbeb513",
+    "train_prose": "db34e4116363bea159f82bdfc8f66d89c71253d4b25c20fa1cd022ba1608b376",
+    "train_reasoning": "091066d627d945c397020135002941e8ccd8d69543c31dd68a767846339783c6",
+    "valid_dialogue": "f7ac1313aee5f58d4245b3452700f38a98f881ca198e53bc3aa9b65c9c3d1dba",
+    "valid_planner": "6995c3769c49514f2111227159a90755e406166a3dd464c6d56d7e3671db305a",
+    "valid_prose": "ac14b2b93ddfeb4f0a1750907b2a6558555cfedf9657a01d783666f0c0600b45",
+    "valid_reasoning": "0e11a3b652d0ee95bf91ea75b45877a0c0a8158f327742755896a4602ad4c74d"
+  },
   "train_bytes": 16777232,
   "train_sha256": "98c6193f34c7a3d224739c04b8999bfdb03200948392b13d876dc4e141cd9a50",
   "valid_bytes": 2097168,

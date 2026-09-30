@@ -54,7 +54,8 @@ def make_micro_english(seed: int, examples: int = 2200) -> bytes:
 
 class ByteBatchStream:
     def __init__(self, data: bytes, seed: int = 0) -> None:
-        self.data = torch.tensor(list(data), dtype=torch.long)
+        # Keep the corpus compact. Convert only sampled batches to model indices.
+        self.data = torch.frombuffer(bytearray(data), dtype=torch.uint8)
         self.rng = random.Random(seed)
 
     def batch(
@@ -70,8 +71,8 @@ class ByteBatchStream:
         ]
         x = torch.stack(
             [self.data[s : s + sequence_length] for s in starts]
-        )
+        ).long()
         y = torch.stack(
             [self.data[s + 1 : s + sequence_length + 1] for s in starts]
-        )
+        ).long()
         return x, y

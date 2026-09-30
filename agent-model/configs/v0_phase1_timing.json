@@ -1,0 +1,33 @@
+{
+  "batch_counts": {
+    "dialogue": 16,
+    "prose": 48
+  },
+  "checkpoint_seconds": 0.13516025998978876,
+  "config_sha256": "066406caba2cd813257d75612b0360dd44a6d0434007283cfec55515c97f40bd",
+  "generation_bytes_per_second": 173.68458123568672,
+  "generation_equiv_tokens_per_second": 43.42114530892168,
+  "global_eval_seconds": 16.184146034996957,
+  "kind": "pretraining_phase1_projection",
+  "mean_train_step_seconds": 6.006257007500001,
+  "measured_on": "android-arm64-termux",
+  "notes": [
+    "Equivalent token rate uses 4 bytes per conventional-token equivalent.",
+    "Projection includes configured validation, generation-speed probes, checkpoints, and final validation/sample.",
+    "Real wall time may increase under thermal throttling or competing phone workloads."
+  ],
+  "phase1_mix": {
+    "dialogue": 0.25,
+    "prose": 0.75
+  },
+  "phase1_sampled_bytes": 16777216,
+  "phase1_steps": 2048,
+  "phase_eval_seconds": 17.199630879011238,
+  "projected_overhead_seconds": 593.2689375332848,
+  "projected_phase1_hours": 3.5816898024703576,
+  "projected_phase1_seconds": 12894.083288893287,
+  "projected_training_seconds": 12300.814351360003,
+  "sample_train_steps": 12,
+  "training_bytes_per_second": 1363.9109997741798,
+  "training_equiv_tokens_per_second": 340.97774994354495
+}

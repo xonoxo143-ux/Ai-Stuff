@@ -53,3 +53,46 @@ def test_v0_control_is_parameter_matched() -> None:
     hybrid = parameter_count(build_model("hybrid"))
     control = parameter_count(build_model("transformer"))
     assert abs(hybrid - control) / hybrid < 0.02
+
+
+def test_curriculum_batch_counts_are_exact() -> None:
+    from agent_language.curriculum import allocate_counts
+
+    assert allocate_counts(
+        {"prose": 0.75, "dialogue": 0.25},
+        64,
+    ) == {"prose": 48, "dialogue": 16}
+    assert allocate_counts(
+        {
+            "prose": 0.45,
+            "dialogue": 0.40,
+            "reasoning": 0.10,
+            "planner": 0.05,
+        },
+        64,
+    ) == {
+        "prose": 29,
+        "dialogue": 26,
+        "reasoning": 6,
+        "planner": 3,
+    }
+
+
+def test_throughput_equivalent_token_rate() -> None:
+    from agent_language.train_v0 import throughput
+
+    got = throughput(4000, 2.0)
+    assert got["train_bytes_per_sec"] == 2000.0
+    assert got["train_equiv_tokens_per_sec"] == 500.0
+
+
+def test_byte_stream_keeps_corpus_compact() -> None:
+    from agent_language.data import ByteBatchStream
+
+    stream = ByteBatchStream(bytes(range(256)) * 20, seed=1)
+    assert stream.data.dtype == torch.uint8
+    x, y = stream.batch(3, 32)
+    assert x.dtype == torch.long
+    assert y.dtype == torch.long
+    assert x.shape == (3, 32)
+    assert y.shape == (3, 32)
