@@ -5401,6 +5401,21 @@ function reportingSummary() {
   };
 }
 
+async function continuitySummary({ verify = false } = {}) {
+  const evidence = await durableState.summary();
+  return {
+    architecture: "evidence-ledger-v1",
+    canonicalHistory: "append_only_evidence_ledger",
+    materializedState: "rebuildable_cache",
+    handoffPolicy: "generated_summary_not_source_of_truth",
+    identity: identityManifest,
+    identityManifestHash,
+    configHash: continuityConfigHash,
+    evidence,
+    verification: verify ? await durableState.verify() : null,
+  };
+}
+
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
@@ -5431,7 +5446,12 @@ const server = http.createServer(async (req, res) => {
         agentLine: agentLineSummary(),
       },
       workScheduler: workSchedulerSummary(),
-      durability: await durableState.summary(),
+      continuity: await continuitySummary(),
+      durability: {
+        deprecated: true,
+        replacement: "continuity",
+        ...(await durableState.summary()),
+      },
       reporting: reportingSummary(),
     });
   }
@@ -5464,7 +5484,12 @@ const server = http.createServer(async (req, res) => {
         agentLine: agentLineSummary(),
       },
       workScheduler: workSchedulerSummary(),
-      durability: await durableState.summary(),
+      continuity: await continuitySummary(),
+      durability: {
+        deprecated: true,
+        replacement: "continuity",
+        ...(await durableState.summary()),
+      },
       reporting: reportingSummary(),
     });
   }
@@ -5498,12 +5523,17 @@ const server = http.createServer(async (req, res) => {
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
         stripe: stripeAdapter.summary(),
-        continuityJournal: "adapter_pending",
+        continuityJournal: "replaced_by_evidence_ledger_v1",
         motor: motorSummary(),
       },
       queue: Array.from(taskQueue.values()).slice(-100),
       workScheduler: workSchedulerSummary(),
-      durability: await durableState.summary(),
+      continuity: await continuitySummary(),
+      durability: {
+        deprecated: true,
+        replacement: "continuity",
+        ...(await durableState.summary()),
+      },
       reporting: reportingSummary(),
       motorQueue: motorQueue.slice(-100).map(({ result, ...item }) => item),
       motorCompleted: Array.from(motorCompleted.values()).slice(-100),
@@ -5511,6 +5541,24 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+
+  if (req.method === "GET" && url.pathname === "/v1/continuity") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    return json(res, 200, await continuitySummary({ verify: true }));
+  }
+
+  if (req.method === "GET" && url.pathname === "/v1/evidence") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") || 100), 500));
+    const eventType = url.searchParams.get("event_type") || null;
+    const events = await durableState.readEvents({ limit, eventType });
+    return json(res, 200, {
+      schema_version: "1.0",
+      count: events.length,
+      event_type: eventType,
+      events,
+    });
+  }
 
   if (req.method === "GET" && url.pathname === "/v1/work") {
     if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
