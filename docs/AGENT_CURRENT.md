@@ -1567,3 +1567,41 @@ language
 ```
 
 This mirrors the active-disambiguation mechanism already promoted for language acquisition.
+
+## 1U. Whole-Agent Chatbot v3 — objective subset complete
+
+Whole-Agent Chatbot v3 integrates:
+- execution-grounded stored procedures;
+- grounded percentage algebra;
+- finite constraint + information-gain logic;
+- learned recurrent pointer/copy surface realization.
+
+Clean GitHub Actions rerun `36659568239`, three seeds:
+
+```text
+perception success   5/13
+automatic passes    5/5
+```
+
+Passing objective benchmark turns:
+- `math_01`
+- `logic_01`
+- `compression_01`
+- `compression_02`
+- `compression_03`
+
+The initial v3 run passed the automatic check but truncated the logic explanation at the producer generation ceiling. That production bug was fixed by increasing the bounded generation window, then the full gate was rerun.
+
+Final logic realization:
+
+```text
+Draw one fruit from the box labeled MIXED. Because every label is wrong, that box cannot actually be MIXED; it must be all APPLES or all ORANGES. If you draw APPLES, relabel it APPLES; if you draw ORANGES, relabel it ORANGES. Either observation leaves one consistent assignment, so the other two boxes are forced.
+```
+
+### Decision
+
+The automatically scored objective subset is provisionally closed.
+
+Do **not** optimize these five tasks further unless a later regression appears.
+
+The remaining 8/13 benchmark turns are the higher-leverage frontier: roleplay, literary/philosophical analysis, thread resumption, cross-domain synthesis, coding, referent clarification, and epistemic restraint.
