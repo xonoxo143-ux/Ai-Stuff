@@ -155,9 +155,9 @@ Current live implementation:
 
 - Railway service: `browser-worker-wNUX`
 - runtime: `continuity-agent-core`
-- current deployed release: **v0.18.0**
-- code-release commit: `f025f18a3a83dc80c4577d645e7350ef1994dd3b`
-- successful production deployment: `7679f6ef-0703-4d0c-b593-9a16e3ef7269`
+- current deployed release: **v0.19.0**
+- code-release commit: `707414f883dc4a66c4e608330385b9c795efee9f`
+- successful production deployment: `38ae8cd5-92f7-412d-89cd-a5a309c47d86`
 - deployment source is pinned to that exact code-release commit
 - public healthcheck path: `/health`
 - outbound work: enabled
@@ -245,6 +245,9 @@ mach-187357670b1349d2a59ab423272af52e
       +--> continuity.verify
       +--> continuity.status
       +--> browser.profile.status
+      +--> state.snapshot.read/write
+      +--> work.execute                     (repository v0.19 daemon)
+      +--> evidence.ledger.append/status/read (repository v0.19 daemon)
 ```
 
 Machine-side daemon:
@@ -258,7 +261,7 @@ End-to-end verification completed on 2026-09-29 UTC:
 - `system.ping` completed successfully;
 - `continuity.verify` completed successfully.
 
-There is intentionally **no arbitrary remote-shell action** in the motor protocol. The repository-side v0.18 motor implements `work.execute`, but the canonical smolmachine must still be refreshed before that action is live end-to-end.
+There is intentionally **no arbitrary remote-shell action** in the motor protocol. The repository-side v0.19 daemon implements `work.execute` and the evidence-ledger actions, but the canonical smolmachine is still running its earlier daemon. Current work state recovery remains live through the backwards-compatible snapshot action; refresh the daemon before claiming bounded job execution or full evidence mirroring is live on the machine.
 
 The one-time installer bootstrap was disabled after successful installation. The permanent token remains only in managed runtime secret storage and the machine's owner-only secrets directory.
 
@@ -332,15 +335,18 @@ Worker-facing authenticated endpoints:
 
 The runtime still refuses autonomous spending and arbitrary remote shell access. v0.18 adds a bounded execution limb for concrete, preplanned coding/research steps; open-ended reasoning still belongs in a compatible episodic worker rather than the deterministic scheduler.
 
-## Current handoff checkpoint — 2026-09-29
+## Current handoff checkpoint — 2026-09-30
 
-Agent Core v0.18.0 server/control-plane release is committed, deployed, and live.
+Agent Core v0.19.0 server/control-plane release is committed, deployed, and live.
 
 - implementation branch: `agent-core`
-- code-release SHA: `f025f18a3a83dc80c4577d645e7350ef1994dd3b`
+- code-release SHA: `707414f883dc4a66c4e608330385b9c795efee9f`
 - live Railway service: `browser-worker-wNUX`
-- production deployment: `7679f6ef-0703-4d0c-b593-9a16e3ef7269`
-- runtime startup reports version `0.18.0`
+- production deployment: `38ae8cd5-92f7-412d-89cd-a5a309c47d86`
+- runtime startup reports version `0.19.0`
+- evidence-ledger continuity is active in the runtime
+- legacy continuity files are migration evidence, not canonical state
+- old smolmachine materialized work state successfully merged into v0.19 after deployment
 - AgentMail webhook is ready
 - motor polling/acknowledgements are live
 - direct financial actions remain disabled
@@ -348,7 +354,7 @@ Agent Core v0.18.0 server/control-plane release is committed, deployed, and live
 
 Docs-only commits may advance the `agent-core` branch beyond the pinned code-release SHA. Do not mistake a later documentation commit for a new runtime release.
 
-The immediate capability gap is **machine rollout**: the v0.18 bounded executor exists in the repository and server control plane, but the persistent smolmachine is still running the earlier motor daemon. Refresh that daemon through the owner-controlled smolmachines session/API, then run a real task through `work.execute`. Open-ended episodic reasoning remains a later/parallel worker capability.
+The immediate capability gap is **machine daemon rollout**: the v0.19 bounded executor and evidence-ledger adapter exist in the repository and server control plane, while the persistent smolmachine still runs the earlier daemon. Current materialized work-state recovery is backwards-compatible and verified. Refresh the daemon through the owner-controlled smolmachines session/API, verify `evidence.ledger.status`, enable `EVIDENCE_MOTOR_MIRROR_ENABLED=true`, then run a harmless `work.execute` smoke job.
 
 ## Recovery sequence for a new worker
 
