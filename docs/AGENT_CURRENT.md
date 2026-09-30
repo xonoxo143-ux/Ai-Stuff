@@ -1492,3 +1492,34 @@ Original price: $100. Check: $100 × 0.8 × 1.2 = $96.
 Promote language→equation/program→symbolic executor for objective math word problems when the semantics can be grounded and verified.
 
 This mechanism is now ready for whole-agent integration.
+
+## 1S. Whole-Agent Chatbot v2 — 4/5 automatic
+
+Grounded percentage algebra was integrated alongside the learned repeated-procedure capability.
+
+GitHub Actions run `36658914798`, three seeds:
+
+```text
+perception success   4/13
+automatic passes    4/5
+```
+
+Passing objective turns:
+- `math_01`
+- `compression_01`
+- `compression_02`
+- `compression_03`
+
+Math response:
+
+```text
+Original price: $100. Check: $100 x 0.8 x 1.2 = $96.
+```
+
+No regression occurred on the three stored-procedure turns.
+
+### Next objective gate
+
+The only remaining automatically scored benchmark item is `logic_01`.
+
+Build a reusable constraint/information-gain solver rather than storing the classic puzzle answer.
