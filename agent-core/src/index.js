@@ -375,6 +375,9 @@ function completeMotorCommand(id, ok, result) {
   if (ok && item.action === "state.snapshot.read" && result?.snapshot) {
     mergeRecoveredWorkState(result.snapshot, "smolmachine");
   }
+  if (item.action === "work.execute") {
+    applyMotorWorkResult(item, ok, result);
+  }
   if (!item.action.startsWith("state.snapshot.")) {
     rememberEvent({
       id: randomUUID(),
@@ -549,8 +552,25 @@ function extractAgentMailMotorAction(payload) {
   if (!match) return null;
   const action = match[1].toLowerCase();
   if (!motorAllowedActions.has(action)) return null;
+  let commandPayload = null;
+  if (action === "work.execute") {
+    const textBody = String(
+      message.text ||
+      message.extracted_text ||
+      message.extractedText ||
+      message.body ||
+      message.content ||
+      ""
+    ).trim();
+    if (!textBody) throw new Error("work_execute_email_requires_json_body");
+    const unfenced = textBody
+      .replace(/^\s*```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/i, "");
+    commandPayload = validateMotorWorkPayload(JSON.parse(unfenced));
+  }
   return {
     action,
+    payload: commandPayload,
     externalId: String(payload.event_id || message.message_id || "").slice(0, 240) || null,
     source: "agentmail.message.received",
   };
@@ -5461,6 +5481,37 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "POST" && url.pathname === "/v1/work/dispatch") {
+    if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
+    try {
+      const body = await readJson(req, 1_048_576);
+      const dispatched = dispatchMotorWork(
+        body,
+        typeof body?.source === "string" ? body.source : "work.dispatch",
+        typeof body?.externalId === "string" ? body.externalId : null,
+      );
+      return json(res, 202, {
+        accepted: true,
+        command: {
+          id: dispatched.command.id,
+          action: dispatched.command.action,
+          status: dispatched.command.status,
+          expiresAt: dispatched.command.expiresAt,
+        },
+        lease: dispatched.lease,
+        item: dispatched.item
+          ? { key: dispatched.item.key, state: dispatched.item.state, execution: dispatched.item.execution }
+          : null,
+      });
+    } catch (err) {
+      const code =
+        err?.message === "work_item_not_found" ? 404 :
+        err?.message === "outbound_work_disabled" ? 409 :
+        400;
+      return json(res, code, { error: err instanceof Error ? err.message : "dispatch_failed" });
+    }
+  }
+
   if (req.method === "POST" && url.pathname === "/v1/work/lease") {
     if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
     try {
@@ -5684,7 +5735,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/v1/motor/ack") {
     if (!motorAuthorized(req)) return json(res, 401, { error: "unauthorized" });
     try {
-      const body = await readJson(req, 32_768);
+      const body = await readJson(req, 131_072);
       const id = String(body?.id || "").trim();
       const ok = body?.ok === true;
       if (!id) return json(res, 400, { error: "missing_command_id" });
@@ -5707,13 +5758,14 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/v1/motor/enqueue") {
     if (!authorized(req)) return json(res, 401, { error: "unauthorized" });
     try {
-      const body = await readJson(req, 8192);
+      const body = await readJson(req, 1_048_576);
       const action = String(body?.action || "").trim().toLowerCase();
-      const command = enqueueMotorCommand(
-        action,
-        typeof body?.source === "string" ? body.source : "operator",
-        typeof body?.externalId === "string" ? body.externalId : null,
-      );
+      const source = typeof body?.source === "string" ? body.source : "operator";
+      const externalId = typeof body?.externalId === "string" ? body.externalId : null;
+      const dispatched = action === "work.execute"
+        ? dispatchMotorWork(body?.payload, source, externalId)
+        : { command: enqueueMotorCommand(action, source, externalId, body?.payload ?? null) };
+      const command = dispatched.command;
       return json(res, 202, {
         accepted: true,
         command: {
@@ -5722,6 +5774,7 @@ const server = http.createServer(async (req, res) => {
           status: command.status,
           expiresAt: command.expiresAt,
         },
+        lease: dispatched.lease || null,
       });
     } catch (err) {
       if (err?.message === "motor_action_not_allowed") {
@@ -5743,7 +5796,10 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req, 1_048_576);
       const parsed = extractAgentMailMotorAction(body);
       if (!parsed) return json(res, 200, { accepted: false, reason: "not_a_motor_command" });
-      const command = enqueueMotorCommand(parsed.action, parsed.source, parsed.externalId);
+      const dispatched = parsed.action === "work.execute"
+        ? dispatchMotorWork(parsed.payload, parsed.source, parsed.externalId)
+        : { command: enqueueMotorCommand(parsed.action, parsed.source, parsed.externalId, parsed.payload ?? null) };
+      const command = dispatched.command;
       return json(res, 202, {
         accepted: true,
         command: {
@@ -5782,11 +5838,10 @@ const server = http.createServer(async (req, res) => {
       let motorCommand = null;
       if (body.type === "email.received" && typeof body.command === "string") {
         try {
-          motorCommand = enqueueMotorCommand(
-            body.command.trim().toLowerCase(),
-            event.source || "v1.events",
-            event.externalId,
-          );
+          const action = body.command.trim().toLowerCase();
+          motorCommand = action === "work.execute"
+            ? dispatchMotorWork(body.payload, event.source || "v1.events", event.externalId).command
+            : enqueueMotorCommand(action, event.source || "v1.events", event.externalId, body.payload ?? null);
         } catch {}
       }
       return json(res, 202, {
