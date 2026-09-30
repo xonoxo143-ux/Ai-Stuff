@@ -26,7 +26,7 @@ def codeword(i):
 
 RARE=[codeword(i) for i in range(4096)]
 PLACE={"<name>","<value>","<ATTR>"}
-PUN={".",",","?","'s"}
+PUN={".",",","?"}
 
 def literals(pattern):
     return sorted(set(x for x in pattern if x not in PLACE and x not in PUN))
@@ -167,7 +167,7 @@ def run(seed,stages,queries):
                 t=time.perf_counter(); hit,m=s.retrieve(q); lat.append((time.perf_counter()-t)*1000)
                 good+=bool(hit and hit[1]==mode and hit[2]==pat); mets.append(m)
             # Small sample of true global-scan work count; do not time 100k scans repeatedly.
-            fsize=os.path.getsize(path)
+            fsize=sum(os.path.getsize(x) for x in (path,path+"-wal",path+"-shm") if os.path.exists(x))
             results.append({
               "constructions":target,
               "cold_bytes":fsize,
