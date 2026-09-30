@@ -86,26 +86,27 @@ The release was corrected to accept bounded 1 MiB motor acknowledgements. Final 
 
 Therefore the pre-migration materialized work state survived and was merged into v0.19.
 
-## Persistent-machine rollout boundary
+## Persistent-machine rollout result
 
-Repository v0.19 motor now implements:
+Repository v0.19 motor implements:
 
 - `evidence.ledger.append`
 - `evidence.ledger.status`
 - `evidence.ledger.read`
 - `work.execute`
 
-The existing smolmachine is still running its earlier daemon. The backwards-compatible state snapshot path is working, but full evidence mirroring is intentionally disabled until the machine daemon is refreshed and verified.
+The existing persistent smolmachine was refreshed in place on 2026-09-30 UTC using the pinned v0.19 daemon from code-release SHA `707414f883dc4a66c4e608330385b9c795efee9f`. The installed daemon matched repository blob `729c03b78d5ed2a89a5d50302e40b5b5fc4eb40b`.
 
-After refresh:
+Verification evidence:
 
-1. verify `evidence.ledger.status`;
-2. enable `EVIDENCE_MOTOR_MIRROR_ENABLED=true`;
-3. verify an event append twice (second must be idempotent duplicate);
-4. verify ledger head/count;
-5. then run a harmless `work.execute` smoke job.
+1. `evidence.ledger.status` was received and ACKed with `ok:true`;
+2. `EVIDENCE_MOTOR_MIRROR_ENABLED=true` was enabled;
+3. repeated `evidence.ledger.append` commands were received and ACKed with `ok:true`;
+4. Agent Core reported `chainValid:true`, canonical identity `self-root-541`, no continuity error, and the expected rebuildable materialized cache;
+5. duplicate suppression was verified against a temporary ledger: first append accepted once and the identical second append was counted as a duplicate without increasing count;
+6. bounded `work.execute` completed a harmless two-step write/read smoke job with exit code 0.
 
-Do not create a second machine or add arbitrary shell access to complete this rollout.
+The existing machine remains the sole canonical persistent worker target. No second machine was created and the bounded-motor security model was not widened.
 
 ## Source-design invariant retained
 
