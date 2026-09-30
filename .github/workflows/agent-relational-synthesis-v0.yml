@@ -1,0 +1,30 @@
+name: Agent Relational Synthesis Gate v0
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_cognition/relational_synthesis_gate_v0.py'
+      - '.github/workflows/agent-relational-synthesis-v0.yml'
+  workflow_dispatch:
+jobs:
+  relational-synthesis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run relational synthesis gate
+        run: |
+          python agent-model/agent_cognition/relational_synthesis_gate_v0.py \
+            --seeds 0,1,2 \
+            --cases 1000 \
+            --out relational_synthesis_v0.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Relational-Synthesis-V0
+          path: relational_synthesis_v0.json
