@@ -1,0 +1,34 @@
+name: Agent Whole-Agent Closure Gate v0
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_runtime/whole_agent_closure_gate_v0.py'
+      - '.github/workflows/agent-whole-agent-closure-v0.yml'
+  workflow_dispatch:
+
+jobs:
+  closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: python -m pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run three-seed whole-agent closure
+        working-directory: agent-model
+        run: |
+          python -m agent_runtime.whole_agent_closure_gate_v0 \
+            --seeds 0,1,2 \
+            --producer-steps 500 \
+            --out ../whole_agent_closure_v0.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Whole-Agent-Closure-V0
+          path: whole_agent_closure_v0.json
