@@ -16,31 +16,42 @@ Future research cycles must read these files from this branch first and write up
 Build a self-contained, from-scratch conversational agent that can move across topics, remember, reason, retrieve knowledge, and generate each response from its own learned machinery, without a pretrained LLM as hidden intelligence or response engine.
 
 ## Current whole-agent frontier
-The chatbot integration track now outranks the isolated developmental-interference track for research priority. Existing project evidence still supports heterogeneous capability machinery and multi-timescale development, but the qualitatively missing capability is a broad productive language/semantic interface.
+The chatbot integration track outranks isolated developmental/cognition benchmarks. The most important missing capability is now a broad productive language/semantic interface that can use external evidence, preserve conversational state, and generate coherent responses from homegrown learned machinery.
 
 ## Provisionally settled
 1. **External retrievable knowledge can carry much of the factual burden.** The core need not memorize an encyclopedia parametrically. Retrieval remains part of the agent only if our own machinery selects, interprets, rejects, and uses retrieved evidence.
-2. **Fixed subword tokenization is not fundamental.** Byte/character models can be competitive, but naive byte/character processing pays a substantial sequence-length cost. Learned or structured compression/patching is the stronger family.
+2. **Fixed subword tokenization is not fundamental.** Byte/character interfaces are viable, but naive byte-at-a-time global processing is inefficient; local composition/patching is better supported.
+3. **Pure recurrence/SSM should not be the default first conversational spine.** Evidence from Griffin/Hawk, associative-recall studies, Taipan, and larger hybrid systems supports bounded recurrent/SSM state plus a limited precise-access mechanism for evidence-grounded conversation. Exact tiny-scale architecture details remain open.
+
+## Current engineering prior
+The best-supported first serious language-spine family is:
+> **byte/character boundary + local/learned patching + mostly recurrent/SSM persistent state + limited local/sparse/selective attention + external semantic/world memory.**
+
+This is a provisional engineering prior, not a final architecture. It should be overturned by matched tiny-model evidence if pure recurrence or a compact Transformer wins the combined whole-agent gate.
 
 ## Current highest-value open question
-> For a small, from-scratch conversational agent, which language spine gives the best whole-agent tradeoff between productive generation, sample efficiency, exact retrieval/copying, persistent state, and local inference cost?
+> For a small, from-scratch hybrid conversational spine, which training objective and curriculum most efficiently produces a broad productive semantic interface rather than merely low next-step prediction loss?
 
-Current candidates:
-- compact causal Transformer baseline;
-- selective SSM/recurrent spine (Mamba/RWKV family);
-- hybrid recurrent/SSM + sparse/local attention;
-- byte/character interface with learned multiscale patches rather than naive one-byte-one-step processing.
+Research should compare independent paths such as:
+- plain causal language modeling;
+- dialogue-conditioned causal training;
+- denoising or bidirectional auxiliary objectives;
+- retrieval-conditioned generation;
+- staged curricula that progressively add dialogue, retrieval, memory-conditioned generation, and topic switching.
 
-## Current research inference
-Evidence does **not** justify replacing attention entirely. Pure SSMs are competitive at language modeling and efficient recurrent inference, but controlled comparisons report weaknesses on copying, in-context learning, and some long-context reasoning. Hybrid SSM+attention systems recover or exceed Transformer quality in those regimes while retaining much of the recurrent efficiency.
+## What is no longer the main research target
+- repeated pure-Mamba-vs-Transformer literature comparison;
+- isolated compositional OOD optimization unless whole-agent failures point back to it;
+- developmental plasticity refinements without evidence that they unblock the conversational loop.
 
-For this project, exact access to retrieved evidence and conversational history is unusually important. Therefore the leading engineering hypothesis is:
-> **compact persistent recurrent/SSM state for cheap continuity + a small precise attention path for retrieved/current evidence + a byte/patch language interface.**
+## Next research target
+Determine which training objective/curriculum yields the largest whole-agent gain on:
+- free-form conversation;
+- topic switching;
+- semantic/paraphrase transfer;
+- retrieval-grounded answering with distractors;
+- multi-turn reference/thread retention;
+- compute and convergence efficiency.
 
-This is a hypothesis to test, not an architecture commitment.
-
-## Next research question
-Can a small hybrid language spine trained from scratch beat both a compact Transformer and a pure recurrent/SSM model on the *combined* gate of language quality, evidence copying/use, multi-turn continuity, and local inference economics?
-
-## Research-cycle note — 2026-09-29
-Small-scale evidence now supports treating the hybrid recurrent plus limited precise-access family as provisionally preferred over pure recurrence for the first whole-agent comparison. The next research bottleneck is the training objective and curriculum for broad productive conversation; exact tiny-scale architecture remains an experimental question.
+## Cheapest later experiment
+Fix one tiny hybrid spine and train matched variants under the strongest two or three curricula identified by research. Compare whole-agent behavior and training economics without changing the architecture between runs.
