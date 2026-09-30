@@ -1197,3 +1197,46 @@ unknown wording + grounded consequence
 The matcher still performs a global scan over all stored constructions.
 
 Next gate: scale the cold construction store by 10×–10,000× and require retrieval precision to remain 100% while the number of activated candidate constructions stays nearly bounded.
+
+## 1L. Construction Store Scaling v2 — promoted
+
+A disk-backed construction-discrimination index was tested from 10 to 100,000 stored constructions.
+
+Three seeds, 500 queries/stage:
+
+```text
+stored constructions        10        1,000      10,000      100,000
+retrieval accuracy          100%      100%       100%        100%
+mean candidates loaded      ~1.41     ~1.40      ~1.40       ~1.40
+p95 candidates loaded       2         2          2           2
+mean pattern bytes loaded   ~74 B     ~73 B      ~73 B       ~73 B
+median lookup latency       ~0.049ms  ~0.054ms   ~0.057ms    ~0.079ms
+mean postings returned      ~4.7      ~4.8       ~5.2        ~11.4
+cold store                  ~74KB     ~427KB     ~7.8MB      ~48.7MB
+```
+
+Store size increased 10,000× while active candidate payload remained essentially constant.
+
+The first scaling run exposed a missing possessive anchor; it was corrected before interpretation. The corrected run achieved 100% accuracy at every scale.
+
+### Promoted principle
+
+Language constructions can be cold-stored and activated through a compact discrimination index rather than globally scanned.
+
+```text
+utterance bytes
+→ cheap literal/signature probes
+→ disk-backed postings
+→ ~1–2 candidate constructions
+→ exact typed binding
+```
+
+This is now a language-specific replication of the broader project principle:
+
+> **store broadly, activate narrowly.**
+
+### Strategic reset
+
+Do not keep extending the controlled construction benchmark by default.
+
+The next highest-leverage target returns to Whole-Agent Closure: connect the surviving construction parser, persistent structured memory/cognition, and homegrown pointer/copy producer into one self-contained multi-turn conversational loop.
