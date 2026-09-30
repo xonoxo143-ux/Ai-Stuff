@@ -4086,6 +4086,166 @@ function workRiskReasons(text) {
   return [...new Set(patterns.filter(([needle]) => haystack.includes(needle)).map(([, reason]) => reason))];
 }
 
+
+const MOTOR_WORK_STEP_TYPES = new Set([
+  "mkdir",
+  "write_text",
+  "read_text",
+  "fetch_https",
+  "git_clone_public",
+  "git_apply_patch",
+  "git_inspect",
+  "syntax_check",
+  "git_stage_commit",
+]);
+const MOTOR_WORK_MAX_STEPS = 16;
+const MOTOR_WORK_MAX_TEXT_BYTES = 262_144;
+
+function motorWorkRelativePath(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.length > 500 || raw.startsWith("/") || raw.startsWith("\\") || raw.includes("\0")) {
+    throw new Error("invalid_work_relative_path");
+  }
+  const parts = raw.split(/[\\/]+/);
+  if (parts.some((part) => !part || part === "." || part === "..")) {
+    throw new Error("invalid_work_relative_path");
+  }
+  return raw;
+}
+
+function motorWorkNoSecrets(value, path = "payload") {
+  if (value == null) return;
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => motorWorkNoSecrets(entry, path + "[" + index + "]"));
+    return;
+  }
+  if (typeof value !== "object") return;
+  for (const [key, nested] of Object.entries(value)) {
+    if (/(password|passwd|api[_-]?key|token|secret|private[_-]?key|seed|mnemonic|cookie|authorization)/i.test(key)) {
+      if (nested != null && String(nested).trim()) throw new Error("work_payload_must_not_contain_secrets");
+    }
+    motorWorkNoSecrets(nested, path + "." + key);
+  }
+}
+
+function validateMotorWorkPayload(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("invalid_work_execute_payload");
+  }
+  motorWorkNoSecrets(input);
+  const jobId = String(input.jobId || input.job_id || "").trim();
+  if (!/^[A-Za-z0-9._:-]{1,120}$/.test(jobId)) throw new Error("invalid_work_job_id");
+  const title = String(input.title || "").trim().slice(0, 500);
+  if (!title) throw new Error("missing_work_title");
+  const instructions = String(input.instructions || "").trim().slice(0, 5000);
+  const riskReasons = workRiskReasons(title + " " + instructions);
+  const financialRisk = /\b(withdraw|fund (?:a )?wallet|pay gas|borrow|loan|leverage|place (?:a )?bet|buy crypto|sell crypto|speculative trad(?:e|ing))\b/i
+    .test(title + " " + instructions);
+  if (riskReasons.length || financialRisk) {
+    const reasons = riskReasons.concat(financialRisk ? ["financial_action_scope"] : []);
+    throw new Error("work_execute_policy_block:" + reasons.join(","));
+  }
+  const steps = Array.isArray(input.steps) ? input.steps : null;
+  if (!steps || !steps.length || steps.length > MOTOR_WORK_MAX_STEPS) {
+    throw new Error("invalid_work_execute_steps");
+  }
+  let textBytes = Buffer.byteLength(title) + Buffer.byteLength(instructions);
+  const normalizedSteps = steps.map((rawStep, index) => {
+    if (!rawStep || typeof rawStep !== "object" || Array.isArray(rawStep)) {
+      throw new Error("invalid_work_step:" + index);
+    }
+    const type = String(rawStep.type || "").trim().toLowerCase();
+    if (!MOTOR_WORK_STEP_TYPES.has(type)) throw new Error("unsupported_work_step:" + (type || index));
+    const step = { type };
+    if (rawStep.continueOnError === true) step.continueOnError = true;
+    if (["mkdir", "write_text", "read_text", "fetch_https"].includes(type)) {
+      step.path = motorWorkRelativePath(rawStep.path);
+    }
+    if (type === "write_text") {
+      if (typeof rawStep.content !== "string") throw new Error("write_text_requires_content");
+      const bytes = Buffer.byteLength(rawStep.content);
+      if (bytes > MOTOR_WORK_MAX_TEXT_BYTES) throw new Error("write_text_too_large");
+      textBytes += bytes;
+      step.content = rawStep.content;
+      step.overwrite = rawStep.overwrite === true;
+    }
+    if (type === "fetch_https") {
+      const url = safeHttpsUrl(rawStep.url);
+      if (!url) throw new Error("fetch_https_requires_https_url");
+      step.url = url;
+    }
+    if (type === "git_clone_public") {
+      const url = safeHttpsUrl(rawStep.url, "github.com");
+      if (!url) throw new Error("git_clone_requires_github_url");
+      step.url = url;
+      step.path = motorWorkRelativePath(rawStep.path);
+      if (rawStep.ref != null) {
+        const ref = String(rawStep.ref).trim();
+        if (!/^[A-Za-z0-9._/-]{1,200}$/.test(ref) || ref.includes("..")) throw new Error("invalid_git_ref");
+        step.ref = ref;
+      }
+    }
+    if (["git_apply_patch", "git_inspect", "git_stage_commit"].includes(type)) {
+      step.repo = motorWorkRelativePath(rawStep.repo);
+    }
+    if (type === "git_apply_patch") {
+      if (typeof rawStep.patch !== "string" || !rawStep.patch.trim()) throw new Error("git_apply_requires_patch");
+      const bytes = Buffer.byteLength(rawStep.patch);
+      if (bytes > MOTOR_WORK_MAX_TEXT_BYTES) throw new Error("git_patch_too_large");
+      textBytes += bytes;
+      step.patch = rawStep.patch;
+    }
+    if (type === "git_inspect") {
+      const mode = String(rawStep.mode || "status").trim().toLowerCase();
+      if (!["status", "diff", "diff_stat", "head"].includes(mode)) throw new Error("invalid_git_inspect_mode");
+      step.mode = mode;
+    }
+    if (type === "syntax_check") {
+      const kind = String(rawStep.kind || "").trim().toLowerCase();
+      if (!["json", "python", "node"].includes(kind)) throw new Error("invalid_syntax_check_kind");
+      if (!Array.isArray(rawStep.paths) || !rawStep.paths.length || rawStep.paths.length > 20) {
+        throw new Error("invalid_syntax_check_paths");
+      }
+      step.kind = kind;
+      step.paths = rawStep.paths.map(motorWorkRelativePath);
+    }
+    if (type === "git_stage_commit") {
+      if (!Array.isArray(rawStep.paths) || !rawStep.paths.length || rawStep.paths.length > 50) {
+        throw new Error("invalid_commit_paths");
+      }
+      step.paths = rawStep.paths.map(motorWorkRelativePath);
+      step.message = String(rawStep.message || "").trim().slice(0, 300);
+      if (!step.message) throw new Error("missing_commit_message");
+    }
+    return step;
+  });
+  if (textBytes > 786_432) throw new Error("work_execute_payload_too_large");
+
+  const workKeyValue = String(
+    input.workKey ||
+    input.key ||
+    (input.provider && (input.externalId || input.external_id)
+      ? workKey(input.provider, input.externalId || input.external_id)
+      : "")
+  ).trim().slice(0, 320) || null;
+  const successState = String(input.successState || "WORKING").trim().toUpperCase();
+  const failureState = String(input.failureState || "BLOCKED").trim().toUpperCase();
+  if (!["WORKING", "SUBMITTED"].includes(successState)) throw new Error("invalid_work_success_state");
+  if (!["WORKING", "BLOCKED"].includes(failureState)) throw new Error("invalid_work_failure_state");
+
+  return {
+    schema: 1,
+    jobId,
+    title,
+    instructions,
+    workKey: workKeyValue,
+    leaseId: input.leaseId ? String(input.leaseId).slice(0, 120) : null,
+    successState,
+    failureState,
+    steps: normalizedSteps,
+  };
+}
+
 function estimateWorkMinutes(item) {
   const explicit = finiteNumber(item.estimatedMinutes);
   if (explicit && explicit > 0) return Math.max(5, Math.min(8 * 60, Math.round(explicit)));
