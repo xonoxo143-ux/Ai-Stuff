@@ -104,7 +104,7 @@ def gen(m,kind):
     kid=torch.tensor([KID[kind]])
     hidden=torch.tanh(m.init(m.kind(kid))).unsqueeze(0)
     tok=torch.tensor([[BOS]]);out=[]
-    for _ in range(256):
+    for _ in range(512):
         h,hidden=m.gru(m.emb(tok),hidden);n=int(m.out(h[:,-1]).argmax(-1))
         out.append(n)
         if n==EOS:break
