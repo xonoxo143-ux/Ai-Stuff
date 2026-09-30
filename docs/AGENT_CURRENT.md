@@ -1710,3 +1710,51 @@ Next gate:
 > cold external evidence → sparse retrieval → explicit content plan → learned realization, with causal evidence deletion tests and store-scaling measurements.
 
 Do not teach benchmark literature facts directly until this generic external-knowledge architecture passes.
+
+## 1Y. Evidence Content Planner v0 — promoted
+
+A disk-backed structured evidence store, explicit comparison plan, and 56,118-parameter recurrent pointer/copy realizer were tested from 100 to 100,000 cold facts.
+
+Three seeds, every scale:
+
+```text
+complete comparison exact            100%
+evidence rows loaded                 4
+active evidence payload              ~55–56 bytes
+lookup latency at 100 facts          ~0.05–0.06 ms
+lookup latency at 100,000 facts      ~0.15–0.17 ms
+100k cold store                      ~20.8 MB
+```
+
+All entity names and factual values used in evaluation were opaque strings never trained into the realizer.
+
+### Causal deletion test
+
+For every store size and seed, one required evidence row was deleted while the model remained fixed.
+
+After deletion:
+
+```text
+rows loaded                         3
+response mode                       insufficient evidence
+deleted value reproduced            never
+```
+
+### Decision
+
+Promote the architecture:
+
+```text
+COLD EDITABLE EVIDENCE
+→ sparse exact retrieval
+→ explicit content plan
+→ learned pointer/copy realization
+```
+
+Factual capacity can scale independently from hot language parameters in this controlled regime.
+
+Knowledge deletion changing the response with zero parametric leakage is required evidence for true externalization.
+
+### Next gate
+
+Add **relational synthesis** over retrieved evidence: discover genuine shared structure, important contrasts, and limits without forcing an analogy.
