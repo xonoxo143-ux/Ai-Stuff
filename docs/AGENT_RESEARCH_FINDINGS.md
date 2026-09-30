@@ -558,3 +558,36 @@ Computational Construction Grammar work also represents constructions as network
 External implication:
 
 > A growing learned grammar needs compiled discrimination/index structure and/or learned search guidance; merely learning more constructions is not scalable if every utterance scans the whole grammar.
+
+## Execution-grounded language acquisition refresh — 2026-09-29
+
+### F46. Semantic parsers can be learned from execution outcomes rather than fully labeled programs
+
+Liang et al. (2017), *Neural Symbolic Machines: Learning Semantic Parsers on Freebase with Weak Supervision*, combines a learned language-to-program proposer, explicit program execution, search-space pruning, and answer-level reward. The parser is trained from question/answer pairs rather than gold programs.
+
+Transferable mechanism for this project:
+
+> successful executable traces can serve as latent semantic explanations for language when only outcome-level supervision is available.
+
+### F47. Joint syntax/semantics induction is stronger than treating them as independent learning problems
+
+Portelance, Reddy & O'Donnell (2025), *Reframing linguistic bootstrapping as joint inference using visually-grounded grammar induction models*, reports stronger grammar induction, lexical category learning and novel sentence/verb interpretation when syntax and semantics are learned jointly from grounded evidence.
+
+Abend et al. (2017), *Bootstrapping language acquisition*, likewise shows incremental joint learning of lexicon and grammar from utterance-level structured meanings, including syntactic bootstrapping and one-shot lexical effects.
+
+### F48. Explicit latent compositional structure remains useful under weak/broad supervision
+
+Work on span-aligned and latent-tree semantic parsing reports improved compositional generalization when input spans are explicitly tied to output subprograms/modules rather than represented only by a monolithic sequence state.
+
+External-science implication:
+
+```text
+utterance
++ grounded context / outcome
++ candidate executable computations
+→ infer a successful latent program
+→ align language fragments to program fragments
+→ compile reusable constructions
+```
+
+This is a plausible route for broadening the project's construction grammar without requiring hand-authored semantic labels for every utterance.
