@@ -1,0 +1,29 @@
+name: Agent Grounded Math Word Gate v1
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_cognition/math_word_grounding_gate_v1.py'
+      - '.github/workflows/agent-grounded-math-word-v1.yml'
+  workflow_dispatch:
+jobs:
+  math-word:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run grounded percentage algebra gate
+        run: |
+          python agent-model/agent_cognition/math_word_grounding_gate_v1.py \
+            --seeds 0,1,2 \
+            --out math_word_grounding_v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Grounded-Math-Word-V1
+          path: math_word_grounding_v1.json
