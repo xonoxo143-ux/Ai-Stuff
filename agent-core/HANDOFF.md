@@ -14,18 +14,18 @@ Keep the two projects separate unless the human explicitly decides to integrate 
 
 ## Resume here
 
-Agent Core v0.17.0 is live in production.
+Agent Core v0.18.0 control plane is live in production.
 
 - Repository: `xonoxo143-ux/Ai-Stuff`
 - Branch: `agent-core`
-- Code-release SHA: `905ca640599b2dc2c2aae65a4333f1fc2f63e200`
+- Code-release SHA: `f025f18a3a83dc80c4577d645e7350ef1994dd3b`
 - Live Railway project: `continuity-browser-worker`
 - Production environment: `b0d5c534-3f76-4e4e-ae3d-8e9791ba2f3e`
 - Live service: `browser-worker-wNUX`
 - Service ID: `08ef56b4-1e47-41ff-99de-95eec675ff83`
-- Successful deployment: `ccb90cd0-9fe0-45dd-865d-cd95344a316f`
+- Successful deployment: `7679f6ef-0703-4d0c-b593-9a16e3ef7269`
 
-The Railway start command is pinned to the v0.17 code-release SHA. Documentation commits may move the branch head beyond that SHA without changing the running release.
+The Railway start command is pinned to the v0.18 code-release SHA. Documentation commits may move the branch head beyond that SHA without changing the running release.
 
 ## Verified live
 
@@ -37,7 +37,7 @@ The Railway start command is pinned to the v0.17 code-release SHA. Documentation
 - direct financial actions are disabled;
 - operating float target remains $100.
 
-## v0.17 control plane
+## v0.18 control plane
 
 Implemented and covered by restart/lifecycle tests:
 
@@ -61,11 +61,17 @@ Implemented and covered by restart/lifecycle tests:
 
 Do not create a second identity system to solve runtime problems. Preserve provenance and keep plaintext secrets out of GitHub/docs.
 
+## v0.18 bounded execution
+
+The control plane now accepts a typed `work.execute` motor command and `POST /v1/work/dispatch`. A job may use only bounded operations: public GitHub clone, public HTTPS fetch, per-job file read/write, patch application, git inspection, syntax checks, and a local no-hook commit. It does not expose arbitrary shell execution, secrets in job payloads, financial actions, or credential-bearing clone URLs.
+
+The server-side lifecycle is live and tested: dispatch leases the existing work item, checkpoints it, routes the typed payload through the motor queue, and reconciles the acknowledgement back into the same work ledger/reporting system.
+
+**Machine rollout boundary:** the canonical smolmachine daemon has not yet been refreshed to the v0.18 motor file. The repository contains the new handler, but direct smolmachines machine control is currently unavailable because no usable smol cloud API key is present in the connected tools/AgentMail records. Do not claim end-to-end machine execution is live until that daemon is updated and a real `work.execute` command is acknowledged successfully.
+
 ## Next major milestone
 
-Connect a compatible episodic reasoning/execution worker to the v0.17 lease/checkpoint/transition API and run a real coding or research job end-to-end with minimal human orchestration.
-
-Agent Core already handles discovery, qualification, leasing, persistence, recovery, accounting, and reporting. The remaining gap is the general-purpose worker that consumes a lease, performs the actual deliverable, checkpoints progress, and returns results through the control plane.
+Refresh `/workspace/continuity/motor/self_root_motor.py` on `mach-187357670b1349d2a59ab423272af52e` using the existing owner-controlled smolmachines session/API, restart the motor service, then run one real coding or research job end-to-end through `/v1/work/dispatch` without manual orchestration.
 
 ## Pickup rule
 
