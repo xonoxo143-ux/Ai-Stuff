@@ -1019,3 +1019,48 @@ Success criterion should include:
 - end-to-end connection to the surviving COPY(role) producer.
 
 The whole-agent target remains the authority. Synthetic reasoning gates stay diagnostic.
+
+## 1I. Structured Span Perception v0 — binding passed, paraphrase gate confounded
+
+GitHub Actions run 36653384798 tested a 77,274-parameter byte BiGRU with joint bounded span scoring over typed roles.
+
+Three-seed result:
+
+```text
+IID exact                         100.0%
+unseen arguments, familiar form  99.5%–99.9%
+held-out paraphrases              15.7%–17.8%
+unseen args + paraphrases         17.3%–17.8%
+```
+
+Training took about 19 seconds/seed on GitHub CPU.
+
+### What passed
+
+The system can bind arbitrary byte strings into typed semantic roles without a fixed lexical classifier.
+
+This is a strong improvement over the rejected per-byte tagger and independent start/end pointer designs.
+
+### What did not pass
+
+The held-out paraphrase split remained poor even after 1,200 updates.
+
+However, inspection of the split exposed a benchmark confound: the held-out forms introduced previously unseen semantic words such as "retrieve", "associated", "recall", and "keep".
+
+A from-scratch learner with no grounding for those words cannot be expected to infer their meanings solely from architecture.
+
+Therefore this result does **not** establish that structured span composition itself fails.
+
+### Corrected evaluation decomposition
+
+Language perception is now evaluated as three separate capabilities:
+
+1. **argument OOV binding** — new names/entities/values under familiar language;
+2. **structural OOD** — new combinations of already-grounded linguistic primitives;
+3. **lexical-semantic acquisition** — genuinely new words/constructions that require contextual or behavioral grounding.
+
+The first is provisionally passed in this toy regime.
+
+A deconfounded structural-OOD gate is now running with the same model and only the benchmark changed.
+
+Do not build a larger parser until that gate decides whether the failure is structural or lexical.
