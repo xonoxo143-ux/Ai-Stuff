@@ -5122,6 +5122,125 @@ function transitionWork(body) {
   return result;
 }
 
+
+function dispatchMotorWork(payload, source = "operator", externalId = null) {
+  if (!outboundWorkEnabled) throw new Error("outbound_work_disabled");
+  const normalized = validateMotorWorkPayload(payload);
+  let lease = null;
+  let item = null;
+  if (normalized.workKey) {
+    item = workLedger.get(normalized.workKey);
+    if (!item) throw new Error("work_item_not_found");
+    if (item.blockers?.length) throw new Error("work_item_blocked");
+    if (!["QUALIFIED", "CLAIMED", "WORKING", "REVISION"].includes(item.state)) {
+      throw new Error("work_item_not_dispatchable:" + item.state);
+    }
+    const leased = leaseNextWork({
+      key: normalized.workKey,
+      workerId: "self-root-motor",
+      idempotencyKey: "motor-lease:" + normalized.jobId,
+    });
+    lease = leased.lease;
+    normalized.leaseId = lease.leaseId;
+    item = leased.item;
+    if (item.state !== "WORKING") {
+      transitionWork({
+        key: item.key,
+        leaseId: lease.leaseId,
+        state: "WORKING",
+        idempotencyKey: "motor-working:" + normalized.jobId,
+      });
+    }
+    checkpointWork({
+      key: item.key,
+      leaseId: lease.leaseId,
+      phase: "motor_dispatched",
+      detail: normalized.title,
+      idempotencyKey: "motor-dispatch-checkpoint:" + normalized.jobId,
+    });
+  }
+  const command = enqueueMotorCommand(
+    "work.execute",
+    String(source || "operator").slice(0, 120),
+    externalId || ("work.execute:" + normalized.jobId),
+    normalized,
+  );
+  rememberEvent({
+    id: randomUUID(),
+    receivedAt: new Date().toISOString(),
+    type: "work.motor_dispatched",
+    source: command.source,
+    externalId: normalized.jobId,
+    key: normalized.workKey,
+    commandId: command.id,
+  });
+  return { command, lease, item };
+}
+
+function applyMotorWorkResult(command, ok, result) {
+  const payload = command?.payload;
+  if (!payload || command.action !== "work.execute") return;
+  const jobId = String(payload.jobId || command.externalId || command.id);
+  const artifactRefs = Array.isArray(result?.artifacts)
+    ? result.artifacts.map((x) => String(x).slice(0, 500)).slice(0, 20)
+    : [];
+  const summary = String(
+    result?.summary ||
+    (ok ? ("Bounded work " + jobId + " completed") : ("Bounded work " + jobId + " failed"))
+  ).slice(0, 1000);
+
+  if (payload.workKey && workLedger.has(payload.workKey)) {
+    const item = workLedger.get(payload.workKey);
+    const leaseId = String(payload.leaseId || "").trim();
+    try {
+      if (leaseId && item.execution?.leaseId === leaseId) {
+        checkpointWork({
+          key: item.key,
+          leaseId,
+          phase: ok ? "motor_completed" : "motor_failed",
+          detail: summary,
+          artifactRefs,
+          idempotencyKey: "motor-result-checkpoint:" + jobId + ":" + (ok ? "ok" : "failed"),
+        });
+      }
+    } catch (error) {
+      item.execution = {
+        ...(item.execution || {}),
+        lastError: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      };
+    }
+
+    const desired = ok ? payload.successState : payload.failureState;
+    try {
+      if (desired && desired !== item.state) {
+        transitionWork({
+          key: item.key,
+          leaseId,
+          state: desired,
+          blockers: ok ? [] : ["motor_execution_failed:" + summary],
+          providerReference: result?.providerReference || null,
+          idempotencyKey: "motor-result-transition:" + jobId + ":" + desired,
+          notes: summary,
+        });
+      }
+    } catch (error) {
+      item.execution = {
+        ...(item.execution || {}),
+        lastError: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+      };
+      persistDurableState("motor_work_transition_error");
+    }
+  }
+
+  queueWorkReport({
+    type: ok ? "work.motor_completed" : "work.motor_failed",
+    severity: ok ? "result" : "blocker",
+    summary,
+    key: payload.workKey || null,
+    dedupeKey: "motor-work:" + jobId + ":" + (ok ? "ok" : "failed"),
+  });
+}
+
 function runAutonomyRecovery() {
   const now = Date.now();
   autonomyState.lastRunAt = new Date(now).toISOString();
