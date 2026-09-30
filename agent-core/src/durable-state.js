@@ -271,7 +271,11 @@ export function createDurableState({
       expectedPrevious = suppliedHash || calculatedHash;
       count += 1;
       if (
-        ["continuity.state_checkpoint", "continuity.legacy_snapshot_imported"].includes(record.event_type) &&
+        [
+          "continuity.state_checkpoint",
+          "continuity.legacy_snapshot_imported",
+          "continuity.materialized_cache_adopted",
+        ].includes(record.event_type) &&
         isObject(record.payload?.state)
       ) {
         checkpoint = {
@@ -392,11 +396,46 @@ export function createDurableState({
       if (materialized) {
         lastMaterializedHash = materialized.stateHash;
         lastLoadedAt = now().toISOString();
+
+        const ledgerMissing = scanned.count === 0;
+        const materializedHead = materialized.envelope?.ledger_head_hash || null;
+        const ledgerDiverged =
+          scanned.count > 0 &&
+          materializedHead &&
+          scanned.headHash &&
+          materializedHead !== scanned.headHash &&
+          materialized.stateHash !== scanned.checkpoint?.stateHash;
+
+        if (ledgerMissing || ledgerDiverged) {
+          const adopted = await appendRecordUnlocked({
+            type: "continuity.materialized_cache_adopted",
+            source: "agent-core.recovery",
+            correlationId: "state:" + materialized.stateHash,
+            payload: {
+              reason: ledgerMissing
+                ? "ledger_missing_materialized_survived"
+                : "materialized_newer_than_available_ledger",
+              state_hash: materialized.stateHash,
+              state: materialized.state,
+              prior_materialized_ledger_head: materializedHead,
+              available_ledger_head: scanned.headHash,
+            },
+          });
+          await writeMaterializedUnlocked(
+            materialized.state,
+            "materialized_cache_adopted",
+            adopted,
+          );
+          migrationSource = ledgerMissing
+            ? "materialized_cache_without_ledger"
+            : "materialized_cache_ledger_divergence";
+        }
+
         status = chainValid ? "ready" : "degraded";
         return {
           snapshot: materialized.state,
           recovered: true,
-          recoveredFrom: "materialized_cache",
+          recoveredFrom: migrationSource || "materialized_cache",
           quarantined: null,
         };
       }
