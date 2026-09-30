@@ -1,0 +1,31 @@
+name: Agent Relational Synthesis Gate v1
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_cognition/relational_synthesis_gate_v1.py'
+      - '.github/workflows/agent-relational-synthesis-v1.yml'
+  workflow_dispatch:
+
+jobs:
+  relational-synthesis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run ambiguity-preserving relational synthesis
+        run: |
+          python agent-model/agent_cognition/relational_synthesis_gate_v1.py \
+            --seeds 0,1,2 \
+            --cases 3000 \
+            --out relational_synthesis_v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Relational-Synthesis-V1
+          path: relational_synthesis_v1.json
