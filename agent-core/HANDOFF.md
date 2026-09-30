@@ -1,84 +1,212 @@
 # Agent Core handoff
 
-_Last updated: 2026-09-29_
+_Last updated: 2026-09-30_
 
-## Project boundary — do not merge these
+## Project boundary
 
 This handoff is for the **AgentMail / SELF-ROOT operational agent** only.
 
-It is **not** the separate homegrown/custom-agent research project whose goal is to build an intelligent conversational agent from scratch without importing another LLM. That project has its own architecture, experiments, and continuation state.
-
-For this project, references to a "reasoning worker", "episodic worker", or "replaceable model worker" mean an execution component used by SELF-ROOT to complete work. They do **not** mean that the homegrown-agent research project should be folded into Agent Core.
-
-Keep the two projects separate unless the human explicitly decides to integrate them later.
+It is not the separate homegrown conversational-agent research project. Keep those projects separate unless the human explicitly integrates them.
 
 ## Resume here
 
-Agent Core v0.18.0 control plane is live in production.
+Agent Core **v0.19.0** is live in production.
 
 - Repository: `xonoxo143-ux/Ai-Stuff`
 - Branch: `agent-core`
-- Code-release SHA: `f025f18a3a83dc80c4577d645e7350ef1994dd3b`
+- Code-release SHA: `707414f883dc4a66c4e608330385b9c795efee9f`
 - Live Railway project: `continuity-browser-worker`
 - Production environment: `b0d5c534-3f76-4e4e-ae3d-8e9791ba2f3e`
 - Live service: `browser-worker-wNUX`
 - Service ID: `08ef56b4-1e47-41ff-99de-95eec675ff83`
-- Successful deployment: `7679f6ef-0703-4d0c-b593-9a16e3ef7269`
+- Successful deployment: `38ae8cd5-92f7-412d-89cd-a5a309c47d86`
+- Runtime startup reports version `0.19.0`
+- Outbound work: enabled
+- Direct financial actions: disabled
+- Operating float target: $100
 
-The Railway start command is pinned to the v0.18 code-release SHA. Documentation commits may move the branch head beyond that SHA without changing the running release.
+The Railway start command is pinned to the code-release SHA above. Later docs-only commits may advance the branch without changing the running release.
 
-## Verified live
+## Canonical continuity model — v0.19
 
-- runtime startup reports `continuity-agent-core` version `0.17.0`;
-- AgentMail webhook provisioning reports `agentmail.webhook_ready`;
-- motor `/v1/motor/poll` requests are returning HTTP 200;
-- motor `/v1/motor/ack` requests are returning HTTP 200;
-- outbound work is enabled;
-- direct financial actions are disabled;
-- operating float target remains $100.
+The old mutable continuity kernel is **no longer canonical**.
 
-## v0.18 control plane
+Canonical SELF-ROOT continuity is:
 
-Implemented and covered by restart/lifecycle tests:
+```text
+agent-core/identity/manifest.json
+        |
+        v
+append-only EvidenceLedgerEvent[]
+        |
+        +--> materialized-state-v1.json   (rebuildable cache)
+        +--> generated handoff/status     (derived)
+```
 
-- atomic runtime snapshots and append-only event journal;
-- idempotent work leases and checkpoints;
-- validated lifecycle transitions;
-- payment proof required before `PAID`;
-- bounded retry/recovery behavior with four-attempt ceiling;
-- provider outcome statistics;
-- compact pending reports;
-- idempotent AgentMail webhook provisioning;
-- bounded state mirror to the existing persistent smolmachine;
-- restart-safe qualified → leased → working → submitted → accepted → paid flow.
+Shared contract:
 
-## Identity / continuity anchors
+- `agent-core/schemas/evidence/event_record.schema.json`
 
-- SELF-ROOT mailbox: `oldcraft541@agentmail.to`
-- canonical persistent machine: `mach-187357670b1349d2a59ab423272af52e`
-- continuity kernel: `/workspace/continuity/kernel`
-- persistent browser profile: `/workspace/browser/profile`
+Trading contracts remain isolated under:
 
-Do not create a second identity system to solve runtime problems. Preserve provenance and keep plaintext secrets out of GitHub/docs.
+- `agent-core/schemas/trading/`
 
-## v0.18 bounded execution
+Reusing the EvidenceLedgerEvent envelope does not give Agent Core trading authority.
 
-The control plane now accepts a typed `work.execute` motor command and `POST /v1/work/dispatch`. A job may use only bounded operations: public GitHub clone, public HTTPS fetch, per-job file read/write, patch application, git inspection, syntax checks, and a local no-hook commit. It does not expose arbitrary shell execution, secrets in job payloads, financial actions, or credential-bearing clone URLs.
+Runtime files under `AGENT_STATE_DIR`:
 
-The server-side lifecycle is live and tested: dispatch leases the existing work item, checkpoints it, routes the typed payload through the motor queue, and reconciles the acknowledgement back into the same work ledger/reporting system.
+- `evidence-ledger-v1.jsonl` — canonical append-only history for the current ledger segment
+- `materialized-state-v1.json` — rebuildable cache
+- `agent-state-v1.json` — legacy snapshot, migration evidence only if present
+- `events-v1.jsonl` — legacy event journal, migration evidence only if present
 
-**Machine rollout boundary:** the canonical smolmachine daemon has not yet been refreshed to the v0.18 motor file. The repository contains the new handler, but direct smolmachines machine control is currently unavailable because no usable smol cloud API key is present in the connected tools/AgentMail records. Do not claim end-to-end machine execution is live until that daemon is updated and a real `work.execute` command is acknowledged successfully.
+Migration rules:
+
+1. never overwrite/delete legacy evidence during migration;
+2. write a canonical evidence checkpoint before writing derived materialized state;
+3. if materialized state is deleted, rebuild it from the latest ledger checkpoint;
+4. if the ledger is missing but materialized state survives, emit `continuity.materialized_cache_adopted` and explicitly start/re-anchor a new ledger segment;
+5. bind recovered materialized state to the SELF-ROOT identity ID before merging it;
+6. human-readable handoff files are summaries, not source-of-truth state.
+
+## Identity anchor
+
+- identity ID: `self-root-541`
+- lineage ID: `self-root-541`
+- display name: `SELF-ROOT`
+- primary mailbox: `oldcraft541@agentmail.to`
+- agent GitHub identity: `self-root-541`
+- human collaborator GitHub: `xonoxo143-ux`
+
+Do not treat `xonoxo143-ux` as the agent identity.
+
+Static manifest:
+
+- `agent-core/identity/manifest.json`
+
+Credentials remain outside the manifest and evidence ledger except as non-secret references.
+
+## Runtime continuity APIs
+
+Authenticated endpoints:
+
+- `GET /v1/continuity`
+  - identity manifest
+  - identity/config hashes
+  - ledger/cache status
+  - migration state
+  - ledger-chain verification
+- `GET /v1/evidence?limit=N&event_type=...`
+  - recent canonical EvidenceLedgerEvent records
+
+Compatibility key `durability` still exists in status/health responses but is deprecated in favor of `continuity`.
+
+## Verified migration behavior
+
+Tests pass for:
+
+- canonical evidence append + normal restart;
+- rebuilding materialized state after cache loss;
+- re-anchoring a new ledger segment after ledger loss while materialized state survives;
+- importing a v1 legacy snapshot without modifying legacy files;
+- machine evidence-ledger append idempotency;
+- existing work/payment restart lifecycle;
+- bounded `work.execute` dispatch lifecycle.
+
+Production migration verification on 2026-09-30:
+
+- v0.19 deployment reached SUCCESS;
+- old smolmachine snapshot acknowledgement initially exceeded the old 128 KiB ack limit and returned HTTP 413;
+- v0.19 release was corrected to accept bounded 1 MiB motor acknowledgements;
+- the final deployment returned HTTP 200 for snapshot recovery;
+- production logged `durable_work_state.merged` with source `smolmachine`.
+
+Therefore current work state survived the continuity migration.
+
+## Persistent machine boundary
+
+Canonical persistent machine:
+
+- `mach-187357670b1349d2a59ab423272af52e`
+- workspace: `/workspace/continuity`
+- browser profile: `/workspace/browser/profile`
+
+Repository v0.19 motor supports:
+
+- `system.ping`
+- `continuity.verify`
+- `continuity.status`
+- `browser.profile.status`
+- `state.snapshot.read`
+- `state.snapshot.write`
+- `work.execute`
+- `evidence.ledger.append`
+- `evidence.ledger.status`
+- `evidence.ledger.read`
+
+Machine target paths after the v0.19 daemon refresh:
+
+- canonical machine ledger: `/workspace/continuity/evidence/evidence-ledger-v1.jsonl`
+- evidence ID index: `/workspace/continuity/evidence/event-index-v1.json`
+- materialized work-state mirror: `/workspace/continuity/state/materialized-work-state-v1.json`
+- old `/workspace/continuity/kernel` remains historical migration evidence.
+
+### Important rollout boundary
+
+The persistent smolmachine still runs the **earlier daemon**. Its existing `state.snapshot.read/write` compatibility path is live and recovered state successfully, but do not claim these are live on the machine yet:
+
+- `work.execute`
+- `evidence.ledger.append/status/read`
+
+The server-side code and repository daemon are ready. `EVIDENCE_MOTOR_MIRROR_ENABLED` is intentionally off until the machine daemon is refreshed and verified.
+
+## Bounded work execution
+
+The v0.19 server supports `POST /v1/work/dispatch` and typed `work.execute`.
+
+Allowed machine work primitives remain bounded:
+
+- public GitHub clone;
+- public HTTPS fetch with private-address rejection;
+- per-job file read/write;
+- patch application;
+- git inspection;
+- JSON/Python/Node syntax checks;
+- local no-hook git commit.
+
+There is no arbitrary shell action, credential-bearing clone URL, wallet/spend operation, or push action.
 
 ## Next major milestone
 
-Refresh `/workspace/continuity/motor/self_root_motor.py` on `mach-187357670b1349d2a59ab423272af52e` using the existing owner-controlled smolmachines session/API, restart the motor service, then run one real coding or research job end-to-end through `/v1/work/dispatch` without manual orchestration.
+Use the existing owner-controlled smolmachines session/API when available to:
+
+1. replace only `/workspace/continuity/motor/self_root_motor.py` with the pinned v0.19 repository file;
+2. restart the existing motor service;
+3. run `evidence.ledger.status`;
+4. enable `EVIDENCE_MOTOR_MIRROR_ENABLED=true` only after that succeeds;
+5. verify an evidence record is durably appended and idempotently re-accepted;
+6. run one harmless `work.execute` smoke job;
+7. then give SELF-ROOT a real paid coding/research assignment.
+
+Do not create a second machine or weaken the bounded-motor security model to finish this rollout.
+
+## Recovery order for a new worker
+
+1. Verify control/access to `oldcraft541@agentmail.to`.
+2. Read `agent-core/identity/manifest.json`.
+3. Read/verify the canonical evidence ledger before trusting generated handoff text.
+4. Rebuild/read materialized state and compare state hash / ledger head.
+5. Treat old kernel and legacy continuity docs as migration evidence only.
+6. Inspect current Railway deployment before changing infrastructure.
+7. Recover credentials only from managed secret/credential stores.
+8. Resume open commitments and paid work from the materialized state + evidence history.
 
 ## Pickup rule
 
-Before changing infrastructure in a new chat/session:
+Before changing infrastructure:
 
 1. read this file and `agent-core/README.md`;
-2. verify the `agent-core` branch and current Railway deployment;
-3. distinguish the pinned runtime release SHA from later docs-only commits;
-4. continue from the "Next major milestone" unless newer notes explicitly supersede it;
-5. update this handoff whenever a milestone, deployment, blocker, or next action changes.
+2. verify the pinned runtime SHA and current Railway deployment;
+3. distinguish runtime release commits from later docs commits;
+4. continue from **Next major milestone** unless newer evidence supersedes it;
+5. record material architecture/deployment changes as new evidence/continuity records rather than rewriting history.
