@@ -1,0 +1,33 @@
+name: Agent Evidence Content Planner v0
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_runtime/evidence_content_planner_gate_v0.py'
+      - '.github/workflows/agent-evidence-content-planner-v0.yml'
+  workflow_dispatch:
+jobs:
+  evidence-planner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: python -m pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run cold evidence planning gate
+        working-directory: agent-model
+        run: |
+          python -m agent_runtime.evidence_content_planner_gate_v0 \
+            --seeds 0,1,2 \
+            --stages 100,1000,10000,100000 \
+            --out ../evidence_content_planner_v0.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Evidence-Content-Planner-V0
+          path: evidence_content_planner_v0.json
