@@ -1,0 +1,29 @@
+name: Agent Dialogue State Gate v0
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_runtime/dialogue_state_gate_v0.py'
+      - '.github/workflows/agent-dialogue-state-v0.yml'
+  workflow_dispatch:
+jobs:
+  dialogue-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run grounded dialogue-state gate
+        run: |
+          python agent-model/agent_runtime/dialogue_state_gate_v0.py \
+            --seeds 0,1,2 \
+            --out dialogue_state_v0.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Dialogue-State-V0
+          path: dialogue_state_v0.json
