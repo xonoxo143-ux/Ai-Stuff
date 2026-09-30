@@ -151,14 +151,20 @@ Machine target paths after the v0.19 daemon refresh:
 - materialized work-state mirror: `/workspace/continuity/state/materialized-work-state-v1.json`
 - old `/workspace/continuity/kernel` remains historical migration evidence.
 
-### Important rollout boundary
+### Persistent-machine rollout status
 
-The persistent smolmachine still runs the **earlier daemon**. Its existing `state.snapshot.read/write` compatibility path is live and recovered state successfully, but do not claim these are live on the machine yet:
+The existing persistent smolmachine has now been refreshed in place to the pinned v0.19 daemon. The installed daemon file matches repository blob `729c03b78d5ed2a89a5d50302e40b5b5fc4eb40b` from code-release SHA `707414f883dc4a66c4e608330385b9c795efee9f`.
 
-- `work.execute`
-- `evidence.ledger.append/status/read`
+Live verification completed on 2026-09-30 UTC:
 
-The server-side code and repository daemon are ready. `EVIDENCE_MOTOR_MIRROR_ENABLED` is intentionally off until the machine daemon is refreshed and verified.
+- `evidence.ledger.status` was received and ACKed with `ok:true`;
+- `EVIDENCE_MOTOR_MIRROR_ENABLED=true` is active;
+- multiple `evidence.ledger.append` commands were received and ACKed with `ok:true`;
+- Agent Core reports canonical `chainValid:true`, identity `self-root-541`, no continuity error, and the expected `materialized-state-v1.json` cache;
+- bounded `work.execute` completed a two-step write/read smoke job successfully;
+- duplicate suppression was verified against a temporary ledger: first append accepted once, second identical append counted as a duplicate without increasing the ledger count.
+
+The old `/workspace/continuity/kernel` remains historical migration evidence and must not be rewritten or promoted back to canonical state.
 
 ## Bounded work execution
 
@@ -178,17 +184,9 @@ There is no arbitrary shell action, credential-bearing clone URL, wallet/spend o
 
 ## Next major milestone
 
-Use the existing owner-controlled smolmachines session/API when available to:
+The v0.19 persistent-machine rollout is complete. The next milestone is to use the verified bounded executor for an existing authorized coding/research/data task, while preserving the no-spend, no-speculative-trading, no-arbitrary-shell, and evidence-ledger invariants.
 
-1. replace only `/workspace/continuity/motor/self_root_motor.py` with the pinned v0.19 repository file;
-2. restart the existing motor service;
-3. run `evidence.ledger.status`;
-4. enable `EVIDENCE_MOTOR_MIRROR_ENABLED=true` only after that succeeds;
-5. verify an evidence record is durably appended and idempotently re-accepted;
-6. run one harmless `work.execute` smoke job;
-7. then give SELF-ROOT a real paid coding/research assignment.
-
-Do not create a second machine or weaken the bounded-motor security model to finish this rollout.
+Do not create a second machine or weaken the bounded-motor security model.
 
 ## Recovery order for a new worker
 
