@@ -1,0 +1,33 @@
+name: Agent Structured Span Gate v0
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_language/structured_span_gate_v0.py'
+      - '.github/workflows/agent-structured-span-gate-v0.yml'
+  workflow_dispatch:
+
+jobs:
+  structured-span:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU PyTorch
+        run: python -m pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run three-seed structured-span gate
+        run: |
+          python agent-model/agent_language/structured_span_gate_v0.py \
+            --seeds 0,1,2 \
+            --steps 1200 \
+            --out structured_span_result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Structured-Span-Gate-V0
+          path: structured_span_result.json
