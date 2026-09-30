@@ -711,3 +711,30 @@ retrieved evidence
 ```
 
 is a well-supported architecture pattern for evidence-grounded generation.
+
+## Relational analogy / structure-mapping refresh — 2026-09-29
+
+### F60. Strong analogies are relational alignments, not surface-feature matches
+
+Gentner's structure-mapping theory distinguishes analogy from literal/appearance similarity by mapping relations among objects rather than merely matching object attributes.
+
+### F61. Structural consistency requires one-to-one correspondence and parallel connectivity
+
+The Structure-Mapping Engine operationalizes analogy by building local candidate correspondences and combining them into globally consistent mappings. Mapped relations require their arguments to map consistently as well.
+
+### F62. Systematic connected relation systems should dominate isolated matches
+
+The systematicity principle prefers deeper interconnected systems of relations—especially causal/explanatory structure—over isolated relation or attribute matches.
+
+Project implication:
+
+```text
+retrieved evidence graphs A/B
+→ candidate role correspondences
+→ one-to-one structural mapping
+→ score connected matched relations
+→ surface attributes may propose but cannot justify analogy
+→ return shared structure + explicit mismatches/limits
+```
+
+A useful cross-domain connection should be falsifiable: deleting or contradicting a mapped relation should weaken the analogy and expose the broken correspondence.
