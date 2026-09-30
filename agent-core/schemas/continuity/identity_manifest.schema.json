@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "identity_manifest.schema.json",
+  "title": "AgentIdentityManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "identity_id",
+    "display_name",
+    "lineage_id",
+    "primary_mailbox",
+    "continuity_model",
+    "credential_policy",
+    "accounts",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "identity_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1 },
+    "lineage_id": { "type": "string", "minLength": 1 },
+    "primary_mailbox": { "type": "string", "minLength": 3 },
+    "continuity_model": { "const": "evidence-ledger-v1" },
+    "credential_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage", "emit_secrets"],
+      "properties": {
+        "storage": { "const": "external_or_encrypted_reference_only" },
+        "emit_secrets": { "const": false }
+      }
+    },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "reference"],
+        "properties": {
+          "provider": { "type": "string" },
+          "reference": { "type": "string" }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    }
+  }
+}
