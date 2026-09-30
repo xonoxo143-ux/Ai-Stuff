@@ -1584,3 +1584,35 @@ LEARNED POINTER/COPY REALIZER
 A retrieval-only success is insufficient.
 
 The current gate must causally remove a required evidence record while holding the model fixed. If the deleted value still appears, factual knowledge has leaked into the hot path and the architecture has failed the intended separation.
+
+## Developmental synthesis S26 — connections should be structural and falsifiable
+
+The Evidence Content Planner supplies a small evidence graph; the next cognitive operation is not free-form prose but **structural alignment**.
+
+Current hypothesis:
+
+```text
+evidence graph A       evidence graph B
+       \                  /
+        candidate role mappings
+                  ↓
+      one-to-one relational alignment
+                  ↓
+ connected-system / systematicity score
+                  ↓
+STRONG / PARTIAL / WEAK
+                  ↓
+shared structure + explicit limits
+```
+
+This provides a concrete implementation of the chatbot benchmark instruction:
+
+> make the connection only if it genuinely holds.
+
+### Falsification behavior
+
+- misleading surface similarity must not create a useful analogy;
+- mutating a key relation must downgrade the connection and name the limit;
+- deleting supporting evidence must weaken the analogy without changing model parameters.
+
+If this survives, the same planner can later consume real cold evidence for literature, philosophy and cross-domain synthesis.
