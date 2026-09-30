@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "event_record.schema.json",
+  "title": "EvidenceLedgerEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "correlation_id",
+    "event_type",
+    "occurred_at",
+    "recorded_at",
+    "source",
+    "payload",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "event_id": { "type": "string" },
+    "correlation_id": { "type": "string" },
+    "parent_event_id": { "type": ["string", "null"] },
+    "event_type": { "type": "string" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string" },
+    "strategy_id": { "type": ["string", "null"] },
+    "strategy_version": { "type": ["string", "null"] },
+    "payload": { "type": "object" },
+    "provenance": {
+      "type": "object",
+      "required": ["software_version", "config_hash"],
+      "properties": {
+        "software_version": { "type": "string" },
+        "config_hash": { "type": "string" },
+        "dataset_version": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
