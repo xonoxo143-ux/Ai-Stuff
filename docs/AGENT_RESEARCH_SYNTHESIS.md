@@ -1018,3 +1018,122 @@ The next unresolved bottleneck is again the real agent:
 > **Can natural language / conversational context be converted into the structured goal/effect state needed to invoke this developmental machinery, and can the selected computation feed a homegrown response generator?**
 
 This reconnects the developmental substrate to Whole-Agent Closure rather than allowing the nursery to become a separate benchmark project.
+
+## Developmental synthesis S15 — proposal/search + pointer language
+
+### Guided Frontier Reasoning v0
+
+The local effect-address model had already shown that it could retrieve a useful next-operation neighborhood from a 12,800-module library, but greedy rollout remained weak on deeper novel compositions.
+
+A new gate held the learned proposer fixed and changed only control:
+
+```text
+learned proposal
+→ keep several distinct execution states alive
+→ repeatedly propose locally
+→ bounded explicit frontier
+```
+
+Three seeds, 140 unseen 4–7-step tasks each:
+
+```text
+myopic learned rollout      18.10% mean solved
+beam 6 guided frontier      42.14%
+beam 18 guided frontier     53.10%
+
+beam18 / myopic capability  2.93×
+```
+
+The compute increase is real:
+
+```text
+myopic candidate checks      ~20.3
+beam 6 expansions           ~273.9
+beam 18 expansions          ~626.0
+```
+
+A separate budget sweep showed:
+
+```text
+~104 mean expansions   50.0% solved
+~175 mean expansions   60.8% solved
+~292 mean expansions   64.2% solved
+```
+
+**Revision:** the proposer was not the principal failure. Greedy commitment was.
+
+Promote the principle:
+
+> learned cognition proposes/prioritizes computations; explicit stateful reasoning may preserve competing causal possibilities until commitment is justified.
+
+Do not promote beam search itself as final architecture.
+
+### Pointer Producer v0
+
+The fully concrete byte-GRU producer was expensive to train in the current container and would have to memorize the lexical inventory.
+
+A smaller alternative was tested:
+
+- 19,789 parameters;
+- autoregressive recurrent generator;
+- alphabet = ordinary bytes + four learned COPY(role) actions;
+- lexical slot contents remain outside the recurrent core and are inserted only when the model emits the corresponding pointer action.
+
+Three seeds:
+
+```text
+IID exact output                 100%
+all-lexical-values-unseen OOD   100%
+mixed known/unseen lexical      100%
+mean local train time          ~14.4 s
+```
+
+This is a qualitative capability gain: the same hot generator correctly produces responses containing strings never seen during training.
+
+**Promote:** separate linguistic scaffolding from exact lexical memory on the production side.
+
+### Input binding attempts — failed
+
+Two low-resource input designs were tested on held-out paraphrases and completely unseen lexical values:
+
+1. per-byte semantic-role tagging with a BiGRU;
+2. independent role-specific start/end pointers over a BiGRU encoder.
+
+Results were poor.
+
+The flat tagger:
+- 27.5% exact on held-out paraphrases with known vocabulary;
+- 0% exact when all lexical values were unseen.
+
+The role-pointer variant:
+- 27.5% exact on held-out known-vocabulary paraphrases;
+- 10.8% exact on all-unseen lexical values.
+
+Failure modes:
+- action/query prediction overfit surface phrasing;
+- independent pointer boundaries produced incoherent long spans;
+- lexical novelty plus paraphrase shift broke binding.
+
+Do not tune either architecture.
+
+### Revised language-interface hypothesis
+
+The promising asymmetry is now clear:
+
+```text
+INPUT:
+structured span/composition parser   ← unresolved
+
+INTERNAL:
+typed structured state / roles
+
+OUTPUT:
+small autoregressive scaffold model
++ COPY(role) actions                  ← passed
+```
+
+The next language research/build target is therefore not a bigger byte encoder.
+
+It is:
+
+> learn a structured span tree / compositional parse that binds arbitrary surface spans to typed internal roles, then hand those byte strings directly to structured state and the already-surviving pointer producer.
