@@ -615,3 +615,40 @@ language
 ```
 
 This is a stronger target for the boxes benchmark than encoding the folklore rule `draw from MIXED`.
+
+## Dialogue-state / response-planning refresh — 2026-09-29
+
+Research question:
+
+> Once objective language-to-execution tasks are handled, what representation best supports topic switching, reference, role/persona state, open-ended analysis, and coherent response generation without collapsing everything into one dense language model?
+
+### F51. Dialogue systems benefit from separating semantic interpretation, dialogue state, policy/planning, and surface generation
+
+Frame-based dialogue architectures maintain an explicit task/dialogue state between language understanding and response policy/generation. This separation makes reference, slot values, uncertainty and next-action selection inspectable rather than forcing all state into the generator.
+
+RavenClaw similarly separates domain-specific dialogue plans from domain-independent conversational control and explicitly treats discourse history and current task state as inputs to next-action selection.
+
+### F52. Dialogue state can be represented as executable/dataflow structure with explicit reference and revision
+
+*Task-Oriented Dialogue as Dataflow Synthesis* represents dialogue state as a graph extended by programs each turn; metacomputation operators explicitly reuse, revise and refer to prior fragments. This improves representability of complex multi-turn intents and makes reference/revision first-class operations.
+
+### F53. Open-domain and task-oriented dialogue remain meaningfully different regimes
+
+Research integrating task-oriented and open-domain dialogue treats them as distinct but interleavable modes rather than assuming one task representation is sufficient for both.
+
+### F54. Response planning is a separate generalization problem
+
+Dialogue-generation work on sentence planning and discourse structuring shows that selecting propositions and discourse relations is itself a capability distinct from lexical surface realization.
+
+External-science implication:
+
+```text
+utterance
+→ semantic/dialogue frame
+→ explicit discourse + thread state
+→ response plan / dialogue act
+→ retrieve relevant knowledge/capabilities
+→ surface realization
+```
+
+is a better-supported next architecture target than expanding the current fixed response scaffolds or forcing all open-ended behavior through executable task programs.
