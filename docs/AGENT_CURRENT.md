@@ -1134,3 +1134,66 @@ Test developmental language growth:
 5. bounded active matching cost as the construction store grows.
 
 If this passes, perception should move toward a hybrid of learned construction/grammar storage, small learned ranking for ambiguity/novelty, and explicit fast-mapping for new constructions.
+
+## 1K. Developmental Construction Grammar v1 — promoted
+
+Three-seed external CI tested whether the learned construction store can develop rather than merely interpolate.
+
+### Recursive construction learning
+
+Four semantics-preserving wrappers were learned only from paired grounded utterances:
+
+```text
+please, ...
+for reference, ...
+right now, ...
+in this case, ...
+```
+
+Training contained each wrapper separately. Test utterances composed 2–3 wrappers in combinations never observed.
+
+Result:
+
+```text
+recursive unseen composition   100% exact   (3/3 seeds)
+```
+
+### One-shot construction fast mapping
+
+The existing grammar was then shown one grounded example of a completely new SET wording and one grounded example of a completely new ASK wording. Those surface constructions did not parse before exposure.
+
+After one exposure, each construction remained tentative but generalized immediately to different semantic attributes and entirely unseen argument strings:
+
+```text
+one-shot SET reuse   100% exact   (600/600 per seed)
+one-shot ASK reuse   100% exact   (600/600 per seed)
+```
+
+After one independent grounding under a second attribute, each tentative construction was promoted to durable storage.
+
+```text
+durable new constructions      100% exact
+old language after learning    100% exact
+regression                     0 points
+```
+
+### Decision
+
+Promote the developmental construction mechanism in the controlled regime:
+
+```text
+known construction pieces
+→ recursive composition
+
+unknown wording + grounded consequence
+→ tentative construction
+→ immediate sparse reuse
+→ independent confirmation
+→ durable construction
+```
+
+### Next bottleneck
+
+The matcher still performs a global scan over all stored constructions.
+
+Next gate: scale the cold construction store by 10×–10,000× and require retrieval precision to remain 100% while the number of activated candidate constructions stays nearly bounded.
