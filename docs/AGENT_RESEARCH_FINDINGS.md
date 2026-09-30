@@ -591,3 +591,27 @@ utterance
 ```
 
 This is a plausible route for broadening the project's construction grammar without requiring hand-authored semantic labels for every utterance.
+
+## Constraint reasoning / information-gain refresh — 2026-09-29
+
+### F49. Constraint reasoning benefits from maintaining an explicit hypothesis space
+
+Logic-puzzle systems commonly separate natural-language interpretation from a formal constraint model, then solve by exact logical/constraint inference rather than free-form generation.
+
+### F50. The best observation/action can be selected by how strongly it distinguishes surviving hypotheses
+
+Recent active-learning and program-synthesis work selects queries to maximize pruning power over a current hypothesis/program space. This is the same structural principle already used successfully by Active Execution-Grounded Language v1.
+
+Project implication:
+
+```text
+language
+→ explicit candidate worlds
+→ hard constraints
+→ possible observations per action
+→ choose action minimizing worst-case surviving worlds / maximizing information
+→ observe
+→ solve remaining world
+```
+
+This is a stronger target for the boxes benchmark than encoding the folklore rule `draw from MIXED`.
