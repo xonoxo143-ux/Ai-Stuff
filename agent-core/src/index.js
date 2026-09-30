@@ -15,7 +15,7 @@ import { createDurableState } from "./durable-state.js";
 import { createStripeAdapter } from "./stripe-adapter.js";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.18.0";
+const VERSION = "0.19.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -62,6 +62,9 @@ const workMaxMicro = Math.max(
   Math.min(8, Number(process.env.WORK_MAX_MICRO || 2)),
 );
 const agentStateDir = process.env.AGENT_STATE_DIR || "/data/agent-core";
+const identityId = process.env.AGENT_IDENTITY_ID || "self-root-541";
+const identityLineageId = process.env.AGENT_LINEAGE_ID || identityId;
+const identityDisplayName = process.env.AGENT_DISPLAY_NAME || "SELF-ROOT";
 const workLeaseTtlMs = Math.max(
   60_000,
   Math.min(Number(process.env.WORK_LEASE_TTL_MS || 30 * 60_000), 8 * 60 * 60_000),
@@ -207,7 +210,54 @@ const workLedger = new Map();
 const workOutcomes = [];
 const workReports = [];
 const workIdempotency = new Map();
-const durableState = createDurableState({ directory: agentStateDir });
+
+const continuityConfigHash = createHash("sha256").update(JSON.stringify({
+  runtimeId,
+  identityId,
+  identityLineageId,
+  financialActionsEnabled,
+  outboundWorkEnabled,
+  workSchedulerEnabled,
+  workMinPaidUsd,
+  workMaxSubstantial,
+  workMaxMicro,
+  workLeaseTtlMs,
+  workStuckMs,
+  workMaxAttempts,
+})).digest("hex");
+
+const identityManifest = Object.freeze({
+  schema_version: "1.0",
+  identity_id: identityId,
+  display_name: identityDisplayName,
+  lineage_id: identityLineageId,
+  primary_mailbox: agentEmail,
+  continuity_model: "evidence-ledger-v1",
+  credential_policy: {
+    storage: "external_or_encrypted_reference_only",
+    emit_secrets: false,
+  },
+  accounts: [
+    { provider: "agentmail", reference: agentEmail },
+    { provider: "github", reference: "self-root-541" },
+  ],
+  capabilities: [
+    "work.scheduler",
+    "work.execute",
+    "agentmail.ingress",
+    "railway.runtime",
+    "evidence-ledger",
+  ],
+});
+const identityManifestHash = createHash("sha256")
+  .update(JSON.stringify(identityManifest))
+  .digest("hex");
+
+const durableState = createDurableState({
+  directory: agentStateDir,
+  softwareVersion: VERSION,
+  configHash: continuityConfigHash,
+});
 const autonomyState = {
   lastRunAt: null,
   runCount: 0,
