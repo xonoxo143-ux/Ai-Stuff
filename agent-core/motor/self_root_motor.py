@@ -7,13 +7,17 @@ defined in this file. There is intentionally no arbitrary-shell command type.
 
 from __future__ import annotations
 
+import hashlib
+import ipaddress
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -62,14 +66,14 @@ def request_json(method: str, url: str, token: str, body=None):
         return json.loads(raw.decode("utf-8")) if raw else {}
 
 
-def run_process(argv: list[str], timeout: int = 120) -> dict:
+def run_process(argv: list[str], timeout: int = 120, cwd: str = "/workspace", env=None) -> dict:
     proc = subprocess.run(
         argv,
-        cwd="/workspace",
+        cwd=cwd,
         text=True,
         capture_output=True,
         timeout=timeout,
-        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+        env=env if env is not None else {**os.environ, "PYTHONUNBUFFERED": "1"},
     )
     return {
         "exitCode": proc.returncode,
@@ -180,6 +184,334 @@ def handle_state_snapshot_write(payload=None) -> dict:
     return {"written": True, "bytes": len(raw), "path": str(STATE_SNAPSHOT_FILE)}
 
 
+JOBS_DIR = ROOT / "jobs"
+MAX_JOB_STEPS = 16
+MAX_JOB_TEXT_BYTES = 262_144
+MAX_JOB_DOWNLOAD_BYTES = 2_097_152
+MAX_STEP_OUTPUT = 6_000
+
+
+def _clip(value, limit: int = MAX_STEP_OUTPUT) -> str:
+    return str(value or "")[-limit:]
+
+
+def _safe_job_id(value) -> str:
+    value = str(value or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", value):
+        raise ValueError("invalid_job_id")
+    return value
+
+
+def _safe_relative_path(root: Path, value) -> Path:
+    raw = str(value or "").strip()
+    if not raw or raw.startswith(("/", "\\")) or "\x00" in raw:
+        raise ValueError("invalid_relative_path")
+    rel = Path(raw)
+    if any(part in {"", ".", ".."} for part in rel.parts):
+        raise ValueError("invalid_relative_path")
+    root_resolved = root.resolve()
+    candidate = (root / rel).resolve(strict=False)
+    try:
+        candidate.relative_to(root_resolved)
+    except ValueError as exc:
+        raise ValueError("path_outside_job_workspace") from exc
+    return candidate
+
+
+def _safe_public_https_url(value, *, github_only: bool = False) -> str:
+    raw = str(value or "").strip()
+    parsed = urllib.parse.urlsplit(raw)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("invalid_https_url")
+    host = parsed.hostname.lower()
+    if github_only and host != "github.com":
+        raise ValueError("github_clone_requires_github_com")
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError("hostname_resolution_failed") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            raise ValueError("non_public_destination")
+    return urllib.parse.urlunsplit(parsed)
+
+
+def _job_env(job_root: Path) -> dict:
+    home = job_root / ".home"
+    home.mkdir(parents=True, exist_ok=True)
+    keep = {
+        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
+        "HOME": str(home),
+        "PYTHONUNBUFFERED": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_NOSYSTEM": "1",
+    }
+    return keep
+
+
+def _step_result(step_type: str, ok: bool, **fields) -> dict:
+    clean = {"type": step_type, "ok": ok}
+    for key, value in fields.items():
+        if isinstance(value, str):
+            clean[key] = _clip(value)
+        else:
+            clean[key] = value
+    return clean
+
+
+def _run_git(job_root: Path, repo: Path, args: list[str], timeout: int = 120) -> dict:
+    if not (repo / ".git").exists():
+        raise ValueError("not_a_git_worktree")
+    result = run_process(
+        ["git", "-C", str(repo), *args],
+        timeout=timeout,
+        cwd=str(job_root),
+        env=_job_env(job_root),
+    )
+    return {
+        "exitCode": result["exitCode"],
+        "stdout": _clip(result["stdout"]),
+        "stderr": _clip(result["stderr"]),
+    }
+
+
+def _execute_work_step(job_root: Path, step: dict) -> dict:
+    if not isinstance(step, dict):
+        raise ValueError("invalid_work_step")
+    step_type = str(step.get("type") or "").strip().lower()
+
+    if step_type == "mkdir":
+        path = _safe_relative_path(job_root, step.get("path"))
+        path.mkdir(parents=True, exist_ok=True)
+        return _step_result(step_type, True, path=str(path.relative_to(job_root)))
+
+    if step_type == "write_text":
+        content = step.get("content")
+        if not isinstance(content, str) or len(content.encode("utf-8")) > MAX_JOB_TEXT_BYTES:
+            raise ValueError("invalid_or_oversized_text")
+        path = _safe_relative_path(job_root, step.get("path"))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and step.get("overwrite") is not True:
+            raise ValueError("target_exists_without_overwrite")
+        path.write_text(content, encoding="utf-8")
+        return _step_result(
+            step_type,
+            True,
+            path=str(path.relative_to(job_root)),
+            bytes=len(content.encode("utf-8")),
+            sha256=hashlib.sha256(content.encode("utf-8")).hexdigest(),
+        )
+
+    if step_type == "read_text":
+        path = _safe_relative_path(job_root, step.get("path"))
+        raw = path.read_bytes()
+        if len(raw) > MAX_JOB_TEXT_BYTES:
+            raise ValueError("text_file_too_large")
+        return _step_result(
+            step_type,
+            True,
+            path=str(path.relative_to(job_root)),
+            text=raw.decode("utf-8", errors="replace"),
+            bytes=len(raw),
+        )
+
+    if step_type == "fetch_https":
+        url = _safe_public_https_url(step.get("url"))
+        path = _safe_relative_path(job_root, step.get("path"))
+        req = urllib.request.Request(url, headers={"User-Agent": "SELF-ROOT-bounded-motor/0.18"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = resp.read(MAX_JOB_DOWNLOAD_BYTES + 1)
+        if len(data) > MAX_JOB_DOWNLOAD_BYTES:
+            raise ValueError("download_too_large")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return _step_result(
+            step_type,
+            True,
+            path=str(path.relative_to(job_root)),
+            bytes=len(data),
+            sha256=hashlib.sha256(data).hexdigest(),
+        )
+
+    if step_type == "git_clone_public":
+        url = _safe_public_https_url(step.get("url"), github_only=True)
+        parsed = urllib.parse.urlsplit(url)
+        pieces = [p for p in parsed.path.split("/") if p]
+        if len(pieces) != 2 or not re.fullmatch(r"[A-Za-z0-9_.-]+(?:\.git)?", pieces[1]):
+            raise ValueError("invalid_github_repository_url")
+        dest = _safe_relative_path(job_root, step.get("path") or pieces[1].removesuffix(".git"))
+        if dest.exists():
+            raise ValueError("clone_destination_exists")
+        argv = ["git", "clone", "--depth", "1", "--filter=blob:none"]
+        ref = str(step.get("ref") or "").strip()
+        if ref:
+            if not re.fullmatch(r"[A-Za-z0-9._/-]{1,200}", ref) or ".." in ref:
+                raise ValueError("invalid_git_ref")
+            argv += ["--branch", ref]
+        argv += [url, str(dest)]
+        result = run_process(argv, timeout=180, cwd=str(job_root), env=_job_env(job_root))
+        if result["exitCode"] != 0:
+            return _step_result(step_type, False, exitCode=result["exitCode"], stderr=result["stderr"])
+        return _step_result(step_type, True, path=str(dest.relative_to(job_root)), stdout=result["stdout"])
+
+    if step_type == "git_apply_patch":
+        repo = _safe_relative_path(job_root, step.get("repo"))
+        patch = step.get("patch")
+        if not isinstance(patch, str) or not patch or len(patch.encode("utf-8")) > MAX_JOB_TEXT_BYTES:
+            raise ValueError("invalid_or_oversized_patch")
+        patch_file = job_root / f".patch-{os.getpid()}-{time.time_ns()}.diff"
+        patch_file.write_text(patch, encoding="utf-8")
+        try:
+            check = _run_git(job_root, repo, ["apply", "--check", str(patch_file)], timeout=60)
+            if check["exitCode"] != 0:
+                return _step_result(step_type, False, **check)
+            applied = _run_git(job_root, repo, ["apply", str(patch_file)], timeout=60)
+            return _step_result(step_type, applied["exitCode"] == 0, **applied)
+        finally:
+            patch_file.unlink(missing_ok=True)
+
+    if step_type == "git_inspect":
+        repo = _safe_relative_path(job_root, step.get("repo"))
+        mode = str(step.get("mode") or "status").strip().lower()
+        modes = {
+            "status": ["status", "--short", "--branch"],
+            "diff": ["diff", "--no-ext-diff", "--"],
+            "diff_stat": ["diff", "--stat", "--"],
+            "head": ["log", "-1", "--oneline", "--decorate=no"],
+        }
+        if mode not in modes:
+            raise ValueError("unsupported_git_inspect_mode")
+        result = _run_git(job_root, repo, modes[mode], timeout=60)
+        return _step_result(step_type, result["exitCode"] == 0, mode=mode, **result)
+
+    if step_type == "syntax_check":
+        kind = str(step.get("kind") or "").strip().lower()
+        paths = step.get("paths")
+        if not isinstance(paths, list) or not paths or len(paths) > 20:
+            raise ValueError("invalid_syntax_check_paths")
+        checked = []
+        for rel in paths:
+            path = _safe_relative_path(job_root, rel)
+            if kind == "json":
+                json.loads(path.read_text(encoding="utf-8"))
+                checked.append(str(path.relative_to(job_root)))
+            elif kind == "python":
+                result = run_process(
+                    ["python3", "-m", "py_compile", str(path)],
+                    timeout=30,
+                    cwd=str(job_root),
+                    env=_job_env(job_root),
+                )
+                if result["exitCode"] != 0:
+                    return _step_result(step_type, False, path=str(path.relative_to(job_root)), stderr=result["stderr"])
+                checked.append(str(path.relative_to(job_root)))
+            elif kind == "node":
+                node = shutil.which("node")
+                if not node:
+                    raise ValueError("node_not_available")
+                result = run_process(
+                    [node, "--check", str(path)],
+                    timeout=30,
+                    cwd=str(job_root),
+                    env=_job_env(job_root),
+                )
+                if result["exitCode"] != 0:
+                    return _step_result(step_type, False, path=str(path.relative_to(job_root)), stderr=result["stderr"])
+                checked.append(str(path.relative_to(job_root)))
+            else:
+                raise ValueError("unsupported_syntax_check_kind")
+        return _step_result(step_type, True, kind=kind, checked=checked)
+
+    if step_type == "git_stage_commit":
+        repo = _safe_relative_path(job_root, step.get("repo"))
+        files = step.get("paths")
+        message = str(step.get("message") or "").strip()
+        if not isinstance(files, list) or not files or len(files) > 50:
+            raise ValueError("invalid_commit_paths")
+        if not message or len(message) > 300:
+            raise ValueError("invalid_commit_message")
+        safe_files = []
+        for rel in files:
+            path = _safe_relative_path(repo, rel)
+            safe_files.append(str(path.relative_to(repo)))
+        staged = _run_git(job_root, repo, ["add", "--", *safe_files], timeout=60)
+        if staged["exitCode"] != 0:
+            return _step_result(step_type, False, **staged)
+        committed = _run_git(
+            job_root,
+            repo,
+            [
+                "-c", "user.name=SELF-ROOT",
+                "-c", "user.email=oldcraft541@agentmail.to",
+                "commit", "--no-verify", "-m", message,
+            ],
+            timeout=60,
+        )
+        return _step_result(step_type, committed["exitCode"] == 0, **committed)
+
+    raise ValueError("unsupported_work_step")
+
+
+def handle_work_execute(payload=None) -> dict:
+    if not isinstance(payload, dict):
+        return {"exitCode": 2, "error": "invalid_work_payload"}
+    try:
+        job_id = _safe_job_id(payload.get("jobId"))
+        steps = payload.get("steps")
+        if not isinstance(steps, list) or not steps or len(steps) > MAX_JOB_STEPS:
+            raise ValueError("invalid_work_steps")
+        job_root = JOBS_DIR / job_id
+        job_root.mkdir(parents=True, exist_ok=True)
+        os.chmod(job_root, 0o700)
+        results = []
+        artifacts = []
+        for index, step in enumerate(steps):
+            started = time.time()
+            try:
+                result = _execute_work_step(job_root, step)
+            except Exception as exc:
+                result = _step_result(
+                    str(step.get("type") if isinstance(step, dict) else "unknown"),
+                    False,
+                    error=type(exc).__name__,
+                    detail=str(exc),
+                )
+            result["index"] = index
+            result["durationMs"] = int((time.time() - started) * 1000)
+            results.append(result)
+            if result.get("path"):
+                artifacts.append(result["path"])
+            if not result.get("ok") and not (isinstance(step, dict) and step.get("continueOnError") is True):
+                return {
+                    "exitCode": 1,
+                    "jobId": job_id,
+                    "summary": f"work step {index} failed",
+                    "workspace": str(job_root),
+                    "steps": results,
+                    "artifacts": artifacts[-20:],
+                }
+        return {
+            "exitCode": 0,
+            "jobId": job_id,
+            "summary": f"completed {len(results)} bounded work steps",
+            "workspace": str(job_root),
+            "steps": results,
+            "artifacts": artifacts[-20:],
+        }
+    except Exception as exc:
+        return {"exitCode": 2, "error": type(exc).__name__, "detail": str(exc)[:1000]}
+
+
 HANDLERS = {
     "system.ping": handle_system_ping,
     "continuity.verify": handle_continuity_verify,
@@ -187,6 +519,7 @@ HANDLERS = {
     "browser.profile.status": handle_browser_profile_status,
     "state.snapshot.read": handle_state_snapshot_read,
     "state.snapshot.write": handle_state_snapshot_write,
+    "work.execute": handle_work_execute,
 }
 
 
@@ -196,7 +529,7 @@ def execute(command: dict) -> tuple[bool, dict]:
     if handler is None:
         return False, {"error": "action_not_implemented", "action": action}
     try:
-        result = handler(command.get("payload")) if action.startswith("state.snapshot.") else handler()
+        result = handler(command.get("payload")) if action.startswith("state.snapshot.") or action == "work.execute" else handler()
         ok = not isinstance(result, dict) or result.get("exitCode", 0) == 0
         return ok, result
     except subprocess.TimeoutExpired as exc:
