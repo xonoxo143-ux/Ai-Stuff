@@ -5888,7 +5888,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/v1/motor/ack") {
     if (!motorAuthorized(req)) return json(res, 401, { error: "unauthorized" });
     try {
-      const body = await readJson(req, 131_072);
+      const body = await readJson(req, 1_048_576);
       const id = String(body?.id || "").trim();
       const ok = body?.ok === true;
       if (!id) return json(res, 400, { error: "missing_command_id" });
