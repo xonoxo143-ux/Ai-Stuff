@@ -21,7 +21,10 @@ The 4,096-step run keeps the original 32 MiB sampled-byte budget but stages it d
 - Frozen source commit: `716366777c5c6552bdff03c32aef117261324b53`.
 - Frozen checkpoint SHA256: `820ef9c11ab1322748b9f5032691a0d6c0eac0afc10df00dbc2c77b454eaa131`.
 - Final phase-valid BPB: 4.8939156542; best observed region was ~4.884–4.885 before the boundary.
-- Original phone run demonstrated correctness but exposed thermal/scheduler limits; later phases move to a benchmark-gated Kaggle GPU fork.
+- Post-freeze audit: 0/6 on `v0-frozen-2026-09-30`; greedy generation collapsed to spaces, and stochastic decoding produced letter/space fragments rather than coherent language.
+- A train-derived held-out unigram baseline scores ~4.6384 BPB on the same 75/25 prose-dialogue mixture, so Phase 1 did not yet establish useful contextual language modeling despite improving from initialization.
+- Scientific status: training run complete and frozen, but language capability is not established. Pause Phase 2 until the next experiment separates insufficient exposure from architecture/optimization failure.
+- Original phone run demonstrated correctness but exposed thermal/scheduler limits; later experiments move to benchmark-gated Kaggle GPU execution.
 
 ### Phase 2 — conversation bridge (steps 2049–3072)
 - 45% prose
