@@ -1370,3 +1370,38 @@ raw input
 ```
 
 The whole-agent multi-turn script, not another isolated grammar score, should decide what fails next.
+
+## Developmental synthesis S20 — let successful cognition teach language
+
+The current construction system has one important dependency: its strongest induction results receive grounded structured meaning for training utterances.
+
+A higher-leverage route is now apparent:
+
+> **use successful cognition itself as the semantic grounding signal.**
+
+Proposed developmental loop:
+
+```text
+unfamiliar utterance
+→ generate several candidate semantic/program interpretations
+→ execute them in the current world/task
+→ retain interpretations that produce successful outcomes
+→ align utterance spans/constructions with the successful trace
+→ store tentative language↔computation construction
+→ confirm across later contexts
+→ promote to durable cold grammar
+```
+
+This would couple two surviving project mechanisms:
+- bounded frontier search for novel computation;
+- developmental construction learning for language.
+
+It also reduces the distinction between 'learning what a sentence means' and 'learning how to solve a task': the executable trace can become the sentence's grounded meaning.
+
+### Why this matters for self-development
+
+When the agent authors a useful new computational module, successful uses of that module automatically create evidence for the language that should recruit it.
+
+Conversely, repeated language that cannot be mapped to successful computation becomes a direct signal that the current cognitive library is missing something.
+
+Do not build this solely because the idea is elegant. The active whole-agent `chatbot-v0` failure map must decide whether broad perception is actually the first bottleneck.
