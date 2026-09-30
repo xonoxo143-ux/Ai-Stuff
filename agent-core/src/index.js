@@ -35,6 +35,7 @@ const agentMailCommandSenders = new Set(
     .filter(Boolean),
 );
 const motorSelfTestAction = String(process.env.MOTOR_SELF_TEST_ACTION || "").trim().toLowerCase();
+const evidenceMotorMirrorEnabled = process.env.EVIDENCE_MOTOR_MIRROR_ENABLED === "true";
 
 const motorCommandTtlMs = Math.max(
   60_000,
@@ -210,6 +211,7 @@ const workLedger = new Map();
 const workOutcomes = [];
 const workReports = [];
 const workIdempotency = new Map();
+let evidenceRecordMirror = null;
 
 const continuityConfigHash = createHash("sha256").update(JSON.stringify({
   runtimeId,
@@ -257,6 +259,7 @@ const durableState = createDurableState({
   directory: agentStateDir,
   softwareVersion: VERSION,
   configHash: continuityConfigHash,
+  onEvidenceRecord: (record) => evidenceRecordMirror?.(record),
 });
 const autonomyState = {
   lastRunAt: null,
@@ -282,6 +285,9 @@ const motorAllowedActions = new Set([
   "browser.profile.status",
   "state.snapshot.read",
   "state.snapshot.write",
+  "evidence.ledger.append",
+  "evidence.ledger.status",
+  "evidence.ledger.read",
   "work.execute",
 ]);
 let motorMirrorTimer = null;
@@ -311,6 +317,7 @@ function motorSummary() {
     pending: pending.length,
     leased: leased.length,
     completedRemembered: motorCompleted.size,
+    evidenceMirrorEnabled: evidenceMotorMirrorEnabled,
     lastCompleted: Array.from(motorCompleted.values()).slice(-1).map(
       ({ id, action, status, completedAt }) => ({ id, action, status, completedAt }),
     )[0] || null,
@@ -369,7 +376,7 @@ function enqueueMotorCommand(action, source = "operator", externalId = null, pay
     payload,
   };
   motorQueue.push(command);
-  if (!action.startsWith("state.snapshot.")) {
+  if (!action.startsWith("state.snapshot.") && !action.startsWith("evidence.ledger.")) {
     rememberEvent({
       id: randomUUID(),
       receivedAt: createdAt,
@@ -377,11 +384,29 @@ function enqueueMotorCommand(action, source = "operator", externalId = null, pay
       source: command.source,
       externalId: command.externalId || command.id,
     });
-  } else {
+  } else if (action.startsWith("state.snapshot.")) {
     persistDurableState("motor_snapshot_queued");
   }
   return command;
 }
+
+evidenceRecordMirror = (record) => {
+  if (!evidenceMotorMirrorEnabled || !motorAgentToken || !record?.event_id) return;
+  try {
+    enqueueMotorCommand(
+      "evidence.ledger.append",
+      "continuity.evidence_mirror",
+      "evidence:" + String(record.event_id).slice(0, 220),
+      { events: [record] },
+    );
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "continuity.evidence_mirror_queue_error",
+      evidenceEventId: record.event_id,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+};
 
 function leaseMotorCommand() {
   pruneMotorQueue();
@@ -428,7 +453,7 @@ function completeMotorCommand(id, ok, result) {
   if (item.action === "work.execute") {
     applyMotorWorkResult(item, ok, result);
   }
-  if (!item.action.startsWith("state.snapshot.")) {
+  if (!item.action.startsWith("state.snapshot.") && !item.action.startsWith("evidence.ledger.")) {
     rememberEvent({
       id: randomUUID(),
       receivedAt: item.completedAt,
@@ -436,7 +461,7 @@ function completeMotorCommand(id, ok, result) {
       source: "smolmachine",
       externalId: item.id,
     });
-  } else {
+  } else if (item.action.startsWith("state.snapshot.")) {
     persistDurableState("motor_snapshot_completed");
   }
   return item;
@@ -3509,8 +3534,12 @@ function durableSnapshot() {
     workReports: workReports.slice(-250),
     workIdempotency: Array.from(workIdempotency.entries()).slice(-1000),
     recentEvents: recentEvents.slice(-200),
-    motorQueue: motorQueue.slice(-250),
-    motorCompleted: Array.from(motorCompleted.entries()).slice(-250),
+    motorQueue: motorQueue
+      .filter((item) => !item.action.startsWith("evidence.ledger."))
+      .slice(-250),
+    motorCompleted: Array.from(motorCompleted.entries())
+      .filter(([, item]) => !String(item?.action || "").startsWith("evidence.ledger."))
+      .slice(-250),
     motorBootstrapConsumed,
     workSchedulerState: { ...workSchedulerState },
     autonomyState: { ...autonomyState },
