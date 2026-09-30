@@ -41,3 +41,6 @@ This is a hypothesis to test, not an architecture commitment.
 
 ## Next research question
 Can a small hybrid language spine trained from scratch beat both a compact Transformer and a pure recurrent/SSM model on the *combined* gate of language quality, evidence copying/use, multi-turn continuity, and local inference economics?
+
+## Research-cycle note — 2026-09-29
+Small-scale evidence now supports treating the hybrid recurrent plus limited precise-access family as provisionally preferred over pure recurrence for the first whole-agent comparison. The next research bottleneck is the training objective and curriculum for broad productive conversation; exact tiny-scale architecture remains an experimental question.
