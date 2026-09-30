@@ -37,7 +37,7 @@ def parse_problem(text,lex):
             found.append((m.start(),verb,mode))
     found.sort()
     perc=[Decimal(x) for x in re.findall(r"(\d+(?:\.\d+)?)\s*%",low)]
-    money=[Decimal(x.replace(",","")) for x in re.findall(r"\$\s*(\d[\d,]*(?:\.\d+)?)",low)]
+    money=[Decimal(x.replace(",","")) for x in re.findall(r"$\s*(\d[\d,]*(?:\.\d+)?)",low)]
     if not found or len(found)!=len(perc) or not money:return None
     final=money[-1]
     steps=[]
@@ -67,14 +67,14 @@ def make_problem(verbs,ps,orig):
     for v,p in zip(verbs,ps):
         mode=VERBS[v];x=apply(mode,x,Decimal(p))
         clauses.append(f"{v} an item by {p}%")
-    return f"A store {', then '.join(clauses)}. The final price is \${fmt(x)}. What was the original price?",x
+    return f"A store {', then '.join(clauses)}. The final price is ${fmt(x)}. What was the original price?",x
 
 def run(seed,benchmark_prompt):
     rng=random.Random(seed)
     lex=GroundedPercentLexicon().develop(seed+100)
     lex_ok=lex.meaning==VERBS
-    random_ok=0;total=300
-    for _ in range(total):
+    random_ok=0;case_total=300
+    for _ in range(case_total):
         n=rng.choice([1,2,3])
         verbs=[rng.choice(list(VERBS)) for _ in range(n)]
         ps=[rng.choice([5,10,15,20,25,30,40]) for _ in range(n)]
@@ -86,12 +86,12 @@ def run(seed,benchmark_prompt):
     bval=None if b is None else b[3]
     deriv=None
     if b is not None:
-        steps,final,total,original=b
+        steps,final,factor_total,original=b
         parts=[fmt(s["factor"]) for s in steps]
-        deriv=f"Original price: \${fmt(original)}. Check: \${fmt(original)} × {' × '.join(parts)} = \${fmt(final)}."
+        deriv=f"Original price: ${fmt(original)}. Check: ${fmt(original)} × {' × '.join(parts)} = ${fmt(final)}."
     return {
       "seed":seed,"lexicon_exact":lex_ok,"learned_lexicon":lex.meaning,
-      "heldout_random_exact":random_ok/total,
+      "heldout_random_exact":random_ok/case_total,
       "benchmark_value":None if bval is None else fmt(bval),
       "benchmark_response":deriv,
       "benchmark_pass":bval is not None and abs(bval-Decimal(100))<Decimal("0.00001")
