@@ -1523,3 +1523,47 @@ No regression occurred on the three stored-procedure turns.
 The only remaining automatically scored benchmark item is `logic_01`.
 
 Build a reusable constraint/information-gain solver rather than storing the classic puzzle answer.
+
+## 1T. Constraint + Information-Gain Logic v1 — promoted
+
+The remaining automatic benchmark puzzle was represented as an explicit finite hypothesis space rather than answered from a stored rule.
+
+For the actual three-box puzzle, after enforcing `every label is wrong`:
+
+```text
+consistent worlds          2
+
+draw APPLES-labeled box:
+  worst survivors          2
+
+draw ORANGES-labeled box:
+  worst survivors          2
+
+draw MIXED-labeled box:
+  worst survivors          1
+```
+
+Thus the solver selects the MIXED-labeled box by minimax information gain; either possible observation leaves exactly one consistent world.
+
+Three seeds × 1,000 randomized label/item variants:
+
+```text
+exact optimal action       100%
+one-draw solution          100%
+```
+
+### Decision
+
+Promote:
+
+```text
+language
+→ explicit worlds / constraints
+→ enumerate surviving hypotheses
+→ score possible observations/actions
+→ choose maximum-discrimination action
+→ update world
+→ explain structured result
+```
+
+This mirrors the active-disambiguation mechanism already promoted for language acquisition.
