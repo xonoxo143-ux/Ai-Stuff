@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "order_intent.schema.json",
+  "title": "OrderIntent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","intent_id","created_at","venue","strategy_id","strategy_version","instrument","side","order_type","quantity","estimated_edge","market_snapshot_id","client_order_id"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "intent_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "venue": { "type": "string" },
+    "strategy_id": { "type": "string" },
+    "strategy_version": { "type": "string" },
+    "instrument": { "type": "string" },
+    "side": { "enum": ["BUY","SELL","YES","NO"] },
+    "order_type": { "enum": ["LIMIT","MARKETABLE_LIMIT","MARKET"] },
+    "limit_price": { "type": ["string","null"], "pattern": "^[0-9]+(\\.[0-9]+)?$" },
+    "quantity": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" },
+    "time_in_force": { "type": ["string","null"] },
+    "estimated_edge": {
+      "type": "object",
+      "required": ["gross","fees","adverse_selection","net","currency"],
+      "properties": {
+        "gross": { "type": "string" },
+        "fees": { "type": "string" },
+        "incentives": { "type": "string" },
+        "adverse_selection": { "type": "string" },
+        "slippage": { "type": "string" },
+        "inventory_cost": { "type": "string" },
+        "net": { "type": "string" },
+        "currency": { "type": "string" }
+      }
+    },
+    "market_snapshot_id": { "type": "string" },
+    "signal_age_ms": { "type": "integer", "minimum": 0 },
+    "client_order_id": { "type": "string" }
+  }
+}
