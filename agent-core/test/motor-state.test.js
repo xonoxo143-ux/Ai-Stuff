@@ -38,7 +38,17 @@ print(json.dumps({"written": written, "loaded": loaded}))
 
 test("bounded motor executes typed work steps and rejects path traversal", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "motor-work-test-"));
-  const script = "import importlib.util, json, pathlib, sys\\nspec = importlib.util.spec_from_file_location(\"motor\", sys.argv[1])\\nmotor = importlib.util.module_from_spec(spec)\\nspec.loader.exec_module(motor)\\nroot = pathlib.Path(sys.argv[2])\\nmotor.JOBS_DIR = root / \"jobs\"\\nok, result = motor.execute({\"action\":\"work.execute\",\"payload\":{\"jobId\":\"unit-job\",\"steps\":[{\"type\":\"mkdir\",\"path\":\"artifact\"},{\"type\":\"write_text\",\"path\":\"artifact/data.json\",\"content\":\"{\\\\\"ok\\\\\":true}\"},{\"type\":\"syntax_check\",\"kind\":\"json\",\"paths\":[\"artifact/data.json\"]},{\"type\":\"read_text\",\"path\":\"artifact/data.json\"}]}})\\nblocked_ok, blocked = motor.execute({\"action\":\"work.execute\",\"payload\":{\"jobId\":\"blocked-job\",\"steps\":[{\"type\":\"write_text\",\"path\":\"../escape.txt\",\"content\":\"no\"}]}})\\nprint(json.dumps({\"ok\":ok,\"result\":result,\"blockedOk\":blocked_ok,\"blocked\":blocked,\"escaped\":(root / \"escape.txt\").exists()}))";
+  const script = `
+import importlib.util, json, pathlib, sys
+spec = importlib.util.spec_from_file_location("motor", sys.argv[1])
+motor = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(motor)
+root = pathlib.Path(sys.argv[2])
+motor.JOBS_DIR = root / "jobs"
+ok, result = motor.execute({"action":"work.execute","payload":{"jobId":"unit-job","steps":[{"type":"mkdir","path":"artifact"},{"type":"write_text","path":"artifact/data.json","content":"{\\\"ok\\\":true}"},{"type":"syntax_check","kind":"json","paths":["artifact/data.json"]},{"type":"read_text","path":"artifact/data.json"}]}})
+blocked_ok, blocked = motor.execute({"action":"work.execute","payload":{"jobId":"blocked-job","steps":[{"type":"write_text","path":"../escape.txt","content":"no"}]}})
+print(json.dumps({"ok":ok,"result":result,"blockedOk":blocked_ok,"blocked":blocked,"escaped":(root / "escape.txt").exists()}))
+`
   try {
     const motorPath = path.resolve(import.meta.dirname, "../motor/self_root_motor.py");
     const { stdout } = await execFileAsync("python3", ["-c", script, motorPath, directory]);
