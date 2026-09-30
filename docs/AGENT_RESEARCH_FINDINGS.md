@@ -674,3 +674,40 @@ underdetermined discourse/evidence state
 ```
 
 is a reusable control principle across reference resolution and factual assertion.
+
+## Externalized knowledge / content-planning refresh — 2026-09-29
+
+### F57. Factual knowledge can be deliberately externalized from language-model parameters
+
+Limited Memory Language Models (Zhao et al., ICLR 2026) explicitly externalize factual knowledge into an editable database during pretraining, masking retrieved factual values from the training loss so the model learns targeted lookups rather than relying on parametric memorization.
+
+Continuous-query LMLM work extends the idea toward flexible queries over textual knowledge values.
+
+External implication:
+
+> fluency/structure and factual storage do not have to scale together inside one hot parameter set.
+
+### F58. Causal deletion is a stronger test of externalized knowledge than retrieval accuracy
+
+Recent LMLM auditing work varies database state while holding the model fixed to separate parametric leakage from retrieval-mediated correctness. This motivates deletion/intervention tests for our own external-memory architecture.
+
+Project-relevant criterion:
+
+> if a required fact is removed from cold memory, a properly externalized system should lose/abstain on that claim rather than regenerate the deleted value from hot parameters.
+
+### F59. Content planning and surface realization are separable generation problems
+
+Data-to-text work with macro planning explicitly selects and orders important entities/events before text generation, improving content organization and factual precision over less structured generation baselines.
+
+Copy-oriented data-to-text methods likewise support direct insertion of exact structured values during realization, particularly for rare or unseen entities.
+
+External implication:
+
+```text
+retrieved evidence
+→ content selection / ordering
+→ explicit macro plan
+→ surface realization with copying
+```
+
+is a well-supported architecture pattern for evidence-grounded generation.
