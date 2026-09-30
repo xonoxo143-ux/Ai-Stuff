@@ -498,3 +498,45 @@ Zhang, Strubell & Hovy (SPNLP 2021, DOI: 10.18653/v1/2021.spnlp-1.8) find struct
 External implication for a from-scratch low-resource parser:
 
 > role/value binding should probably be represented as structured spans/composition rather than independent per-byte labels or unconstrained independent boundaries.
+
+## Lexical acquisition / semantic bootstrapping refresh — 2026-09-29
+
+Research question:
+
+> When a from-scratch agent encounters a genuinely new word or construction, what evidence supports acquiring its meaning without globally retraining the language system?
+
+### F39. Fast mapping can emerge when new lexical bindings use prior conceptual structure plus external/episodic memory
+
+Hill et al. (2020), *Grounded Language Learning Fast and Slow* (arXiv:2009.01719), show one-shot novel word-object binding in an embodied agent using a dual-coding external memory. The new word can immediately participate in later instructions while long-term lexical and motor knowledge remains stable.
+
+The transferable mechanism is the separation between:
+- fast episodic binding of a new surface form to an existing concept/referent;
+- slower long-term representation learning.
+
+### F40. Cross-situational evidence can identify lexical meaning from ambiguous repeated contexts
+
+Vong & Lake (2021/2022), *Cross-Situational Word Learning With Multimodal Neural Networks*, show that generic multimodal neural systems can learn word-referent mappings by accumulating co-occurrence evidence across ambiguous situations, though some human-like biases such as mutual exclusivity are not automatic.
+
+Human and computational CSWL work therefore supports treating lexical meaning as an evidence-accumulation problem rather than a property that must already exist in a sentence encoder.
+
+### F41. Structured semantic bootstrapping can jointly accelerate word and syntax learning
+
+Abend et al. (2017), *Bootstrapping language acquisition*, model language acquisition from sentences paired with structured but noisy meaning representations. Their incremental Bayesian learner jointly learns lexical mappings and grammar, exhibiting syntactic bootstrapping and one-shot lexical learning phenomena.
+
+External implication:
+
+> known constructions can constrain the possible meaning of a novel word, while newly grounded words can in turn support learning new constructions.
+
+### F42. Construction grammars are computationally learnable as schematic, partially filled patterns
+
+Dunn (2016; extended computational treatment in 2024) presents corpus-driven construction-grammar induction in which learned constructions may mix fixed items with open slots, recur, and organize into a network.
+
+This supports a possible language representation compatible with the project's sparse cold-store architecture: many learned constructions can remain dormant while only locally matching constructions activate for an utterance.
+
+### F43. Hierarchical / symbolic scaffolding has repeatedly improved systematic language generalization in controlled settings
+
+SpanBasedSP (Herzig & Berant, ACL 2021) explicitly composes semantic programs over spans and reports a large compositional-generalization advantage over seq2seq baselines on targeted splits.
+
+Neural-Symbolic Stack Machine (Chen et al., 2020) and related recursive neural-symbolic work likewise report strong systematic generalization when learned perception/control is coupled to explicit compositional execution.
+
+These results do not prove that one grammar formalism is best for open-domain language, but they support testing explicit reusable constructions rather than only increasing sequential encoder capacity.
