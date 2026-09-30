@@ -49,3 +49,31 @@ This file contains external evidence, mechanisms, limitations, contradictions, f
 **Unresolved edge cases:** patching rule and granularity at small scale; whether learned dynamic patches repay their complexity versus simple byte-local compression.
 
 **Would overturn/reopen:** robust compute-controlled evidence that token-free models are consistently dominated at our target scale and hardware even after multiscale compression.
+
+## 2026-09-29 — Small-scale hybrid evidence
+
+### Independent evidence
+- Griffin/Hawk (De et al., 2024, arXiv:2402.19427) compare pure gated recurrence, recurrence + local attention, and Transformer baselines from roughly 100M parameters upward. Griffin's hybrid has lower reported validation loss than the matched MQA Transformer across compute budgets, while pure Hawk is competitive but weaker. This is evidence that hybrid gains are not only an 8B-scale effect.
+- Zoology/MQAR (Arora et al., arXiv:2312.04927) shows efficient recurrent/convolutional models can have acceptable language-model loss while retaining serious associative-recall deficits. Attention is robust on multi-query associative recall; aggregate perplexity alone can hide retrieval weakness.
+- Mechanistic associative-recall work (2024) finds Transformers and Based fully solve associative recall, Mamba comes close, and H3/Hyena fail; similar aggregate behavior can arise from materially different mechanisms.
+- Taipan (2024, arXiv:2410.18572) independently combines Mamba-2 with budgeted selective attention specifically because pure SSMs are weaker on retrieval-heavy context. It demonstrates that precise access need not mean dense attention on every token.
+- Nemotron-H (NVIDIA, 2025) corroborates the pattern at larger scale: most attention can be replaced by Mamba-2 while retaining a small attention fraction and competitive quality.
+
+### Negative evidence / limitations
+- The strongest Griffin small-scale points are still around 100M parameters, above the smallest local model we may want.
+- Griffin's local attention does not guarantee precise access beyond its window; selective/sparse attention is an independent alternative.
+- Real speed depends on kernels and hardware. A theoretically efficient recurrence can lose to a tiny Transformer on generic CPU implementations.
+- Language loss alone is not an adequate architecture gate because recall failures can remain hidden.
+
+## Closure record — pure recurrence/SSM vs hybrid precise-access spine
+**Status:** provisionally settled at the architecture-family level.
+
+**Supported conclusion:** for evidence-grounded conversation, a pure recurrent/SSM spine is not the best-supported default. Bounded recurrent state plus a limited precise-access mechanism is better supported. The attention path may be local, sparse, selective, or occasional; dense global attention everywhere is not established as necessary.
+
+**Evidence strength:** moderate-to-strong at the family level; moderate around 100M parameters; weak below that and on our exact hardware.
+
+**Scope/limitations:** this does not settle the recurrent cell, attention type/budget, layer ratio, patching rule, or tiny-scale crossover.
+
+**Unresolved edge cases:** sub-100M crossover, selective vs fixed local attention, generic-CPU efficiency, and the effect of external retrieval on the optimal attention budget.
+
+**Would overturn/reopen:** a matched tiny-model study where pure recurrence/SSM matches or beats hybrid models simultaneously on language loss, exact copying, retrieval with distractors, multi-turn retention, and target-hardware latency/RAM.
