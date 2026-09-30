@@ -1,0 +1,29 @@
+name: Agent Constraint Logic Gate v1
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_cognition/logic_constraint_info_gate_v1.py'
+      - '.github/workflows/agent-constraint-logic-v1.yml'
+  workflow_dispatch:
+jobs:
+  logic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run constraint information-gain gate
+        run: |
+          python agent-model/agent_cognition/logic_constraint_info_gate_v1.py \
+            --seeds 0,1,2 \
+            --out logic_constraint_info_v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Constraint-Logic-V1
+          path: logic_constraint_info_v1.json
