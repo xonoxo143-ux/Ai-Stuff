@@ -1527,3 +1527,25 @@ Do not hand-code one frame for every `chatbot-v0` prompt.
 The next build should test whether a small reusable set of dialogue operations — enter/exit mode, maintain/resume thread, compare, challenge/repair, clarify missing reference, distinguish certainty levels — can compose across multiple surface forms and tasks.
 
 Knowledge and open-ended content generation remain separate unresolved problems even if dialogue-state tracking succeeds.
+
+## Developmental synthesis S24 — uncertainty is a control signal
+
+The same structural operation now appears in three successful project mechanisms:
+
+1. active language grounding chooses an experiment when candidate meanings remain ambiguous;
+2. logic reasoning chooses an observation that best distinguishes candidate worlds;
+3. dialogue uncertainty chooses clarification/verification when referents or evidence are insufficient.
+
+This suggests a more general cognitive primitive:
+
+> **uncertainty is not merely a confidence number; it should alter the next operation.**
+
+```text
+candidate state set
+→ estimate unresolved dimensions
+→ choose action with expected uncertainty reduction
+→ observe
+→ revise state
+```
+
+The next whole-agent integration should expose clarification and epistemic response plans to the learned surface realizer rather than hard-code final text.
