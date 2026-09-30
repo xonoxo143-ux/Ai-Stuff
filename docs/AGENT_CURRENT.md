@@ -1350,3 +1350,35 @@ The agent is genuinely closed end-to-end with homegrown perception, persistent s
 ### Immediate next gate
 
 Run the unchanged closed agent against `workspace/benchmarks/chatbot-v0.json` and instrument failure location. Do not expand the architecture before obtaining this whole-agent failure map.
+
+## 1O. Real chatbot-v0 failure map — perception is first wall
+
+The unchanged closed homegrown agent was run against `workspace/benchmarks/chatbot-v0.json` on GitHub Actions run `36657330134`.
+
+Three seeds:
+
+```text
+perception success   0 / 13
+automatic passes    0 / 5
+fail responses     13 / 13
+```
+
+Every mixed-domain prompt failed before cognition because no current construction matched it.
+
+Therefore the zero downstream benchmark score is **not evidence yet** that the reasoning/memory core fails those tasks. The first verified whole-agent bottleneck is broad language acquisition / perception coverage.
+
+Do not respond by hand-authoring the 13 benchmark prompts as templates.
+
+Current research/build direction:
+
+```text
+unfamiliar language
++ outcome / grounded task evidence
+→ candidate executable meanings
+→ active disambiguation if several meanings fit
+→ tentative construction
+→ reuse / confirmation
+→ durable cold grammar
+```
+
+Only after more benchmark prompts reach cognition should downstream benchmark failures be attributed to cognition, knowledge, or production.
