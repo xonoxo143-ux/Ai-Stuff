@@ -540,3 +540,21 @@ SpanBasedSP (Herzig & Berant, ACL 2021) explicitly composes semantic programs ov
 Neural-Symbolic Stack Machine (Chen et al., 2020) and related recursive neural-symbolic work likewise report strong systematic generalization when learned perception/control is coupled to explicit compositional execution.
 
 These results do not prove that one grammar formalism is best for open-domain language, but they support testing explicit reusable constructions rather than only increasing sequential encoder capacity.
+
+## Large rule / construction matching refresh — 2026-09-29
+
+### F44. Large learned rule systems have a classic utility problem
+
+Forgy's Rete algorithm (1982) addresses the many-pattern/many-object matching problem by compiling shared conditions into a discrimination network rather than repeatedly scanning every rule.
+
+Doorenbos (1995), *Production Matching for Large Learning Systems*, explicitly studies systems that learn 100,000+ rules and identifies linear growth in match cost as a utility problem; Rete/UL is designed to reduce or eliminate that scaling failure over broader production-system classes.
+
+### F45. Constructional language processing faces the same combinatorial search problem
+
+Van Eecke, Nevens & Beuls (2022), *Neural heuristics for scaling constructional language processing*, frame construction processing as a combinatorial search problem that becomes intractable as grammars grow and report substantial search-space/time reductions from learned heuristics.
+
+Computational Construction Grammar work also represents constructions as networks rather than an unstructured global list.
+
+External implication:
+
+> A growing learned grammar needs compiled discrimination/index structure and/or learned search guidance; merely learning more constructions is not scalable if every utterance scans the whole grammar.
