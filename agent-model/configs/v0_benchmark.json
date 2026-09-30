@@ -1,0 +1,17 @@
+{
+  "seed": 20260930,
+  "train_file": "data/v0/train.bin",
+  "valid_file": "data/v0/valid.bin",
+  "sequence_length": 128,
+  "batch_size": 4,
+  "steps": 20,
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "grad_clip": 1,
+  "checkpoint_every": 20,
+  "eval_every": 20,
+  "eval_steps": 2,
+  "threads": 4,
+  "sample_bytes": 16,
+  "sample_prompt": "<|dialogue|>\nUser: Test?\nAssistant:"
+}

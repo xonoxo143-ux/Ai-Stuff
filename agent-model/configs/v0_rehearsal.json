@@ -1,0 +1,18 @@
+{
+  "seed": 20260930,
+  "train_file": "data/v0/train.bin",
+  "valid_file": "data/v0/valid.bin",
+  "sequence_length": 64,
+  "batch_size": 2,
+  "steps": 12,
+  "learning_rate": 0.0015,
+  "weight_decay": 0.01,
+  "grad_clip": 1,
+  "checkpoint_every": 4,
+  "eval_every": 4,
+  "eval_steps": 2,
+  "threads": 1,
+  "deterministic": true,
+  "sample_bytes": 64,
+  "sample_prompt": "<|dialogue|>\nUser: Why should I verify a surprising result?\nAssistant:"
+}

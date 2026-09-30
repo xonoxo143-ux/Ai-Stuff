@@ -1,0 +1,18 @@
+{
+  "seed": 20260930,
+  "train_file": "data/v0/train.bin",
+  "valid_file": "data/v0/valid.bin",
+  "sequence_length": 128,
+  "batch_size": 64,
+  "steps": 4096,
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "grad_clip": 1,
+  "checkpoint_every": 128,
+  "eval_every": 128,
+  "eval_steps": 8,
+  "threads": 4,
+  "require_clean_git": true,
+  "sample_bytes": 192,
+  "sample_prompt": "<|dialogue|>\nUser: Explain why conflicting evidence should lower confidence.\nAssistant:"
+}

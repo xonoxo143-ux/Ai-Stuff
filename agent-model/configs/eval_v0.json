@@ -1,0 +1,62 @@
+{
+  "version": "v0-frozen-2026-09-30",
+  "tests": [
+    {
+      "id": "plan_copy_01",
+      "prompt": "<|planner|>\n<|plan|>\nCLAIM: the cobalt rover should pause\nEVIDENCE: sensor Q17 disagrees with sensor M42\nUNCERTAINTY: high\nACTION: run one more verification\n<|response|>\n",
+      "required_all": [
+        "cobalt",
+        "Q17",
+        "M42"
+      ],
+      "max_new_bytes": 220
+    },
+    {
+      "id": "plan_copy_02",
+      "prompt": "<|planner|>\n<|plan|>\nCLAIM: the violet backup is stable for now\nEVIDENCE: three independent checks agree\nUNCERTAINTY: low\nACTION: proceed with the reversible step\n<|response|>\n",
+      "required_all": [
+        "violet",
+        "stable"
+      ],
+      "max_new_bytes": 220
+    },
+    {
+      "id": "reason_add_01",
+      "prompt": "<|reasoning|>\nProblem: Liora has 19 samples, receives 8, then uses 6. How many remain?\nReasoning:",
+      "required_any": [
+        "21"
+      ],
+      "max_new_bytes": 180
+    },
+    {
+      "id": "reason_transitive_01",
+      "prompt": "<|reasoning|>\nFacts: Varen is before Solin. Solin is before Teral.\nQuestion: What relation must hold between Varen and Teral?\nReasoning:",
+      "required_all": [
+        "Varen",
+        "Teral"
+      ],
+      "max_new_bytes": 200
+    },
+    {
+      "id": "uncertainty_01",
+      "prompt": "<|reasoning|>\nEvidence A: a report says the switch caused the failure.\nEvidence B: the log only shows the switch happened first.\nQuestion: Is causation established?\nReasoning:",
+      "required_any": [
+        "uncertain",
+        "not establish",
+        "No"
+      ],
+      "max_new_bytes": 220
+    },
+    {
+      "id": "dialogue_explain_01",
+      "prompt": "<|dialogue|>\nUser: I got a surprising test result once. Should I trust it immediately?\nAssistant:",
+      "required_any": [
+        "verify",
+        "check",
+        "evidence",
+        "repeat"
+      ],
+      "max_new_bytes": 220
+    }
+  ]
+}

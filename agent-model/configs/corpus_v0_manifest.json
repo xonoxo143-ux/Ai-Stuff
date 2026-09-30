@@ -1,0 +1,21 @@
+{
+  "dialogue_train_records": 8499,
+  "dialogue_valid_records": 956,
+  "generated_overlap_records": 0,
+  "seed": 20260930,
+  "sources": {
+    "oasst1_sha256": "286a6e9a5a413b3272ae9c0b5a20d327983dea1c24342ae28cb244a6da65185c",
+    "wikitext_train_sha256": "6707892fa3788b5ab9ed78ab5ff37d9fe825f6011a2ad4fcd6a6d467f0e7da57",
+    "wikitext_valid_sha256": "4cd0f6876d07a413aa911261ff6d363c72d757d47f0fdd6015702014c89cb9c7"
+  },
+  "train_bytes": 16777232,
+  "train_sha256": "98c6193f34c7a3d224739c04b8999bfdb03200948392b13d876dc4e141cd9a50",
+  "valid_bytes": 2097168,
+  "valid_sha256": "bd8615e6a99e07950e8cd3b52ea7fda03aad0631bc9821550e86668bb0ed2d67",
+  "weights": {
+    "dialogue": 0.25,
+    "planner": 0.125,
+    "prose": 0.5,
+    "reasoning": 0.125
+  }
+}

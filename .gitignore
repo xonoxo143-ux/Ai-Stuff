@@ -34,3 +34,9 @@ local-data/
 
 # Generated bundled workspace snapshot
 app/workspace/
+
+# Homegrown Agent V0 local training payloads
+**/__pycache__/
+*.pyc
+agent-model/data/
+agent-model/runs/
