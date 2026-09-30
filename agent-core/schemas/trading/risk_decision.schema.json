@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "risk_decision.schema.json",
+  "title": "RiskDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","intent_id","decision","reason_code","limits_snapshot_id","decided_at"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "intent_id": { "type": "string" },
+    "decision": { "enum": ["APPROVED","MODIFIED","DENIED","HALT"] },
+    "reason_code": { "type": "string" },
+    "reservation_id": { "type": ["string","null"] },
+    "approved_quantity": { "type": ["string","null"] },
+    "approved_limit_price": { "type": ["string","null"] },
+    "expires_at": { "type": ["string","null"], "format": "date-time" },
+    "limits_snapshot_id": { "type": "string" },
+    "decided_at": { "type": "string", "format": "date-time" }
+  }
+}
