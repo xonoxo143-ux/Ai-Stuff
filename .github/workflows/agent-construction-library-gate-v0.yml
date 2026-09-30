@@ -1,0 +1,30 @@
+name: Agent Construction Library Gate v0
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_language/construction_library_gate_v0.py'
+      - '.github/workflows/agent-construction-library-gate-v0.yml'
+  workflow_dispatch:
+
+jobs:
+  construction-library:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run three-seed construction gate
+        run: |
+          python agent-model/agent_language/construction_library_gate_v0.py \
+            --seeds 0,1,2 \
+            --out construction_library_v0.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Construction-Library-Gate-V0
+          path: construction_library_v0.json
