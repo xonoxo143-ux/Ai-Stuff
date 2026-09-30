@@ -1064,3 +1064,73 @@ The first is provisionally passed in this toy regime.
 A deconfounded structural-OOD gate is now running with the same model and only the benchmark changed.
 
 Do not build a larger parser until that gate decides whether the failure is structural or lexical.
+
+## 1J. Learned Construction Library v0 — promoted
+
+The deconfounded structural-OOD gate showed that the byte BiGRU span model still failed to systematically recombine known language:
+
+```text
+structured-span neural exact OOD
+seed 0   34.9%
+seed 1   31.6%
+seed 2   28.5%
+```
+
+The same task was then given to a learned construction library.
+
+### Construction induction
+
+The learner receives grounded training examples and their structured semantic state.
+
+It:
+1. replaces grounded argument spans with typed holes;
+2. compares unique surface structures across different semantic attributes;
+3. anti-unifies the single differing surface position;
+4. infers the surface-token → semantic-attribute mapping;
+5. compiles only construction schemas grounded under at least two different semantic attributes.
+
+No held-out construction×attribute pair is supplied.
+
+Three-seed result:
+
+```text
+learned constructions             8
+fit time                          ~0.04 s
+structural OOD exact              100%
+structural OOD + unseen args      100%
+unparsed                           0
+```
+
+The system independently inferred:
+
+```text
+color → color
+pet   → pet
+place → place
+```
+
+from cross-example semantic alignment.
+
+### Decision
+
+Promote **explicit learned constructions** as a serious perception representation.
+
+Do not interpret this as open-domain language solved.
+
+What has passed is narrower and important:
+
+> reusable surface→semantic constructions can systematically recombine grounded linguistic pieces where the sequential neural span encoder fails badly.
+
+The construction library is naturally compatible with cold storage, sparse retrieval, typed slot binding, one-shot/few-shot addition, causal validation before promotion, and compression of repeated language experience.
+
+### Next gate
+
+Test developmental language growth:
+
+1. recursive composition of known constructions/wrappers;
+2. one/few-shot grounding of a genuinely new wording;
+3. reuse of that wording with new attributes and unseen argument strings;
+4. zero regression on existing constructions;
+5. bounded active matching cost as the construction store grows.
+
+If this passes, perception should move toward a hybrid of learned construction/grammar storage, small learned ranking for ambiguity/novelty, and explicit fast-mapping for new constructions.
