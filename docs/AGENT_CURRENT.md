@@ -1420,3 +1420,45 @@ Do not assume every language meaning has an executable numeric environment. This
 ### Immediate application
 
 Use the mechanism on the real `chatbot-v0` repeated-transformation thread so the agent learns operation phrases from execution evidence, composes the described transformation, stores it, and reuses it across later turns.
+
+## 1Q. Whole-Agent Chatbot v1 — first real benchmark gain
+
+An execution-grounded procedure capability was integrated into the closed homegrown runtime and rerun against the unchanged `chatbot-v0` benchmark.
+
+Three seeds:
+
+```text
+                           v0        v1
+perception success          0/13      3/13
+automatic benchmark         0/5       3/5
+```
+
+Passing real benchmark turns:
+
+```text
+compression_01   280
+compression_02   616
+compression_03   -8
+```
+
+The capability did not store those answers. During development it learned 12 operation phrases from executable consequences, parsed the benchmark's unseen four-step description, compiled:
+
+```text
+DOUBLE → ADD3 → SQUARE → SUB9
+```
+
+stored that program in semantic memory, and reused it on the two later turns.
+
+### Decision
+
+Promote the pattern:
+
+> language fragments grounded to executable operations → compose → execute → compile/store → cheap reuse.
+
+This is the first mechanism to improve the actual mixed-domain benchmark.
+
+Remaining automatic failures:
+- `math_01` — percentage/algebra word problem;
+- `logic_01` — constraint/information-gain puzzle.
+
+Manual/open-ended benchmark families still fail at perception and remain unsolved.
