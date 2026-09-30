@@ -1320,3 +1320,53 @@ The important unsolved issue is now the production-system utility problem:
 > as the number of constructions grows, can only a tiny relevant subset become active?
 
 The next test should use a disk-backed construction store plus a discrimination/index structure and compare active rows/candidates against naive global matching across large store growth.
+
+## Developmental synthesis S19 — dormant language capacity scales
+
+Construction Store Scaling v2 tested whether the developing grammar reintroduces dense-model scaling through matching cost.
+
+Corrected three-seed result from 10 → 100,000 constructions:
+
+```text
+stored grammar growth             10,000×
+retrieval accuracy                100% throughout
+mean candidate payloads loaded    ~1.4 → ~1.4
+p95 candidate payloads loaded     2 → 2
+pattern bytes loaded              ~constant (~70–75 B)
+mean posting rows                 ~2.4× growth
+median lookup latency             ~1.6× growth
+```
+
+The cold grammar reached roughly 49 MB at 100,000 constructions in this SQLite prototype.
+
+### Interpretation
+
+This directly supports the central architecture hypothesis in the controlled language regime:
+
+> total stored linguistic capability can grow orders of magnitude faster than the active linguistic working set.
+
+The construction system therefore now has toy evidence for:
+- systematic structural recombination;
+- arbitrary argument binding;
+- recursive composition;
+- one-shot grounded construction acquisition;
+- zero-regression local growth;
+- cold-store scaling with sparse activation.
+
+### Strategic consequence
+
+These pieces should now be integrated rather than independently optimized.
+
+Next experiment: **Whole-Agent Closure v0 using the surviving mechanisms**.
+
+```text
+raw input
+→ sparse construction activation / binding
+→ typed state
+→ persistent memory + cognition
+→ response state
+→ tiny pointer/copy producer
+→ raw output
+```
+
+The whole-agent multi-turn script, not another isolated grammar score, should decide what fails next.
