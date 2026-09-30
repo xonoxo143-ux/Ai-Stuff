@@ -73,8 +73,8 @@ def holdout(seed,n,v,split):
 def mask_args(ex):
     s=ex.text.lower()
     # opaque values are unique substrings; longest first protects accidental overlap.
-    reps=[(ex.name,"<NAME>")]
-    if ex.value is not None: reps.append((ex.value,"<VALUE>"))
+    reps=[(ex.name,"<name>")]
+    if ex.value is not None: reps.append((ex.value,"<value>"))
     for old,new in sorted(reps,key=lambda x:len(x[0]),reverse=True):
         s=s.replace(old,new)
     return toks(s)
@@ -96,11 +96,15 @@ class ConstructionLibrary:
             if ex.value_role: vr[ex.attr][ex.value_role]+=1
         self.attr_value_role={a:c.most_common(1)[0][0] for a,c in vr.items()}
 
-        # Anti-unify pairs with same mode/shape and different semantic attributes.
+        # Anti-unify UNIQUE grounded patterns rather than all duplicate examples.
+        # This makes induction cost depend on construction diversity, not corpus size.
         votes=defaultdict(Counter)
-        signature_evidence=defaultdict(set)
+        uniq={}
+        for ex,ts in masked:
+            uniq[(ex.mode,ex.attr,tuple(ts))]=ex
         by_mode_len=defaultdict(list)
-        for ex,ts in masked: by_mode_len[(ex.mode,len(ts))].append((ex,ts))
+        for (mode,attr,ts),ex in uniq.items():
+            by_mode_len[(mode,len(ts))].append((ex,list(ts)))
         for group in by_mode_len.values():
             for i in range(len(group)):
                 e1,t1=group[i]
@@ -112,8 +116,6 @@ class ConstructionLibrary:
                     k=dif[0]; a,b=t1[k],t2[k]
                     if not (a.isalpha() and b.isalpha()): continue
                     votes[a][e1.attr]+=1; votes[b][e2.attr]+=1
-                    sig=tuple(t1[:k]+["<ATTR>"]+t1[k+1:])
-                    signature_evidence[sig].update([e1.attr,e2.attr])
 
         # Accept only unambiguous surface->semantic mappings with repeated evidence.
         for word,c in votes.items():
@@ -149,10 +151,10 @@ class ConstructionLibrary:
                 if pat=="<ATTR>":
                     if z not in self.attr_lex: ok=False; break
                     attr=self.attr_lex[z]
-                elif pat=="<NAME>":
+                elif pat=="<name>":
                     if not z.isalpha(): ok=False; break
                     cap["name"]=z
-                elif pat=="<VALUE>":
+                elif pat=="<value>":
                     if not z.isalpha(): ok=False; break
                     cap["value"]=z
                 elif pat!=z:
