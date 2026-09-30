@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent_command.schema.json",
+  "title": "AgentToTraderCommand",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","command_id","issued_at","expires_at","strategy_id","action","evidence"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "command_id": { "type": "string", "minLength": 16 },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "strategy_id": { "type": "string" },
+    "action": { "enum": ["ACTIVATE","PAUSE","RESUME","RUN_EXPERIMENT","PROPOSE_PARAMETER_UPDATE","REQUEST_GLOBAL_HALT"] },
+    "parameters": { "type": "object" },
+    "evidence": {
+      "type": "object",
+      "required": ["reason_code"],
+      "properties": {
+        "metrics_snapshot_id": { "type": ["string","null"] },
+        "reason_code": { "type": "string" },
+        "summary": { "type": "string", "maxLength": 1000 }
+      }
+    }
+  }
+}
