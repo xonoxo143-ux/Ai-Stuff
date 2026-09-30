@@ -1478,3 +1478,52 @@ Use the same architecture pattern where justified:
 - logic puzzles → language-to-constraints + exact search/information gain.
 
 Do not force this representation onto roleplay, interpretation, or other open-ended language where success is not naturally an executable denotation.
+
+## Developmental synthesis S23 — open-ended conversation needs a plan layer
+
+The objective benchmark gains reveal a boundary in the current architecture.
+
+For executable tasks, the winning pattern is now strong:
+
+```text
+language → explicit program/constraints → execution → structured result → learned realization
+```
+
+But roleplay, literary interpretation, philosophy, cross-domain analogy, clarification and epistemic responses do not always have a single executable denotation.
+
+### New working hypothesis
+
+Introduce an explicit **conversation plan state** between perception/cognition and language production.
+
+```text
+raw utterance
+→ learned constructions / semantic fragments
+→ DIALOGUE STATE
+   - current mode
+   - active thread
+   - referents
+   - user request / goal
+   - constraints
+   - unresolved uncertainty
+→ RESPONSE PLAN
+   - conversational act
+   - propositions / content goals
+   - discourse relations
+   - style/persona constraints
+→ retrieve/execute only capabilities that matter
+→ learned surface realization
+```
+
+This should remain compatible with the project's cold/hot principle:
+- thread histories and knowledge remain cold;
+- only relevant frame fragments activate;
+- response plans remain small and typed;
+- the surface generator need not rediscover the conversational goal from raw text.
+
+### Important constraint
+
+Do not hand-code one frame for every `chatbot-v0` prompt.
+
+The next build should test whether a small reusable set of dialogue operations — enter/exit mode, maintain/resume thread, compare, challenge/repair, clarify missing reference, distinguish certainty levels — can compose across multiple surface forms and tasks.
+
+Knowledge and open-ended content generation remain separate unresolved problems even if dialogue-state tracking succeeds.
