@@ -5995,6 +5995,22 @@ const server = http.createServer(async (req, res) => {
 });
 
 const durableRestore = await restoreDurableState();
+rememberEvent({
+  id: randomUUID(),
+  receivedAt: startedAt,
+  type: "continuity.runtime_started",
+  source: runtimeId,
+  externalId: bootId,
+  payload: {
+    boot_id: bootId,
+    identity_id: identityId,
+    lineage_id: identityLineageId,
+    identity_manifest_hash: identityManifestHash,
+    config_hash: continuityConfigHash,
+    recovered: durableRestore.recovered === true,
+    recovered_from: durableRestore.recoveredFrom || null,
+  },
+});
 if (durableRestore.recovered) {
   console.log(JSON.stringify({ event: "durable_state.recovered", directory: agentStateDir }));
 } else if (durableRestore.quarantined) {
