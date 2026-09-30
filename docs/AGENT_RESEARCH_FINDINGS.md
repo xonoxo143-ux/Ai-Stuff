@@ -652,3 +652,25 @@ utterance
 ```
 
 is a better-supported next architecture target than expanding the current fixed response scaffolds or forcing all open-ended behavior through executable task programs.
+
+## Clarification / epistemic uncertainty refresh — 2026-09-29
+
+### F55. Clarification is an active uncertainty-reduction action
+
+Recent clarification-question research treats ambiguity and under-specification as uncertainty states and reports improved task success when systems explicitly use uncertainty to decide when to ask rather than always proceeding.
+
+### F56. Evidence insufficiency should be a first-class epistemic state
+
+Recent verification/calibration work separates supported, contradicted and unknown/insufficient-evidence states, with abstention or targeted retrieval when evidence is inadequate instead of forcing a binary answer.
+
+External implication:
+
+```text
+underdetermined discourse/evidence state
+→ identify missing variable/evidence
+→ ask / retrieve / abstain
+→ update state
+→ answer only after support is sufficient
+```
+
+is a reusable control principle across reference resolution and factual assertion.
