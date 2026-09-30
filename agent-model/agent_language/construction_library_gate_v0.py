@@ -23,7 +23,7 @@ HOLD={
  ("set","color"):0,("set","pet"):1,("set","place"):2,
  ("ask","color"):1,("ask","pet"):2,("ask","place"):3,
 }
-TOK_RE=re.compile(r"<NAME>|<VALUE>|[a-z]+|'s|[.,?]")
+TOK_RE=re.compile(r"<name>|<value>|[a-z]+|'s|[.,?]")
 
 @dataclass(frozen=True)
 class Example:
