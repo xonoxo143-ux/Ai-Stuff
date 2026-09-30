@@ -80,7 +80,9 @@ The benchmark compares:
 3. vectorized FP32;
 4. vectorized FP16 + fused AdamW.
 
-Select the fastest profile that remains numerically stable. Do not assume FP16 or fused AdamW wins until measured.
+Select the fastest profile that remains numerically stable. Prefer the smallest sufficient optimization stack: CUDA + vectorized FP32 is the default candidate; FP16 and fused AdamW must each show a stable measurable gain before becoming defaults.
+
+Cloud acceleration must not become an inference requirement. Every architecture survivor is checked against `LOCAL_DEPLOYMENT_GATE.md` on the phone or another ordinary CPU target.
 ## Phase-2 fork example
 
 After the benchmark selects a runtime profile:

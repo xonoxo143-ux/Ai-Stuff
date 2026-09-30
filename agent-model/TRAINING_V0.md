@@ -91,11 +91,10 @@ python3 -m agent_language.train_v0 \
   --max-step 3072 \
   --device cuda:0 \
   --execution vectorized \
-  --precision fp16 \
-  --fused-adamw
+  --precision fp32
 ```
 
-Do not use the acceleration profile until `python3 -m agent_language.benchmark_v0_cloud` has measured it against reference FP32 on the actual T4 runtime. See `KAGGLE_V0.md`.
+This is the minimum cloud profile currently worth carrying forward: CUDA plus the vectorized execution path, while keeping the model architecture and deployment path unchanged. FP16 and fused AdamW remain optional experiments and must earn their complexity through stable benchmarks. See `KAGGLE_V0.md` and `LOCAL_DEPLOYMENT_GATE.md`.
 
 Then train the parameter-matched control with the identical curriculum and budget.
 
