@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "identity_id": "self-root-541",
+  "display_name": "SELF-ROOT",
+  "lineage_id": "self-root-541",
+  "primary_mailbox": "oldcraft541@agentmail.to",
+  "continuity_model": "evidence-ledger-v1",
+  "credential_policy": {
+    "storage": "external_or_encrypted_reference_only",
+    "emit_secrets": false
+  },
+  "accounts": [
+    { "provider": "agentmail", "reference": "oldcraft541@agentmail.to" },
+    { "provider": "github", "reference": "self-root-541" }
+  ],
+  "capabilities": [
+    "work.scheduler",
+    "work.execute",
+    "agentmail.ingress",
+    "railway.runtime",
+    "evidence-ledger"
+  ]
+}
