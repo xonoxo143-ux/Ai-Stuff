@@ -1206,3 +1206,78 @@ Decision rule:
 
 - high structural OOD → perception bottleneck is lexical acquisition, so test fast episodic construction/word learning next;
 - low structural OOD → build and compare explicit construction/span-tree composition against the sequential parser.
+
+## Developmental synthesis S17 — language as reusable constructions
+
+The deconfounded gate separated true structural recombination from lexical novelty.
+
+### Neural structural result
+
+With every function word seen during training but construction×semantic combinations held out:
+
+```text
+byte BiGRU + joint span decoder   28.5%–34.9% exact
+```
+
+Argument novelty had almost no additional effect.
+
+Therefore the remaining failure was genuinely structural.
+
+### Construction-library result
+
+A tiny induction procedure learned schematic mappings from grounded examples by anti-unification:
+
+```text
+surface examples
+→ mask grounded arguments
+→ compare different semantic instances
+→ identify systematic differing surface position
+→ infer semantic lexical mapping
+→ compile generalized construction
+```
+
+Example learned object:
+
+```text
+set the <ATTR> for <NAME> to <VALUE>
+          ↓
+SET(attr=<ATTR>, entity=<NAME>, value=<VALUE>)
+```
+
+It reached 100% exact on both structural OOD and structural OOD with entirely unseen argument strings across all three seeds.
+
+### Revised synthesis
+
+This suggests a stronger language architecture than a single hot sequence encoder:
+
+```text
+                 COLD CONSTRUCTION STORE
+             learned surface↔semantic schemas
+                        │
+            sparse candidate activation
+                        ▼
+RAW BYTES → binding / construction matching
+                        │
+                        ▼
+                 TYPED INTERNAL STATE
+                        │
+                 cognition / memory
+                        │
+                        ▼
+             POINTER/COPY PRODUCER
+```
+
+A small neural component may still be valuable for ranking ambiguous candidate constructions, proposing analyses for novel utterances, estimating uncertainty, and deciding when to ask/ground rather than guess.
+
+Stable language competence need not all reside inside one recurrent encoder.
+
+### Next discriminating question
+
+> Can the construction store **develop** rather than merely interpolate?
+
+Specifically:
+- learn wrapper/subconstruction semantics separately;
+- compose them recursively in combinations never observed;
+- fast-map a genuinely new construction from one/few grounded examples;
+- preserve all old constructions without retraining;
+- remain sparse as the grammar grows.
