@@ -1549,3 +1549,38 @@ candidate state set
 ```
 
 The next whole-agent integration should expose clarification and epistemic response plans to the learned surface realizer rather than hard-code final text.
+
+## Developmental synthesis S25 — factual capacity should live cold
+
+The project now has converging internal and external reasons to keep factual knowledge out of the hot language machinery.
+
+Internal evidence already shows:
+- 100,000 cold constructions can activate ~1–2 payloads per utterance;
+- pointer/copy realization handles entirely unseen lexical values;
+- uncertainty control can abstain instead of inventing missing support.
+
+External LMLM and macro-planning work supports the complementary principles:
+- externalize editable facts;
+- retrieve only what is needed;
+- plan content before realization;
+- copy exact values instead of requiring the generator to memorize them.
+
+### Current hypothesis
+
+```text
+COLD EVIDENCE STORE
+entity / relation / value / source / confidence
+          ↓ sparse retrieval
+SMALL CONTENT PLANNER
+select / compare / order / mark missing evidence
+          ↓
+SMALL RESPONSE PLAN
+          ↓
+LEARNED POINTER/COPY REALIZER
+```
+
+### Falsification requirement
+
+A retrieval-only success is insufficient.
+
+The current gate must causally remove a required evidence record while holding the model fixed. If the deleted value still appears, factual knowledge has leaked into the hot path and the architecture has failed the intended separation.
