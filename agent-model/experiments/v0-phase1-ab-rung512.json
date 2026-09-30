@@ -1,0 +1,22 @@
+{
+  "experiment_id": "v0-phase1-ab-rung512",
+  "lane": "LOCAL",
+  "hypothesis": "Phase-1 failure is primarily insufficient exposure rather than a defect unique to BytePatchHybridV0.",
+  "control": "ByteTransformer, 1051232 params",
+  "candidate": "BytePatchHybridV0, 1063712 params",
+  "fixed": {
+    "seed": 20260930,
+    "config": "configs/v0_first_run.json",
+    "curriculum": "Phase 1 only: 75% prose / 25% dialogue",
+    "max_step": 512,
+    "batch_size": 64,
+    "sequence_length": 128,
+    "precision": "fp32",
+    "optimizer": "ordinary AdamW"
+  },
+  "execution": {"hybrid": "cuda:0 vectorized", "transformer": "cuda:1 reference"},
+  "baseline_phase1_unigram_bpb": 4.638416162302098,
+  "metrics": ["phase-valid BPB", "global-valid BPB", "train loss", "generation behavior", "bytes/sec"],
+  "decision": "Use rung-512 learning curves to decide whether to promote either/both to rung 1024. Do not introduce Phase-2 data yet.",
+  "falsification": "If hybrid remains near/above unigram while the matched Transformer learns contextual structure under the same budget, the insufficient-exposure-only explanation is weakened."
+}
