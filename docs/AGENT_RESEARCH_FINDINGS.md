@@ -466,3 +466,35 @@ External-science implication:
 > A developing system should not equate “fits current evidence” with “safe to compile.” It can actively search for a discriminating observation and spend additional evidence only when multiple behaviorally distinct hypotheses remain.
 
 This connects naturally to library learning: synthesis proposes reusable computation; active falsification determines whether it is sufficiently identified to enter the durable library.
+
+## Novel reasoning + pointer language refresh — 2026-09-29
+
+### F36. Learned guidance is strongest when paired with explicit search rather than greedy commitment
+
+ExeDec (Shi et al., ICLR 2024; arXiv:2307.13883) predicts execution subgoals and repeatedly synthesizes/executes partial programs. It reports substantially improved compositional generalization over direct synthesis baselines.
+
+DeepCubeAI (Agostinelli & Soltani, RLC 2024) combines a learned discrete world model and learned goal-conditioned heuristic with explicit heuristic search; the authors report >99% solve rates across their evaluated planning domains and large gains over greedy policies.
+
+External implication:
+
+> a learned model can be a proposal/priority mechanism while explicit search preserves multiple future possibilities. Greedy next-step control is not the only or generally strongest way to use a learned heuristic.
+
+### F37. Pointer/copy mechanisms decouple linguistic structure from rare or unseen lexical content
+
+Pointer Sentinel Mixture Models (Merity et al., ICLR 2017; arXiv:1609.07843) lets a recurrent language model either generate from its vocabulary or copy from context, improving rare/unseen-word handling while using fewer parameters than large-softmax baselines in its setting.
+
+Later external-memory language work, including Neurocache (Safaya & Yuret, NAACL 2024), similarly separates a compact active language model from a larger external store/cache.
+
+External implication:
+
+> exact lexical content does not necessarily have to be memorized inside the hot language generator; a small learned generator can learn linguistic scaffolding while exact entities/content remain externally addressable.
+
+### F38. Structured span parsing is materially stronger than flat token tagging when compositional structure matters
+
+Herzig & Berant (ACL 2021, DOI: 10.18653/v1/2021.acl-long.74) report that a span-tree semantic parser improves average accuracy from 61.0 to 88.9 versus seq2seq baselines on their compositional-generalization splits while remaining comparable on random splits.
+
+Zhang, Strubell & Hovy (SPNLP 2021, DOI: 10.18653/v1/2021.spnlp-1.8) find structured span decoding consistently outperforms BIO tagging when using static word-type representations across their semantic-role-labeling experiments.
+
+External implication for a from-scratch low-resource parser:
+
+> role/value binding should probably be represented as structured spans/composition rather than independent per-byte labels or unconstrained independent boundaries.
