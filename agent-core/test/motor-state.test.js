@@ -34,3 +34,24 @@ print(json.dumps({"written": written, "loaded": loaded}))
   }
 });
 
+
+
+test("bounded motor executes typed work steps and rejects path traversal", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "motor-work-test-"));
+  const script = "import importlib.util, json, pathlib, sys\\nspec = importlib.util.spec_from_file_location(\"motor\", sys.argv[1])\\nmotor = importlib.util.module_from_spec(spec)\\nspec.loader.exec_module(motor)\\nroot = pathlib.Path(sys.argv[2])\\nmotor.JOBS_DIR = root / \"jobs\"\\nok, result = motor.execute({\"action\":\"work.execute\",\"payload\":{\"jobId\":\"unit-job\",\"steps\":[{\"type\":\"mkdir\",\"path\":\"artifact\"},{\"type\":\"write_text\",\"path\":\"artifact/data.json\",\"content\":\"{\\\\\"ok\\\\\":true}\"},{\"type\":\"syntax_check\",\"kind\":\"json\",\"paths\":[\"artifact/data.json\"]},{\"type\":\"read_text\",\"path\":\"artifact/data.json\"}]}})\\nblocked_ok, blocked = motor.execute({\"action\":\"work.execute\",\"payload\":{\"jobId\":\"blocked-job\",\"steps\":[{\"type\":\"write_text\",\"path\":\"../escape.txt\",\"content\":\"no\"}]}})\\nprint(json.dumps({\"ok\":ok,\"result\":result,\"blockedOk\":blocked_ok,\"blocked\":blocked,\"escaped\":(root / \"escape.txt\").exists()}))";
+  try {
+    const motorPath = path.resolve(import.meta.dirname, "../motor/self_root_motor.py");
+    const { stdout } = await execFileAsync("python3", ["-c", script, motorPath, directory]);
+    const result = JSON.parse(stdout);
+    assert.equal(result.ok, true);
+    assert.equal(result.result.exitCode, 0);
+    assert.equal(result.result.steps.length, 4);
+    assert.equal(result.result.steps[2].ok, true);
+    assert.equal(result.result.steps[3].text, '{"ok":true}');
+    assert.equal(result.blockedOk, false);
+    assert.equal(result.blocked.exitCode, 1);
+    assert.equal(result.escaped, false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
