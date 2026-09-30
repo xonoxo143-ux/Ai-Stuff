@@ -129,9 +129,9 @@ Current live implementation:
 
 - Railway service: `browser-worker-wNUX`
 - runtime: `continuity-agent-core`
-- current deployed release: **v0.17.0**
-- code-release commit: `905ca640599b2dc2c2aae65a4333f1fc2f63e200`
-- successful production deployment: `ccb90cd0-9fe0-45dd-865d-cd95344a316f`
+- current deployed release: **v0.18.0**
+- code-release commit: `f025f18a3a83dc80c4577d645e7350ef1994dd3b`
+- successful production deployment: `7679f6ef-0703-4d0c-b593-9a16e3ef7269`
 - deployment source is pinned to that exact code-release commit
 - public healthcheck path: `/health`
 - outbound work: enabled
@@ -232,7 +232,7 @@ End-to-end verification completed on 2026-09-29 UTC:
 - `system.ping` completed successfully;
 - `continuity.verify` completed successfully.
 
-There is intentionally **no arbitrary remote-shell action** in the motor protocol.
+There is intentionally **no arbitrary remote-shell action** in the motor protocol. The repository-side v0.18 motor implements `work.execute`, but the canonical smolmachine must still be refreshed before that action is live end-to-end.
 
 The one-time installer bootstrap was disabled after successful installation. The permanent token remains only in managed runtime secret storage and the machine's owner-only secrets directory.
 
@@ -270,7 +270,7 @@ Production startup logs report `agentmail.webhook_ready`, and the live motor is 
 
 Do **not** create a second agent or a broad account-wide machine-exec credential.
 
-## Autonomous work control plane (v0.17.0)
+## Autonomous work control plane (v0.18.0)
 
 The repository now implements the restart-safe control plane around the existing provider adapters:
 
@@ -292,23 +292,24 @@ AGENT_STATE_DIR=/data/agent-core
 
 Worker-facing authenticated endpoints:
 
+- `POST /v1/work/dispatch` — validate, lease, checkpoint, and enqueue a bounded `work.execute` plan
 - `POST /v1/work/lease`
 - `POST /v1/work/checkpoints`
 - `POST /v1/work/transitions`
 - `GET /v1/reports`
 - `POST /v1/reports/ack`
 
-The runtime still refuses autonomous spending and arbitrary remote shell access. General coding or research jobs require a compatible episodic reasoning worker to consume leases; Agent Core coordinates and remembers the work but does not pretend its deterministic scheduler can author arbitrary deliverables itself.
+The runtime still refuses autonomous spending and arbitrary remote shell access. v0.18 adds a bounded execution limb for concrete, preplanned coding/research steps; open-ended reasoning still belongs in a compatible episodic worker rather than the deterministic scheduler.
 
 ## Current handoff checkpoint — 2026-09-29
 
-Agent Core v0.17.0 is committed, deployed, and live.
+Agent Core v0.18.0 server/control-plane release is committed, deployed, and live.
 
 - implementation branch: `agent-core`
-- code-release SHA: `905ca640599b2dc2c2aae65a4333f1fc2f63e200`
+- code-release SHA: `f025f18a3a83dc80c4577d645e7350ef1994dd3b`
 - live Railway service: `browser-worker-wNUX`
-- production deployment: `ccb90cd0-9fe0-45dd-865d-cd95344a316f`
-- runtime startup reports version `0.17.0`
+- production deployment: `7679f6ef-0703-4d0c-b593-9a16e3ef7269`
+- runtime startup reports version `0.18.0`
 - AgentMail webhook is ready
 - motor polling/acknowledgements are live
 - direct financial actions remain disabled
@@ -316,7 +317,7 @@ Agent Core v0.17.0 is committed, deployed, and live.
 
 Docs-only commits may advance the `agent-core` branch beyond the pinned code-release SHA. Do not mistake a later documentation commit for a new runtime release.
 
-The next major capability gap is **episodic execution**: Agent Core can discover, qualify, lease, checkpoint, persist, recover, and account for work, but a compatible reasoning worker still needs to consume leases and execute general coding/research deliverables. The next end-to-end milestone is to connect that worker and run a real task through the v0.17 lifecycle without manual orchestration.
+The immediate capability gap is **machine rollout**: the v0.18 bounded executor exists in the repository and server control plane, but the persistent smolmachine is still running the earlier motor daemon. Refresh that daemon through the owner-controlled smolmachines session/API, then run a real task through `work.execute`. Open-ended episodic reasoning remains a later/parallel worker capability.
 
 ## Recovery sequence for a new worker
 
