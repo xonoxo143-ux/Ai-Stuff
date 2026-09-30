@@ -65,3 +65,73 @@ print(json.dumps({"ok":ok,"result":result,"blockedOk":blocked_ok,"blocked":block
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+
+test("machine evidence ledger append is durable and idempotent", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "motor-evidence-test-"));
+  const script = `
+import importlib.util, json, pathlib, sys
+spec = importlib.util.spec_from_file_location("motor", sys.argv[1])
+motor = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(motor)
+root = pathlib.Path(sys.argv[2])
+motor.ROOT = root
+motor.STATE_DIR = root / "state"
+motor.EVIDENCE_DIR = root / "evidence"
+motor.EVIDENCE_LEDGER_FILE = motor.EVIDENCE_DIR / "evidence-ledger-v1.jsonl"
+motor.EVIDENCE_INDEX_FILE = motor.EVIDENCE_DIR / "event-index-v1.json"
+motor.STATE_SNAPSHOT_FILE = motor.STATE_DIR / "materialized-work-state-v1.json"
+motor.LEGACY_STATE_SNAPSHOT_FILE = motor.STATE_DIR / "agent-core-snapshot-v1.json"
+event = {
+  "schema_version": "1.0",
+  "event_id": "event-1",
+  "correlation_id": "job-1",
+  "parent_event_id": None,
+  "event_type": "work.test",
+  "occurred_at": "2026-09-30T16:00:00.000Z",
+  "recorded_at": "2026-09-30T16:00:00.000Z",
+  "source": "unit-test",
+  "strategy_id": None,
+  "strategy_version": None,
+  "payload": {"ok": True},
+  "provenance": {
+    "software_version": "0.19.0",
+    "config_hash": "cfg",
+    "dataset_version": None,
+    "ledger_seq": 1,
+    "previous_event_hash": None,
+    "event_hash": "hash-1"
+  }
+}
+first_ok, first = motor.execute({"action": "evidence.ledger.append", "payload": {"events": [event]}})
+second_ok, second = motor.execute({"action": "evidence.ledger.append", "payload": {"events": [event]}})
+status_ok, status = motor.execute({"action": "evidence.ledger.status", "payload": {}})
+read_ok, read = motor.execute({"action": "evidence.ledger.read", "payload": {"afterSeq": 0, "limit": 10}})
+print(json.dumps({
+  "firstOk": first_ok,
+  "first": first,
+  "secondOk": second_ok,
+  "second": second,
+  "statusOk": status_ok,
+  "status": status,
+  "readOk": read_ok,
+  "read": read
+}))
+`;
+  try {
+    const motorPath = path.resolve(import.meta.dirname, "../motor/self_root_motor.py");
+    const { stdout } = await execFileAsync("python3", ["-c", script, motorPath, directory]);
+    const result = JSON.parse(stdout);
+    assert.equal(result.firstOk, true);
+    assert.equal(result.first.accepted, 1);
+    assert.equal(result.secondOk, true);
+    assert.equal(result.second.duplicates, 1);
+    assert.equal(result.statusOk, true);
+    assert.equal(result.status.count, 1);
+    assert.equal(result.readOk, true);
+    assert.equal(result.read.events.length, 1);
+    assert.equal(result.read.events[0].event_id, "event-1");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
