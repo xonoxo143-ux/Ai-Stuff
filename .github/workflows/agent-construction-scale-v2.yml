@@ -1,0 +1,32 @@
+name: Agent Construction Scale Gate v2
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_language/construction_scale_gate_v2.py'
+      - '.github/workflows/agent-construction-scale-v2.yml'
+  workflow_dispatch:
+
+jobs:
+  construction-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run three-seed construction scaling gate
+        run: |
+          python agent-model/agent_language/construction_scale_gate_v2.py \
+            --seeds 0,1,2 \
+            --stages 10,1000,10000,100000 \
+            --queries 500 \
+            --out construction_scale_v2.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Construction-Scale-V2
+          path: construction_scale_v2.json
