@@ -1639,3 +1639,34 @@ Promote explicit mode/thread state and learned multiword control constructions.
 The switching-thread bottleneck is no longer basic thread storage/retrieval in this controlled regime.
 
 Next frontier: **content planning, knowledge retrieval/reasoning, and flexible realization** for the recognized dialogue state.
+
+## 1W. Shared Uncertainty Regulator v0 — promoted
+
+A single uncertainty-control mechanism was tested on two distinct conversational problems:
+- under-specified referents;
+- unsupported factual claims.
+
+Three seeds:
+
+```text
+synthetic referent-state decisions      100% (2000/seed)
+synthetic evidence postures             100% (2000/seed)
+ambiguity_01 plan                       CLARIFY_REFERENTS
+epistemic_01 posture                    UNKNOWN
+```
+
+Actual ambiguity response plan identifies exactly the ungrounded expressions:
+`the other one`, `it`, `there`.
+
+Actual epistemic response plan separates:
+- Known: no verified evidence currently available;
+- Suspect: a highly specific persistent causal effect should not be treated as established without strong evidence;
+- Verify: citation, sample, controls, measurement, duration, replication.
+
+### Decision
+
+Promote a shared rule:
+
+> when current state/evidence does not identify a justified answer, select a clarification / verification / abstention action rather than force completion.
+
+This is the conversational analogue of active hypothesis management used elsewhere in the architecture.
