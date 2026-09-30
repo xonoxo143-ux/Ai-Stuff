@@ -1,0 +1,30 @@
+name: Agent Active Execution-Grounded Language v1
+on:
+  push:
+    branches:
+      - experiment/agent-v1-developmental-ecology
+    paths:
+      - 'agent-model/agent_language/active_execution_grounding_gate_v1.py'
+      - '.github/workflows/agent-active-execution-grounding-v1.yml'
+  workflow_dispatch:
+
+jobs:
+  active-grounding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/agent-v1-developmental-ecology
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run three-seed active grounding gate
+        run: |
+          python agent-model/agent_language/active_execution_grounding_gate_v1.py \
+            --seeds 0,1,2 \
+            --out active_execution_grounding_v1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Active-Execution-Grounding-V1
+          path: active_execution_grounding_v1.json
