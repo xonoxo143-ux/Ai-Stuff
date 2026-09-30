@@ -1289,3 +1289,64 @@ Pass condition:
 - no external/pretrained language backend.
 
 Do not promote the closure result until the external run completes. A pass establishes end-to-end plumbing, not broad conversational intelligence. The existing `chatbot-v0` mixed-domain benchmark remains the next whole-agent capability probe after closure.
+
+## 1N. Whole-Agent Closure v0 — PASSED
+
+GitHub Actions run `36656054633` passed the first self-contained homegrown conversational closure gate.
+
+Three seeds:
+
+```text
+seed 0   7 / 7 turns exact
+seed 1   7 / 7 turns exact
+seed 2   7 / 7 turns exact
+```
+
+Producer:
+
+```text
+parameters                  47,396
+training                    500 updates
+local CPU train time        ~3.6–3.7 s/seed
+ack scaffold                exact
+answer scaffold             exact
+unknown scaffold            exact
+fail scaffold               exact
+```
+
+The runtime was deliberately destroyed and recreated after turn 4. The new runtime recovered its turn counter and semantic state from the same SQLite file and answered later queries correctly.
+
+Passed behaviors included:
+- completely unseen argument strings;
+- nested learned language wrappers;
+- storing two independent facts;
+- switching between facts;
+- overwriting one fact;
+- retrieving the other after a hard runtime restart;
+- resuming the updated fact after restart;
+- correctly reporting unknown memory.
+
+Inference path:
+
+```text
+raw user bytes
+→ learned developmental construction grammar
+→ typed operation / slot bindings
+→ AgentRuntime
+→ durable SQLite semantic memory
+→ response state
+→ learned autoregressive pointer/copy GRU
+→ raw assistant text
+```
+
+No pretrained or OpenAI-compatible language backend is present in the closure path.
+
+### Interpretation
+
+Whole-Agent Closure v0 is now passed as an **integration milestone**, not as a general-intelligence milestone.
+
+The agent is genuinely closed end-to-end with homegrown perception, persistent state and learned production, but its language/cognition coverage is intentionally narrow.
+
+### Immediate next gate
+
+Run the unchanged closed agent against `workspace/benchmarks/chatbot-v0.json` and instrument failure location. Do not expand the architecture before obtaining this whole-agent failure map.
