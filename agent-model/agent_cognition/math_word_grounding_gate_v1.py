@@ -104,5 +104,5 @@ if __name__=="__main__":
     prompt=next(x["prompt"] for x in bench["turns"] if x["id"]=="math_01")
     runs=[run(int(s),prompt) for s in a.seeds.split(",")]
     out={"passed":all(r["lexicon_exact"] and r["heldout_random_exact"]==1.0 and r["benchmark_pass"] for r in runs),"runs":runs}
-    with open(a.out,"w") as f:json.dump(out,f,indent=2)
-    print(json.dumps(out,indent=2))
+    with open(a.out,"w") as f:json.dump(out,f,indent=2,default=str)
+    print(json.dumps(out,indent=2,default=str))
