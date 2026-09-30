@@ -1281,3 +1281,42 @@ Specifically:
 - fast-map a genuinely new construction from one/few grounded examples;
 - preserve all old constructions without retraining;
 - remain sparse as the grammar grows.
+
+## Developmental synthesis S18 — fast language growth without global retraining
+
+Developmental Construction Grammar v1 passed two stronger tests.
+
+### Recursive reuse
+
+Independently learned semantics-preserving wrappers composed correctly at unseen nesting depths/combinations.
+
+### Fast mapping
+
+A single grounded example of a genuinely novel wording was enough to create a tentative construction that generalized across:
+- new argument strings;
+- semantic attributes not present in the grounding example.
+
+A second independent grounding promoted the construction to durable storage, with zero regression on prior language.
+
+### Revised language-development hypothesis
+
+New linguistic competence does not have to mean immediate weight updates.
+
+```text
+novel utterance
+→ infer/observe grounded meaning
+→ create tentative construction object
+→ use immediately under uncertainty
+→ seek independent confirmation
+→ promote or discard
+```
+
+This is structurally the same developmental law already surviving for reasoning skills.
+
+### New frontier
+
+The important unsolved issue is now the production-system utility problem:
+
+> as the number of constructions grows, can only a tiny relevant subset become active?
+
+The next test should use a disk-backed construction store plus a discrimination/index structure and compare active rows/candidates against naive global matching across large store growth.
