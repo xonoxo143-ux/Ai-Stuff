@@ -1137,3 +1137,72 @@ The next language research/build target is therefore not a bigger byte encoder.
 It is:
 
 > learn a structured span tree / compositional parse that binds arbitrary surface spans to typed internal roles, then hand those byte strings directly to structured state and the already-surviving pointer producer.
+
+## Developmental synthesis S16 — separate binding, structure, and lexical acquisition
+
+Structured Span Perception v0 changed the diagnosis.
+
+### Result
+
+A joint role-span decoder over a small byte BiGRU achieved essentially perfect generalization to completely unseen argument strings under familiar sentence forms:
+
+```text
+OOV-argument exact   99.5%–99.9%
+```
+
+but remained near 17% exact on the original held-out paraphrases.
+
+### Benchmark correction
+
+The original paraphrase split changed two things simultaneously:
+
+```text
+surface construction
++
+semantic vocabulary
+```
+
+Examples introduced ungrounded words such as "retrieve", "associated", "recall", and "keep".
+
+That means the test mixed:
+- systematic recombination of known language;
+- acquisition of genuinely new linguistic primitives.
+
+Those are different scientific questions.
+
+### Revised model
+
+The language interface is now better represented as:
+
+```text
+ARGUMENT BINDING
+raw/unseen spans → typed variables
+        ↓
+CONSTRUCTION / STRUCTURE
+compose already-grounded linguistic operations
+        ↓
+LEXICAL DEVELOPMENT
+new word/construction
+→ episodic grounded binding
+→ cross-situational / causal confirmation
+→ optional consolidation into cold construction/lexical store
+```
+
+The current hot network should not be forced to globally retrain merely because one new synonym appears.
+
+This connects naturally to the developmental architecture:
+- new surface meanings can be fast-mapped into external memory;
+- reusable constructions can be stored cold;
+- repeated/validated constructions can be compiled;
+- the hot parser handles structure and selection rather than memorizing the entire lexicon.
+
+### Current discriminating gate
+
+Hold the v0 neural parser fixed and remove the lexical-semantic confound.
+
+Test novel **construction × semantic combinations** where every function word and primitive construction has already appeared during training.
+
+Decision rule:
+
+- high structural OOD → perception bottleneck is lexical acquisition, so test fast episodic construction/word learning next;
+- low structural OOD → build and compare explicit construction/span-tree composition against the sequential parser.
