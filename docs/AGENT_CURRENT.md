@@ -1605,3 +1605,37 @@ The automatically scored objective subset is provisionally closed.
 Do **not** optimize these five tasks further unless a later regression appears.
 
 The remaining 8/13 benchmark turns are the higher-leverage frontier: roleplay, literary/philosophical analysis, thread resumption, cross-domain synthesis, coding, referent clarification, and epistemic restraint.
+
+## 1V. Dialogue State v2 — thread/mode control passed
+
+Dialogue State v0 failed completely with a brittle unigram cue learner.
+
+Dialogue State v1 replaced that with learned 1–4-gram constructions and recovered role threads correctly, but a one-word accidental construction (`a → ENTER_ROLE`) caused the philosophy turn to be misclassified.
+
+Dialogue State v2 imposed the representation rule that **mode-changing control operations require multiword constructions**; generic analytic mode remains the default.
+
+Three seeds:
+
+```text
+synthetic interruption/resume sequences    2000/2000 each
+rp_01 enter Mara role                      pass
+lit_01 exit role                           pass
+phil_01 remain analytic                    pass
+rp_02 resume Mara                          pass
+recover original brass-box context         pass
+analytic-topic leakage into role thread    none
+cross_01 exit/analytic                     pass
+```
+
+Learned durable control constructions included:
+- `roleplay as → ENTER_ROLE`
+- `out of roleplay → EXIT_ROLE`
+- `back to → RESUME_ROLE`
+
+### Decision
+
+Promote explicit mode/thread state and learned multiword control constructions.
+
+The switching-thread bottleneck is no longer basic thread storage/retrieval in this controlled regime.
+
+Next frontier: **content planning, knowledge retrieval/reasoning, and flexible realization** for the recognized dialogue state.
