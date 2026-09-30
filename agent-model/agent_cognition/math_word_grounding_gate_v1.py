@@ -37,7 +37,7 @@ def parse_problem(text,lex):
             found.append((m.start(),verb,mode))
     found.sort()
     perc=[Decimal(x) for x in re.findall(r"(\d+(?:\.\d+)?)\s*%",low)]
-    money=[Decimal(x.replace(",","")) for x in re.findall(r"$\s*(\d[\d,]*(?:\.\d+)?)",low)]
+    money=[Decimal(x.replace(",","")) for x in re.findall(r"\$\s*(\d[\d,]*(?:\.\d+)?)",low)]
     if not found or len(found)!=len(perc) or not money:return None
     final=money[-1]
     steps=[]
