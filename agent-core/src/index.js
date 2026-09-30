@@ -15,7 +15,7 @@ import { createDurableState } from "./durable-state.js";
 import { createStripeAdapter } from "./stripe-adapter.js";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.17.0";
+const VERSION = "0.18.0";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -232,6 +232,7 @@ const motorAllowedActions = new Set([
   "browser.profile.status",
   "state.snapshot.read",
   "state.snapshot.write",
+  "work.execute",
 ]);
 let motorMirrorTimer = null;
 let motorMirrorSnapshot = null;
