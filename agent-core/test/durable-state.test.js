@@ -85,6 +85,31 @@ test("materialized cache rebuilds from the append-only evidence ledger", async (
   }
 });
 
+test("surviving materialized cache re-anchors a missing ledger segment", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-evidence-reanchor-"));
+  try {
+    const first = store(directory);
+    await first.init();
+    await first.save({ marker: "surviving-cache" }, "checkpoint");
+    await first.flush();
+
+    await unlink(path.join(directory, "evidence-ledger-v1.jsonl"));
+
+    const restarted = store(directory);
+    const loaded = await restarted.init();
+    assert.equal(loaded.recovered, true);
+    assert.equal(loaded.recoveredFrom, "materialized_cache_without_ledger");
+    assert.equal(loaded.snapshot.marker, "surviving-cache");
+
+    const events = await restarted.readEvents({ limit: 10 });
+    assert.equal(events.at(-1).event_type, "continuity.materialized_cache_adopted");
+    assert.equal(events.at(-1).payload.state.marker, "surviving-cache");
+    assert.equal((await restarted.verify()).ok, true);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("legacy snapshot migrates without overwriting legacy evidence", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "agent-evidence-migration-"));
   try {
