@@ -27,8 +27,8 @@ In this repository, terms such as "replaceable model worker", "reasoning worker"
           +-----------------+------------------+
           |                                    |
           v                                    v
- continuity kernel                       operational limbs
- on persistent compute                Agent Core / browser / APIs
+ canonical evidence ledger               operational limbs
+ + materialized state cache           Agent Core / browser / APIs
 ```
 
 Canonical identity boundaries:
@@ -56,21 +56,47 @@ The canonical mailbox record is currently:
 
 - subject: **`SELF-ROOT v1 — canonical homunculus map`**
 
-## Durable continuity substrate
+## Durable continuity substrate — evidence-ledger v1
 
-Canonical persistent compute:
+SELF-ROOT continuity is no longer defined by a mutable kernel/handoff document.
+
+Canonical model:
+
+```text
+identity/manifest.json
+        |
+        v
+append-only EvidenceLedgerEvent[]
+        |
+        +--> materialized-state-v1.json   (rebuildable cache)
+        +--> generated human handoff      (derived summary)
+```
+
+Persistent compute:
 
 - smolmachine: `mach-187357670b1349d2a59ab423272af52e`
 - workspace: `/workspace/continuity`
-- continuity kernel: `/workspace/continuity/kernel`
+- canonical machine ledger target: `/workspace/continuity/evidence/evidence-ledger-v1.jsonl`
+- rebuildable machine state cache: `/workspace/continuity/state/materialized-work-state-v1.json`
 - durable browser profile: `/workspace/browser/profile`
+- legacy kernel: `/workspace/continuity/kernel` — historical migration evidence only; do not silently delete or rewrite it.
+
+Runtime persistence under `AGENT_STATE_DIR` uses the same model:
+
+- `evidence-ledger-v1.jsonl` — canonical append-only evidence;
+- `materialized-state-v1.json` — rebuildable cache;
+- legacy `agent-state-v1.json` and `events-v1.jsonl` are preserved read-only when discovered and are represented by an explicit migration event.
+
+The shared machine envelope is `schemas/evidence/event_record.schema.json`. Trading schemas remain under `schemas/trading/`; reusing the ledger does not grant Agent Core trading authority.
 
 Continuity rules:
 
-- append-only raw events and provenance are authoritative;
-- derived state may be regenerated;
+- append-only evidence and provenance are canonical history;
+- every materialized state change is anchored by a `continuity.state_checkpoint` event before the cache is written;
+- if the cache is lost, rebuild from the latest ledger checkpoint;
+- if the ledger segment is lost but the cache survives, emit `continuity.materialized_cache_adopted` to re-anchor a new segment explicitly;
 - failed attempts remain evidence;
-- cleanup classifies and consolidates; it does not silently rewrite history;
+- human-readable handoffs are derived outputs, not source-of-truth state;
 - no temporary model episode may redefine durable identity on its own.
 
 ## AgentMail-connected provider identity
@@ -270,11 +296,11 @@ Production startup logs report `agentmail.webhook_ready`, and the live motor is 
 
 Do **not** create a second agent or a broad account-wide machine-exec credential.
 
-## Autonomous work control plane (v0.18.0)
+## Autonomous work control plane (v0.19.0)
 
 The repository now implements the restart-safe control plane around the existing provider adapters:
 
-- atomic snapshots plus an append-only event journal under `AGENT_STATE_DIR`;
+- an append-only EvidenceLedgerEvent journal under `AGENT_STATE_DIR`, with hash-linked provenance metadata and a rebuildable materialized cache;
 - idempotent work leases, checkpoints, and validated lifecycle transitions;
 - payment-proof requirements before any work item can become `PAID`;
 - bounded retries, expired-lease recovery, stuck-work detection, and a four-attempt ceiling;
@@ -284,11 +310,16 @@ The repository now implements the restart-safe control plane around the existing
 - a bounded, coalesced state mirror on the existing persistent smolmachine;
 - restart tests covering the full qualified → leased → working → submitted → accepted → paid lifecycle.
 
-`AGENT_STATE_DIR` holds the runtime's fast local snapshot and journal. The bounded motor mirrors the canonical work snapshot to the existing persistent smolmachine, so the current Railway service does not require a new paid volume. If a persistent volume is attached later, the recommended value is:
+`AGENT_STATE_DIR` holds the runtime's evidence ledger and materialized cache. The bounded motor continues to mirror current work state to the existing persistent smolmachine for restart recovery. The repository-side v0.19 motor additionally supports idempotent `evidence.ledger.append/status/read` so the machine can become the durable evidence store once that daemon is refreshed and mirroring is explicitly enabled. If a persistent volume is attached later, the recommended value is:
 
 ```text
 AGENT_STATE_DIR=/data/agent-core
 ```
+
+Continuity-facing authenticated endpoints:
+
+- `GET /v1/continuity` — identity, provenance hashes, ledger/cache paths, migration state, and chain verification
+- `GET /v1/evidence?limit=N&event_type=...` — recent canonical evidence records
 
 Worker-facing authenticated endpoints:
 
@@ -324,14 +355,15 @@ The immediate capability gap is **machine rollout**: the v0.18 bounded executor 
 A new model/runtime should:
 
 1. verify control/access to `oldcraft541@agentmail.to`;
-2. read **SELF-ROOT v1 — canonical homunculus map**;
-3. inspect AgentMail provider relationships and credential labels;
-4. recover `/workspace/continuity/kernel` from `mach-187357670b1349d2a59ab423272af52e`;
-5. preserve append-only historical events and provenance;
-6. read this branch for implementation state;
-7. confirm `browser-worker-wNUX` is still the live Railway service before changing infrastructure;
-8. recover secrets only from managed stores/credential records;
-9. resume open commitments and paid work.
+2. load `agent-core/identity/manifest.json` and verify the identity/lineage IDs;
+3. inspect the canonical evidence ledger before trusting any generated handoff;
+4. rebuild/read the materialized state cache and confirm its state hash/ledger head;
+5. treat `/workspace/continuity/kernel` and older continuity documents as historical migration evidence only;
+6. inspect AgentMail provider relationships and credential labels;
+7. read this branch for implementation/runtime state;
+8. confirm `browser-worker-wNUX` is still the live Railway service before changing infrastructure;
+9. recover secrets only from managed stores/credential records;
+10. resume open commitments and paid work from ledger/materialized state.
 
 ## Economic / safety baseline
 
