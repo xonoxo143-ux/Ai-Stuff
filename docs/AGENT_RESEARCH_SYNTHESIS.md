@@ -1440,3 +1440,41 @@ candidate meanings
 ```
 
 This is now being tested in Active Execution-Grounded Language v1.
+
+## Developmental synthesis S22 — executable language transfers to the real benchmark
+
+Active execution grounding was not confined to a synthetic diagnostic.
+
+The learned operation-language mechanism was connected to the real agent runtime and evaluated on the unchanged `chatbot-v0` repeated-transformation thread.
+
+Result:
+
+```text
+learned operation phrases   12/12
+compiled procedure          DOUBLE → ADD3 → SQUARE → SUB9
+real benchmark              3/3 turns
+whole automatic score       0/5 → 3/5
+```
+
+### Stronger project inference
+
+When a linguistic instruction denotes an executable transformation, **the best current representation is an explicit reusable program rather than a latent sentence embedding**.
+
+Language acquisition can therefore create cold executable capability objects:
+
+```text
+surface construction
+→ grounded operation/program
+→ durable capability object
+→ later sparse retrieval + execution
+```
+
+This directly joins language development, self-authored computation, persistent memory, and sparse activation.
+
+### Next objective families
+
+Use the same architecture pattern where justified:
+- math word problems → language-to-equation/program + symbolic executor;
+- logic puzzles → language-to-constraints + exact search/information gain.
+
+Do not force this representation onto roleplay, interpretation, or other open-ended language where success is not naturally an executable denotation.
