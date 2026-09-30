@@ -3496,6 +3496,14 @@ function durableSnapshot() {
   return {
     version: VERSION,
     capturedAt: new Date().toISOString(),
+    continuity: {
+      schemaVersion: "1.0",
+      architecture: "evidence-ledger-v1",
+      identityId,
+      lineageId: identityLineageId,
+      identityManifestHash,
+      configHash: continuityConfigHash,
+    },
     workLedger: Array.from(workLedger.entries()),
     workOutcomes: workOutcomes.slice(-500),
     workReports: workReports.slice(-250),
@@ -3513,6 +3521,14 @@ function durableWorkSnapshot() {
   return {
     version: VERSION,
     capturedAt: new Date().toISOString(),
+    continuity: {
+      schemaVersion: "1.0",
+      architecture: "evidence-ledger-v1",
+      identityId,
+      lineageId: identityLineageId,
+      identityManifestHash,
+      configHash: continuityConfigHash,
+    },
     workLedger: Array.from(workLedger.entries()),
     workOutcomes: workOutcomes.slice(-500),
     workReports: workReports.slice(-250),
@@ -3524,6 +3540,16 @@ function durableWorkSnapshot() {
 
 function mergeRecoveredWorkState(state, source = "local") {
   if (!state || typeof state !== "object") return false;
+  const recoveredIdentityId = state.continuity?.identityId || null;
+  if (recoveredIdentityId && recoveredIdentityId !== identityId) {
+    console.error(JSON.stringify({
+      event: "continuity.identity_mismatch",
+      source,
+      expectedIdentityId: identityId,
+      recoveredIdentityId,
+    }));
+    return false;
+  }
   for (const pair of Array.isArray(state.workLedger) ? state.workLedger : []) {
     if (!Array.isArray(pair) || pair.length !== 2 || !pair[0] || !pair[1]) continue;
     const current = workLedger.get(pair[0]);
