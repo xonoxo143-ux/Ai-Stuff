@@ -42,6 +42,7 @@ class BytePatchHybridV0(nn.Module):
         self.patch_size = patch_size
         self.attention_patches = attention_patches
         self.condition_dim = condition_dim
+        self.vectorized_forward = False
 
         self.embedding = nn.Embedding(INPUT_VOCAB, embedding_dim)
         self.patch_encoder = nn.Sequential(
@@ -146,14 +147,17 @@ class BytePatchHybridV0(nn.Module):
             summary = summary + self.condition_to_patch(cond)
         return summary
 
-    def forward(
+    def set_vectorized_forward(self, enabled: bool = True) -> "BytePatchHybridV0":
+        """Use the cloud-oriented training forward without changing parameters."""
+        self.vectorized_forward = bool(enabled)
+        return self
+
+    def _forward_reference(
         self,
         tokens: torch.Tensor,
-        condition: torch.Tensor | None = None,
+        condition: torch.Tensor | None,
     ) -> torch.Tensor:
         batch, length = tokens.shape
-        if length % self.patch_size:
-            raise ValueError("sequence length must be divisible by patch_size")
         cond = self._condition(
             condition,
             batch,
@@ -180,6 +184,84 @@ class BytePatchHybridV0(nn.Module):
             history.append(patch_summary)
 
         return torch.cat(outputs, dim=1)
+
+    def _forward_vectorized(
+        self,
+        tokens: torch.Tensor,
+        condition: torch.Tensor | None,
+    ) -> torch.Tensor:
+        batch, length = tokens.shape
+        patch_count = length // self.patch_size
+        cond = self._condition(
+            condition,
+            batch,
+            self.embedding.weight.device,
+            self.embedding.weight.dtype,
+        )
+        patches = tokens.reshape(batch, patch_count, self.patch_size)
+        flat_patches = patches.reshape(batch * patch_count, self.patch_size)
+        flat_cond = (
+            None
+            if cond is None
+            else cond[:, None, :].expand(-1, patch_count, -1).reshape(
+                batch * patch_count,
+                self.condition_dim,
+            )
+        )
+
+        patch_summaries = self._encode_patch(
+            flat_patches,
+            flat_cond,
+        ).reshape(batch, patch_count, self.global_hidden_dim)
+        local_inputs = self._local_inputs(
+            flat_patches,
+            flat_cond,
+        ).reshape(
+            batch,
+            patch_count,
+            self.patch_size,
+            self.embedding_dim,
+        )
+
+        global_state = self._initial_global(batch, cond)
+        history: list[torch.Tensor] = []
+        contexts: list[torch.Tensor] = []
+        for index in range(patch_count):
+            contexts.append(self._access(global_state, history))
+            patch_summary = patch_summaries[:, index]
+            global_state = self.global_cell(patch_summary, global_state)
+            history.append(patch_summary)
+
+        context_tensor = torch.stack(contexts, dim=1)
+        local_initial = torch.tanh(
+            self.global_to_local(context_tensor)
+        ).reshape(batch * patch_count, self.local_hidden_dim).unsqueeze(0)
+        local_hidden, _ = self.local_gru(
+            local_inputs.reshape(
+                batch * patch_count,
+                self.patch_size,
+                self.embedding_dim,
+            ),
+            local_initial,
+        )
+        logits = self.output(local_hidden).reshape(
+            batch,
+            length,
+            BYTE_VOCAB,
+        )
+        return logits
+
+    def forward(
+        self,
+        tokens: torch.Tensor,
+        condition: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        _, length = tokens.shape
+        if length % self.patch_size:
+            raise ValueError("sequence length must be divisible by patch_size")
+        if self.vectorized_forward:
+            return self._forward_vectorized(tokens, condition)
+        return self._forward_reference(tokens, condition)
 
     def _start_stream_patch(self, state: StreamState) -> None:
         context = self._access(state.global_state, state.history)

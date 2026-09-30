@@ -69,10 +69,9 @@ class ByteBatchStream:
             self.rng.randrange(0, len(self.data) - sequence_length - 1)
             for _ in range(batch_size)
         ]
-        x = torch.stack(
-            [self.data[s : s + sequence_length] for s in starts]
-        ).long()
-        y = torch.stack(
-            [self.data[s + 1 : s + sequence_length + 1] for s in starts]
-        ).long()
+        start_tensor = torch.tensor(starts, dtype=torch.long)
+        offsets = torch.arange(sequence_length + 1, dtype=torch.long)
+        windows = self.data[start_tensor[:, None] + offsets[None, :]]
+        x = windows[:, :-1].long()
+        y = windows[:, 1:].long()
         return x, y

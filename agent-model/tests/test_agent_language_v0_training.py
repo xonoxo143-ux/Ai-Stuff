@@ -96,3 +96,25 @@ def test_byte_stream_keeps_corpus_compact() -> None:
     assert y.dtype == torch.long
     assert x.shape == (3, 32)
     assert y.shape == (3, 32)
+
+
+def test_v0_vectorized_forward_matches_reference_exactly() -> None:
+    torch.manual_seed(17)
+    model = BytePatchHybridV0(
+        embedding_dim=16,
+        local_hidden_dim=24,
+        global_hidden_dim=32,
+        patch_size=4,
+        attention_heads=4,
+        attention_patches=8,
+        condition_dim=4,
+    )
+    tokens = torch.randint(0, 256, (3, 16))
+    condition = torch.randn(3, 4)
+
+    model.set_vectorized_forward(False)
+    reference = model(tokens, condition)
+    model.set_vectorized_forward(True)
+    vectorized = model(tokens, condition)
+
+    assert torch.equal(reference, vectorized)

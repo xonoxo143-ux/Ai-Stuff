@@ -10,14 +10,18 @@ This is the first serious from-scratch language-learning run for the homegrown a
 ## V0 curriculum
 The 4,096-step run keeps the original 32 MiB sampled-byte budget but stages it deliberately.
 
-### Phase 1 — language foundation (steps 1–2048)
+### Phase 1 — language foundation (steps 1–2048) — COMPLETE
 - 75% WikiText raw prose
 - 25% held-in English OpenAssistant dialogue
 - 0% explicit reasoning
 - 0% semantic-plan examples
 - Batch 64 means exactly 48 prose sequences + 16 dialogue sequences per step.
 - Total sampled bytes: 16,777,216.
-- Fold preflight projection: ~3.58 hours wall time under the measured 4-thread conditions; thermal throttling/background work can increase this.
+- Frozen release/tag: `v0-phase1-2048`.
+- Frozen source commit: `716366777c5c6552bdff03c32aef117261324b53`.
+- Frozen checkpoint SHA256: `820ef9c11ab1322748b9f5032691a0d6c0eac0afc10df00dbc2c77b454eaa131`.
+- Final phase-valid BPB: 4.8939156542; best observed region was ~4.884–4.885 before the boundary.
+- Original phone run demonstrated correctness but exposed thermal/scheduler limits; later phases move to a benchmark-gated Kaggle GPU fork.
 
 ### Phase 2 — conversation bridge (steps 2049–3072)
 - 45% prose
@@ -70,6 +74,29 @@ python3 -m agent_language.train_v0 \
   --run-dir runs/v0-first-hybrid
 ```
 
+Phase 1 was completed on the phone and frozen at step 2048. Do not mutate that checkpoint or source tag.
+
+## Cloud continuation
+
+Cloud continuation lives on `experiment/v0-kaggle-t4`. The trainer now supports CUDA, FP16 autocast, fused AdamW, synchronized GPU timing, strict runtime provenance, and a vectorized hybrid forward.
+
+Crossing the frozen Phase-1 boundary is an intentional fork, not an exact resume:
+
+```bash
+python3 -m agent_language.train_v0 \
+  --config configs/v0_first_run.json \
+  --model hybrid \
+  --run-dir runs/v0-kaggle-phase2 \
+  --fork-from /path/to/v0-phase1-2048-hybrid.pt \
+  --max-step 3072 \
+  --device cuda:0 \
+  --execution vectorized \
+  --precision fp16 \
+  --fused-adamw
+```
+
+Do not use the acceleration profile until `python3 -m agent_language.benchmark_v0_cloud` has measured it against reference FP32 on the actual T4 runtime. See `KAGGLE_V0.md`.
+
 Then train the parameter-matched control with the identical curriculum and budget.
 
-Do not change the corpus, curriculum, evaluation suite, or first-run config after inspecting results. Any changed experiment gets a new version.
+Do not change the corpus, curriculum, evaluation suite, or frozen Phase-1 artifacts after inspecting results. Any changed experiment gets a new version.
