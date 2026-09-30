@@ -1382,3 +1382,41 @@ unfamiliar language
 ```
 
 Only after more benchmark prompts reach cognition should downstream benchmark failures be attributed to cognition, knowledge, or production.
+
+## 1P. Active Execution-Grounded Language v1 — promoted
+
+Passive outcome-grounding failed one of three seeds because observational examples could leave multiple latent programs behaviorally indistinguishable.
+
+Active Execution-Grounded Language v1 changed the developmental law:
+
+```text
+multiple candidate meanings survive
+→ choose an input where their predicted outputs disagree maximally
+→ query/observe the environment
+→ eliminate inconsistent meanings
+→ promote only when identified
+```
+
+Three-seed result:
+
+```text
+atomic phrase meanings           10/10 each seed
+sequencing constructions          3/3 each seed
+unseen compositions              100%
+one-shot novel phrase reuse      100%
+premature ambiguous promotion      0
+forced ambiguity resolved        100%
+old phrase regression              0
+```
+
+In the forced ambiguity test, one observation at x=0 left ABS, DOUBLE, NEG and SQUARE all viable. The learner chose x=3 as a distinguishing experiment and correctly isolated DOUBLE.
+
+### Decision
+
+Promote **active semantic disambiguation** as part of developmental language acquisition.
+
+Do not assume every language meaning has an executable numeric environment. This mechanism applies when the agent can identify a task/world consequence or ask a useful discriminating question.
+
+### Immediate application
+
+Use the mechanism on the real `chatbot-v0` repeated-transformation thread so the agent learns operation phrases from execution evidence, composes the described transformation, stores it, and reuses it across later turns.
