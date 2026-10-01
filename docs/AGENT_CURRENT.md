@@ -1758,3 +1758,36 @@ Knowledge deletion changing the response with zero parametric leakage is require
 ### Next gate
 
 Add **relational synthesis** over retrieved evidence: discover genuine shared structure, important contrasts, and limits without forcing an analogy.
+
+
+## 1Z. Relational Synthesis v1 — running
+
+The next whole-agent gate has been launched on the physical Fold using the exact branch source from commit `8910f7b3c82f8291e9b1ac82396c5539900bb05a`.
+
+Hypothesis:
+
+> retrieved evidence should support structural synthesis only when relational structure genuinely aligns; ambiguity must remain explicit rather than being collapsed into a convenient mapping.
+
+Run:
+
+```text
+lane                     LOCAL
+hardware                 Galaxy Fold 4 / Termux CPU
+Python                   3.14.6
+seeds                    0, 1, 2
+cases / seed             3000
+GPU time                 0
+source SHA256            4518886918eb12d90487e2c37ab142d731ea3c94c5fd957534c965b7a46f13d9
+```
+
+The frozen gate checks:
+- strong relational matches;
+- partial-match downgrade after relation mutation;
+- causal downgrade after evidence deletion;
+- rejection of misleading surface similarity;
+- representation of multiple equally good alignments;
+- zero false certainty when the evidence does not justify one mapping.
+
+State: **RUNNING**.
+
+Do not launch an unrelated architecture experiment until this result is reconciled. If it passes, the next question is whether the same relational planner can operate over retrieved naturalistic evidence rather than synthetic relation graphs. If it fails, isolate the failure mode before expanding the architecture.
