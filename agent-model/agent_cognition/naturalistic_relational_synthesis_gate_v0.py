@@ -45,9 +45,12 @@ def fixtures():
       Evidence("B3","worker_pool","changes","queue_depth","The worker pool changes queue depth."),
       Evidence("B4","queue_depth","constrains","latency","Queue depth constrains latency."),
     ]
+    # Distractors stay inside the target entity set. Extra entities would
+    # trigger the parent's deliberate node-count mismatch rejection and would
+    # test graph-shape compatibility rather than resistance to irrelevant facts.
     distract=[
-      Evidence("D1","blue_label","resembles","controller","A blue label resembles the controller."),
-      Evidence("D2","heater","near","window","The heater is near a window."),
+      Evidence("D1","controller","resembles","latency","The controller resembles latency."),
+      Evidence("D2","worker_pool","near","queue_depth","The worker pool is near queue depth."),
     ]
     return a,b,distract
 
