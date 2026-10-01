@@ -1,0 +1,127 @@
+{
+  "diagnostic_version": "counterexample-v1-reproduced",
+  "source_commit": "ba2f477b7d4b7ee26ab08802a03cc588c9e911d0",
+  "execution_environment": "independent CPU reproduction of committed algorithm",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "cases_per_seed": 3000,
+  "flagged": [
+    {
+      "seed": 0,
+      "case": 90,
+      "kind": "change",
+      "intervention": {
+        "pred": "creates",
+        "a": "r4",
+        "b": "r3"
+      },
+      "optimal_score": [
+        5,
+        7
+      ]
+    },
+    {
+      "seed": 0,
+      "case": 1266,
+      "kind": "change",
+      "intervention": {
+        "pred": "transforms",
+        "a": "r3",
+        "b": "r0"
+      },
+      "optimal_score": [
+        5,
+        9
+      ]
+    },
+    {
+      "seed": 0,
+      "case": 1266,
+      "kind": "delete",
+      "intervention": {
+        "pred": "transforms",
+        "a": "r3",
+        "b": "r0"
+      },
+      "optimal_score": [
+        5,
+        9
+      ]
+    },
+    {
+      "seed": 1,
+      "case": 452,
+      "kind": "change",
+      "intervention": {
+        "pred": "causes",
+        "a": "r3",
+        "b": "r0"
+      },
+      "optimal_score": [
+        5,
+        8
+      ]
+    },
+    {
+      "seed": 1,
+      "case": 452,
+      "kind": "delete",
+      "intervention": {
+        "pred": "causes",
+        "a": "r3",
+        "b": "r0"
+      },
+      "optimal_score": [
+        5,
+        8
+      ]
+    },
+    {
+      "seed": 1,
+      "case": 2491,
+      "kind": "delete",
+      "intervention": {
+        "pred": "enables",
+        "a": "r4",
+        "b": "r2"
+      },
+      "optimal_score": [
+        5,
+        7
+      ]
+    },
+    {
+      "seed": 2,
+      "case": 1475,
+      "kind": "delete",
+      "intervention": {
+        "pred": "opposes",
+        "a": "r1",
+        "b": "r4"
+      },
+      "optimal_score": [
+        5,
+        9
+      ]
+    },
+    {
+      "seed": 2,
+      "case": 1592,
+      "kind": "change",
+      "intervention": {
+        "pred": "protects",
+        "a": "r2",
+        "b": "r3"
+      },
+      "optimal_score": [
+        5,
+        7
+      ]
+    }
+  ],
+  "finding": "All 8 flags have exactly one globally optimal alignment, and under that alignment the hidden intervention edge is matched rather than a limit. Therefore the existing false-certainty metric conflates recovery of the generator's hidden mapping/intervention with epistemic certainty under the model's inferred optimal alignment. This is evaluator-definition evidence, not evidence that the synthesizer selected among tied optima.",
+  "decision": "Do not alter frozen v1 results. Version a corrected audit that separately scores hidden-intervention recovery and alignment-conditional certainty, then rerun both v1 and the naturalistic bridge."
+}
