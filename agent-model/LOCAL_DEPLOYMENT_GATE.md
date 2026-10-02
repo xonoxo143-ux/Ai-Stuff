@@ -94,5 +94,3 @@ Choose from the Pareto frontier:
 The goal is not to maximize GPU utilization or minimize model size in
 isolation. The goal is the strongest worker architecture that remains practical
 to own and operate.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
