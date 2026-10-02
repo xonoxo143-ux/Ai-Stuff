@@ -54,5 +54,3 @@ ephemeral Kaggle runs rather than in Git.
 Historical Android/workbench and earlier chatbot experiments remain in the
 repository as evidence. They are not the current project objective unless
 docs/AGENT_CURRENT.md explicitly re-promotes them.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
