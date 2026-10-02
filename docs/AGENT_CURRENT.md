@@ -1,5 +1,3 @@
-[Reading 257 lines from start (total: 257 lines, 0 remaining)]
-
 [Reading 241 lines from start (total: 241 lines, 0 remaining)]
 
 # Agent — Current Architecture and Frontier
@@ -255,7 +253,3 @@ Build the Gated-Delta reference and invariant tests, then run the substantive
 correctness suite on Kaggle CPU.
 
 Do not spend serious T4 budget on DeltaHybrid V1 until that CPU gate passes.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
