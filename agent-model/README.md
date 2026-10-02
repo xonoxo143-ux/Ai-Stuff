@@ -1,5 +1,3 @@
-[Reading 48 lines from start (total: 48 lines, 0 remaining)]
-
 # Agent Model Research
 
 This directory contains the from-scratch learned-model experiments for the
