@@ -18,6 +18,7 @@ from .curriculum import CurriculumBatcher, allocate_counts, parse_phases
 from .data import ByteBatchStream
 from .models import ByteTransformer
 from .v0_model import BytePatchHybridV0, parameter_count
+from delta_hybrid.model_v1 import DeltaHybridV1
 
 BYTES_PER_EQUIV_TOKEN = 4.0
 
@@ -54,6 +55,8 @@ def optimizer_to(optimizer: torch.optim.Optimizer, device: torch.device) -> None
 def build_model(name: str):
     if name == "hybrid":
         return BytePatchHybridV0()
+    if name == "delta":
+        return DeltaHybridV1()
     if name == "transformer":
         return ByteTransformer(
             model_dim=128,
@@ -269,7 +272,7 @@ def main() -> None:
     ap.add_argument("--config", required=True)
     ap.add_argument(
         "--model",
-        choices=("hybrid", "transformer"),
+        choices=("hybrid", "delta", "transformer"),
         required=True,
     )
     ap.add_argument("--run-dir", required=True)
@@ -279,7 +282,7 @@ def main() -> None:
     ap.add_argument("--device")
     ap.add_argument(
         "--execution",
-        choices=("reference", "vectorized"),
+        choices=("reference", "vectorized", "chunked"),
     )
     ap.add_argument(
         "--precision",
@@ -312,6 +315,10 @@ def main() -> None:
         raise SystemExit("fused AdamW requires CUDA")
     if execution == "vectorized" and args.model != "hybrid":
         raise SystemExit("vectorized execution is only defined for the hybrid model")
+    if execution == "chunked" and args.model != "delta":
+        raise SystemExit("chunked execution is only defined for the delta model")
+    if args.model == "delta" and execution != "chunked":
+        raise SystemExit("delta model requires --execution chunked")
 
     runtime = {
         "device_type": device.type,
