@@ -1,5 +1,3 @@
-[Reading 90 lines from start (total: 90 lines, 0 remaining)]
-
 # Agent Language V0 Training — Historical / Closed Lineage
 
 Date: 2026-10-02
