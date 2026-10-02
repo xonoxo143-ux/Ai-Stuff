@@ -23,8 +23,11 @@ The 4,096-step run keeps the original 32 MiB sampled-byte budget but stages it d
 - Final phase-valid BPB: 4.8939156542; best observed region was ~4.884–4.885 before the boundary.
 - Post-freeze audit: 0/6 on `v0-frozen-2026-09-30`; greedy generation collapsed to spaces, and stochastic decoding produced letter/space fragments rather than coherent language.
 - A train-derived held-out unigram baseline scores ~4.6384 BPB on the same 75/25 prose-dialogue mixture, so Phase 1 did not yet establish useful contextual language modeling despite improving from initialization.
-- Scientific status: training run complete and frozen, but language capability is not established. Pause Phase 2 until the next experiment separates insufficient exposure from architecture/optimization failure.
-- Original phone run demonstrated correctness but exposed thermal/scheduler limits; later experiments move to benchmark-gated Kaggle GPU execution.
+- Scientific status at freeze: training run complete, but language capability was not established.
+- 2026-10-02 postmortem: batch training and streaming inference used different causal alignment. The immediately previous byte had zero effect on the frozen model's final next-byte prediction. See `CAUSAL_ALIGNMENT_V0.md`.
+- Preserve the frozen checkpoint as a failed-formulation artifact, but do not resume it or use it as a parent checkpoint.
+- Phase 2 remains blocked. The corrected lineage restarts Phase 1 from fresh initialization.
+- Original phone run demonstrated execution stability and exposed thermal/scheduler limits, but the later causal-alignment postmortem invalidated it as a correctness proof. Corrected experiments move to benchmark-gated GPU execution.
 
 ### Phase 2 — conversation bridge (steps 2049–3072)
 - 45% prose
@@ -81,24 +84,21 @@ Phase 1 was completed on the phone and frozen at step 2048. Do not mutate that c
 
 ## Cloud continuation
 
-Cloud continuation lives on `experiment/v0-kaggle-t4`. The trainer now supports CUDA, FP16 autocast, fused AdamW, synchronized GPU timing, strict runtime provenance, and a vectorized hybrid forward.
+Cloud execution still uses the CUDA/vectorized trainer, but the frozen Phase-1 checkpoint predates the causal-alignment correction and is not a valid parent for future language training.
 
-Crossing the frozen Phase-1 boundary is an intentional fork, not an exact resume:
+Start corrected Phase 1 from fresh initialization:
 
-```bash
-python3 -m agent_language.train_v0 \
-  --config configs/v0_first_run.json \
-  --model hybrid \
-  --run-dir runs/v0-kaggle-phase2 \
-  --fork-from /path/to/v0-phase1-2048-hybrid.pt \
-  --max-step 3072 \
-  --device cuda:0 \
-  --execution vectorized \
-  --precision fp32
-```
+    python3 -m agent_language.train_v0 \
+      --config configs/v0_first_run.json \
+      --model hybrid \
+      --run-dir runs/v0-kaggle-causal-v1 \
+      --max-step 2048 \
+      --device cuda:0 \
+      --execution vectorized \
+      --precision fp32
 
-This is the minimum cloud profile currently worth carrying forward: CUDA plus the vectorized execution path, while keeping the model architecture and deployment path unchanged. FP16 and fused AdamW remain optional experiments and must earn their complexity through stable benchmarks. See `KAGGLE_V0.md` and `LOCAL_DEPLOYMENT_GATE.md`.
+CUDA plus vectorized FP32 is the conservative first cloud profile. FP16 and fused AdamW remain experiment arms and must earn promotion through stable learning and throughput evidence. See CAUSAL_ALIGNMENT_V0.md, KAGGLE_V0.md, and LOCAL_DEPLOYMENT_GATE.md.
 
-Then train the parameter-matched control with the identical curriculum and budget.
+Train the parameter-matched control with the identical corrected curriculum and budget.
 
-Do not change the corpus, curriculum, evaluation suite, or frozen Phase-1 artifacts after inspecting results. Any changed experiment gets a new version.
+Do not change the corpus, curriculum, evaluation suite, or frozen historical artifacts after inspecting results. Any changed experiment gets a new version.

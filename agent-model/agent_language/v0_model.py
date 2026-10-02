@@ -123,18 +123,10 @@ class BytePatchHybridV0(nn.Module):
         patch: torch.Tensor,
         cond: torch.Tensor | None,
     ) -> torch.Tensor:
-        batch = patch.shape[0]
         embedded = self.embedding(patch)
-        shifted = torch.cat(
-            [
-                self.bos_embedding.view(1, 1, -1).expand(batch, 1, -1),
-                embedded[:, :-1],
-            ],
-            dim=1,
-        )
         if cond is not None:
-            shifted = shifted + self.condition_to_local(cond)[:, None, :]
-        return shifted
+            embedded = embedded + self.condition_to_local(cond)[:, None, :]
+        return embedded
 
     def _encode_patch(
         self,
@@ -263,15 +255,19 @@ class BytePatchHybridV0(nn.Module):
             return self._forward_vectorized(tokens, condition)
         return self._forward_reference(tokens, condition)
 
-    def _start_stream_patch(self, state: StreamState) -> None:
+    def _reset_stream_patch(self, state: StreamState) -> None:
         context = self._access(state.global_state, state.history)
-        initial = torch.tanh(self.global_to_local(context)).unsqueeze(0)
+        state.local_hidden = torch.tanh(
+            self.global_to_local(context)
+        ).unsqueeze(0)
+
+    def _start_stream(self, state: StreamState) -> None:
+        self._reset_stream_patch(state)
         batch = state.global_state.shape[0]
         token = self.bos_embedding.view(1, 1, -1).expand(batch, 1, -1)
         if state.condition is not None:
             token = token + self.condition_to_local(state.condition)[:, None, :]
-        out, hidden = self.local_gru(token, initial)
-        state.local_hidden = hidden
+        out, _ = self.local_gru(token, state.local_hidden)
         state.next_logits = self.output(out[:, -1])
 
     @torch.no_grad()
@@ -286,7 +282,7 @@ class BytePatchHybridV0(nn.Module):
             global_state=self._initial_global(1, cond),
             condition=cond,
         )
-        self._start_stream_patch(state)
+        self._start_stream(state)
         return state
 
     @torch.no_grad()
@@ -294,6 +290,17 @@ class BytePatchHybridV0(nn.Module):
         value = int(value)
         if not 0 <= value < 256:
             raise ValueError("stream byte must be in [0, 255]")
+        token = torch.tensor(
+            [[value]],
+            device=self.embedding.weight.device,
+            dtype=torch.long,
+        )
+        embedded = self.embedding(token)
+        if state.condition is not None:
+            embedded = embedded + self.condition_to_local(state.condition)[:, None, :]
+        out, hidden = self.local_gru(embedded, state.local_hidden)
+        state.local_hidden = hidden
+        state.next_logits = self.output(out[:, -1])
         state.patch_bytes.append(value)
 
         if len(state.patch_bytes) == self.patch_size:
@@ -308,20 +315,7 @@ class BytePatchHybridV0(nn.Module):
             if len(state.history) > self.attention_patches:
                 state.history = state.history[-self.attention_patches :]
             state.patch_bytes.clear()
-            self._start_stream_patch(state)
-            return
-
-        token = torch.tensor(
-            [[value]],
-            device=self.embedding.weight.device,
-            dtype=torch.long,
-        )
-        embedded = self.embedding(token)
-        if state.condition is not None:
-            embedded = embedded + self.condition_to_local(state.condition)[:, None, :]
-        out, hidden = self.local_gru(embedded, state.local_hidden)
-        state.local_hidden = hidden
-        state.next_logits = self.output(out[:, -1])
+            self._reset_stream_patch(state)
 
     @torch.no_grad()
     def generate(

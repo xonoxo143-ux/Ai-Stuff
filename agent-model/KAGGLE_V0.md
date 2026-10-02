@@ -24,9 +24,9 @@ Phase 1 is immutable:
 - checkpoint SHA256: `820ef9c11ab1322748b9f5032691a0d6c0eac0afc10df00dbc2c77b454eaa131`
 - step: 2048
 - sampled bytes: 16,777,216
-Cloud work continues on `experiment/v0-kaggle-t4`.
+Corrected cloud work is prepared on `experiment/v0-causal-alignment-fix`; the older `experiment/v0-kaggle-t4` lineage remains historical context.
 
-Do not overwrite or reinterpret the Phase-1 checkpoint as an exact resume under new code. Use `--fork-from` when crossing from the frozen CPU implementation into the cloud implementation. Normal `--resume` remains strict and requires matching Git/config/runtime provenance.
+The 2026-10-02 causal-alignment postmortem reclassified this checkpoint as a failed-formulation artifact. Preserve it for provenance and comparison, but do not resume it and do not use `--fork-from` to seed future language training. The corrected lineage starts from fresh initialization. Normal `--resume` remains strict within that corrected lineage and requires matching Git/config/runtime provenance.
 
 ## Compute strategy
 
@@ -67,7 +67,7 @@ Before Phase 2, run:
 
 ```bash
 python3 -m agent_language.benchmark_v0_cloud \
-  --checkpoint /path/to/v0-phase1-2048-hybrid.pt \
+  --checkpoint /path/to/corrected-smoke-or-phase1-checkpoint.pt \
   --device cuda:0 \
   --steps 32 \
   --warmup 4
@@ -83,26 +83,20 @@ The benchmark compares:
 Select the fastest profile that remains numerically stable. Prefer the smallest sufficient optimization stack: CUDA + vectorized FP32 is the default candidate; FP16 and fused AdamW must each show a stable measurable gain before becoming defaults.
 
 Cloud acceleration must not become an inference requirement. Every architecture survivor is checked against `LOCAL_DEPLOYMENT_GATE.md` on the phone or another ordinary CPU target.
-## Phase-2 fork example
+## Corrected Phase-1 start
 
-After the benchmark selects a runtime profile:
+After the benchmark selects a runtime profile, begin the corrected lineage from scratch:
 
-```bash
-python3 -m agent_language.train_v0 \
-  --config configs/v0_first_run.json \
-  --model hybrid \
-  --run-dir runs/v0-kaggle-phase2-a \
-  --fork-from /path/to/v0-phase1-2048-hybrid.pt \
-  --max-step 3072 \
-  --device cuda:0 \
-  --execution vectorized \
-  --precision fp16 \
-  --fused-adamw
-```
+    python3 -m agent_language.train_v0 \
+      --config configs/v0_first_run.json \
+      --model hybrid \
+      --run-dir runs/v0-kaggle-causal-v1-a \
+      --max-step 2048 \
+      --device cuda:0 \
+      --execution vectorized \
+      --precision fp32
 
-Use those acceleration flags only if the benchmark supports them.
-
-For two independent experiments in one T4×2 session, run separate processes pinned to different visible GPUs or use `--device cuda:0` and `--device cuda:1` with separate run directories.
+A second T4 should run a controlled alternative, not a divergent product line. Acceleration flags become defaults only after stable benchmark and learning-curve evidence.
 
 ## Quota discipline
 

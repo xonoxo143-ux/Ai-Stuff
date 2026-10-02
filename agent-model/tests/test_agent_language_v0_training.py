@@ -118,3 +118,29 @@ def test_v0_vectorized_forward_matches_reference_exactly() -> None:
     vectorized = model(tokens, condition)
 
     assert torch.equal(reference, vectorized)
+
+
+def test_v0_batch_forward_matches_stream_after_each_byte() -> None:
+    torch.manual_seed(23)
+    model = BytePatchHybridV0(
+        embedding_dim=16,
+        local_hidden_dim=24,
+        global_hidden_dim=32,
+        patch_size=4,
+        attention_heads=4,
+        attention_patches=8,
+        condition_dim=4,
+    ).eval()
+    tokens = torch.randint(0, 256, (1, 16))
+    condition = torch.randn(1, 4)
+
+    with torch.no_grad():
+        batch_logits = model(tokens, condition)
+        state = model.begin_stream(condition)
+        stream_logits = []
+        for value in tokens[0].tolist():
+            model.accept_byte(state, value)
+            stream_logits.append(state.next_logits.clone())
+        stream_logits = torch.stack(stream_logits, dim=1)
+
+    assert torch.allclose(batch_logits, stream_logits, atol=1e-6, rtol=1e-5)
