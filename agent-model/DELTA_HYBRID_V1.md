@@ -1,3 +1,5 @@
+[Reading 246 lines from start (total: 246 lines, 0 remaining)]
+
 [Reading 236 lines from start (total: 236 lines, 0 remaining)]
 
 # DeltaHybrid V1 — Build and Falsification Plan
@@ -220,7 +222,13 @@ Optiplex:
 - hold credentials;
 - submit kernels;
 - retrieve results;
-- maintain ledgers.
+- maintain ledgers;
+- run lightweight server/dev checks where performance is irrelevant;
+- keep basic Python/pip/venv infrastructure available.
+
+Do not use the Optiplex for substantive PyTorch/model evaluation or training in
+this architecture gate. A future promoted model may be run there only as an
+explicit weak-hardware deployment/efficiency canary.
 
 Kaggle CPU:
 - Stages 1–3 correctness and substantial CPU tests.
@@ -236,5 +244,7 @@ Phone:
 Create Delta reference module + invariant test suite.
 Package it as a Kaggle CPU kernel.
 Do not allocate T4 time until the CPU correctness report is green.
+
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
 
 [executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
