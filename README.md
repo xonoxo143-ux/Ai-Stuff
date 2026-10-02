@@ -1,5 +1,3 @@
-[Reading 54 lines from start (total: 54 lines, 0 remaining)]
-
 # AI Workbench / Agent Research
 
 This repository is the working laboratory for the homegrown Agent project.
