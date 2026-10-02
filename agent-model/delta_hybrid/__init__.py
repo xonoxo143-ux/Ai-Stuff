@@ -9,8 +9,10 @@ from .delta_reference import (
     step,
     zero_state,
 )
+from .model_v1 import DeltaHybridV1
 
 __all__ = [
+    "DeltaHybridV1",
     "DeltaState",
     "chunk_parallel_scan",
     "chunk_step_parallel",
