@@ -1,5 +1,3 @@
-[Reading 139 lines from start (total: 139 lines, 0 remaining)]
-
 import torch
 
 from delta_hybrid.delta_reference import (
