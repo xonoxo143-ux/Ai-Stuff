@@ -90,5 +90,3 @@ All substantive experiments run on Kaggle.
 - Phone → optional interface/target, not project infrastructure.
 
 See KAGGLE_V0.md and DELTA_HYBRID_V1.md.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
