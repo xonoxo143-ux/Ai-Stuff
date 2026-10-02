@@ -114,5 +114,3 @@ DeltaHybrid V1 must establish:
 
 Until then, Gated-Delta/state-heavy architecture is a hypothesis, not a
 promoted substrate.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
