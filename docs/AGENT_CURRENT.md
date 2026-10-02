@@ -180,10 +180,15 @@ sparse exact access should handle information that must be recovered precisely.
 
 No T4 training before these pass.
 
-### Gate B — hardware-efficient training path
-Build a chunk/parallel-friendly training implementation and prove numerical
-agreement with the slow reference path. Do not judge a recurrent architecture
-using a deliberately serial Python implementation against optimized attention.
+### Gate B — hardware-efficient training path — PASSED
+The WY/UT chunk-parallel Gated-Delta path matched the slow reference on Kaggle
+CPU across 72 forward cases, 8 reset cases, and 8 gradient cases. Worst observed
+errors were 8.88e-16 for outputs, 6.66e-16 for final state, 4.44e-16 for reset,
+and 1.67e-16 for gradients, all far below the preregistered tolerances.
+
+The implementation uses batched matmuls and triangular solves inside chunks,
+with recurrent state only between chunks; reset-bearing chunks deliberately fall
+back to the serial oracle.
 ### Gate C — small T4 architecture race
 Fresh ~1.05M DeltaHybrid V1 versus frozen Transformer control:
 1. equal-data/step gate;
@@ -247,9 +252,11 @@ alone.
 
 ## 8. Immediate next action
 
-Gate A passed on Kaggle CPU: the Gated-Delta reference satisfied the equation,
-causal, gradient, streaming, chunking, reset, and resume invariants.
+Gates A and B are green on Kaggle CPU. The reference recurrence and the
+WY/UT chunk-parallel path both satisfy the preregistered correctness/equivalence
+requirements.
 
-Next, implement the hardware-efficient batched/chunked formulation and prove it
-numerically equivalent to the reference on Kaggle CPU. Do not spend serious T4
-budget until that Stage 2 equivalence gate passes.
+Next, construct the raw-byte DeltaHybrid V1 near the ~1.05M Transformer control,
+freeze the exact parameter/data/optimizer/evaluation contract, and run CPU
+construction/smoke checks. Do not allocate T4 training until that preflight is
+clean.
