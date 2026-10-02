@@ -129,5 +129,3 @@ Then run:
 - Keep failed variants and failure reasons.
 - Judge by useful learning/capability per compute, not raw throughput alone.
 - Prefer many cheap falsifications feeding a few serious long runs.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
