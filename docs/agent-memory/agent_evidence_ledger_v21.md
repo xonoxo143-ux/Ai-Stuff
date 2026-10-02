@@ -1,5 +1,3 @@
-[Reading 114 lines from start (total: 114 lines, 0 remaining)]
-
 # Agent Evidence Ledger
 
 Version: 2.3
