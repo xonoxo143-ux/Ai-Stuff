@@ -1,0 +1,40 @@
+{
+  "seed": 20261002,
+  "train_streams": {
+    "prose": "data/v0/train_prose.bin",
+    "dialogue": "data/v0/train_dialogue.bin",
+    "reasoning": "data/v0/train_reasoning.bin",
+    "planner": "data/v0/train_planner.bin"
+  },
+  "valid_file": "data/v0/valid.bin",
+  "sequence_length": 32,
+  "batch_size": 2,
+  "steps": 2,
+  "curriculum": [
+    {
+      "name": "language_foundation",
+      "end_step": 2,
+      "weights": {
+        "prose": 0.75,
+        "dialogue": 0.25
+      }
+    }
+  ],
+  "learning_rate": 0.001,
+  "weight_decay": 0.01,
+  "grad_clip": 1,
+  "checkpoint_every": 1,
+  "eval_every": 1,
+  "eval_steps": 1,
+  "threads": 4,
+  "require_clean_git": true,
+  "sample_bytes": 8,
+  "speed_sample_bytes": 4,
+  "sample_prompt": "<|dialogue|>\\nUser: Why should evidence change confidence?\\nAssistant:",
+  "valid_streams": {
+    "prose": "data/v0/valid_prose.bin",
+    "dialogue": "data/v0/valid_dialogue.bin",
+    "reasoning": "data/v0/valid_reasoning.bin",
+    "planner": "data/v0/valid_planner.bin"
+  }
+}
