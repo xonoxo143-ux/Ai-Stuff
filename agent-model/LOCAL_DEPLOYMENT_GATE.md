@@ -1,5 +1,3 @@
-[Reading 94 lines from start (total: 94 lines, 0 remaining)]
-
 # Deployment Gate — Agent Models
 
 Date: 2026-10-02
