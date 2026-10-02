@@ -1,124 +1,133 @@
-# Kaggle GPU Training — Agent Language V0
+[Reading 129 lines from start (total: 129 lines, 0 remaining)]
 
-## Verified environment
+# Kaggle Compute Fabric — Agent Model Research
 
-Observed on 2026-09-30 for Kaggle account `selfroot`:
+Date: 2026-10-02
 
-- GPU runtime: 2 × NVIDIA Tesla T4
-- VRAM reported per visible device: ~15.6 GB
-- PyTorch: 2.10.0+cu128
-- CUDA visible: yes, 2 devices
-- GPU quota: 108,000 seconds = 30 hours/week
-- GPU used at verification: 14.731 seconds
-- TPU quota: 72,000 seconds = 20 hours/week
-- Quota refresh reported by Kaggle: 2026-10-03T00:00:00Z
+This path name is retained for compatibility, but Kaggle is no longer only a
+V0 GPU continuation mechanism. It is the default compute fabric for the model
+research program.
 
-Treat quota values as observed state, not a permanent contract. Query Kaggle before planning a large sweep.
+## Roles
 
-## Frozen scientific boundary
+### Kaggle CPU
+Use for substantive CPU work:
+- reference implementations;
+- causal/equivalence tests;
+- gradient and numerical-stability checks;
+- multi-seed CPU probes;
+- data and evaluation generation;
+- long-context correctness experiments;
+- jobs too slow or wasteful for the Optiplex.
 
-Phase 1 is immutable:
+### Kaggle 2×T4
+Use for:
+- model training;
+- architecture races;
+- GPU throughput benchmarks;
+- equal-compute comparisons;
+- promoted longer runs.
 
-- tag/release: `v0-phase1-2048`
-- source commit: `716366777c5c6552bdff03c32aef117261324b53`
-- checkpoint SHA256: `820ef9c11ab1322748b9f5032691a0d6c0eac0afc10df00dbc2c77b454eaa131`
-- step: 2048
-- sampled bytes: 16,777,216
-Corrected cloud work is prepared on `experiment/v0-causal-alignment-fix`; the older `experiment/v0-kaggle-t4` lineage remains historical context.
+### Optiplex
+Control/storage only:
+- credentials;
+- Git/repos;
+- kernel manifests;
+- submission;
+- scheduling;
+- result retrieval;
+- selected artifacts and logs.
+The phone is not a required bridge.
 
-The 2026-10-02 causal-alignment postmortem reclassified this checkpoint as a failed-formulation artifact. Preserve it for provenance and comparison, but do not resume it and do not use `--fork-from` to seed future language training. The corrected lineage starts from fresh initialization. Normal `--resume` remains strict within that corrected lineage and requires matching Git/config/runtime provenance.
+## Scheduling rule
 
-## Compute strategy
+The default GPU unit is one independent experiment per T4.
 
-The default unit is **one model per T4**, not one model across two T4s.
+For small models, do not combine the two T4s into one distributed job unless a
+benchmark shows that synchronization pays for itself.
 
-The V0 hybrid has only ~1.06M parameters. Data-parallel synchronization is likely to cost more than it saves. Use the two GPUs as two independent experiment lanes unless a benchmark proves otherwise:
+Typical session:
 
-- GPU 0: experiment A
-- GPU 1: experiment B
+    CPU PREP / VALIDATION
+            ↓
+      ┌──────────────┐
+      │ Kaggle 2×T4  │
+      ├──────────────┤
+      │ GPU0: arm A  │
+      │ GPU1: arm B  │
+      └──────────────┘
+            ↓
+      retrieve results
+            ↓
+      promote / kill
 
-This converts one Kaggle T4×2 session into two simultaneous architecture/training experiments.
+## Proven operational path
 
-## Cloud execution changes
+The Optiplex has successfully:
+- authenticated to Kaggle;
+- submitted private kernels;
+- requested a Tesla T4 machine shape;
+- received two visible Tesla T4 devices;
+- retrieved outputs and logs.
 
-The cloud branch adds:
+The compute fabric therefore does not depend on the phone being powered on.
+## Current architecture evidence
 
-- explicit CPU/CUDA device selection;
-- GPU-safe evaluation and generation;
-- synchronized CUDA timing so throughput is real rather than asynchronous launch time;
-- optional FP16 autocast + GradScaler for T4 Tensor Cores;
-- optional fused AdamW;
-- CUDA RNG state in checkpoints;
-- strict runtime provenance for future resumes;
-- `--fork-from` for intentional transitions from the frozen Phase-1 checkpoint;
-- vectorized batch extraction with unchanged RNG positions and byte contents;
-- optional vectorized hybrid forward.
-### Vectorized hybrid forward
+### Corrected equal-step gate — 256 steps
 
-The reference implementation launches the local GRU and patch encoder once per 4-byte patch. At sequence length 128 that means 32 tiny patch-level calls.
+    hybrid        3.5306 BPB    ~89k train bytes/s
+    Transformer   3.6260 BPB   ~202k train bytes/s
 
-The vectorized path precomputes all patch summaries/local inputs in batches and runs the local GRU over all patch lanes together. The recurrent global-state sequence is still preserved.
+The hybrid was slightly better per step but much slower.
 
-On CPU tests, reference and vectorized paths produce bit-identical forward logits from the same weights and inputs. Gradient reduction order differs, so the optimization intentionally begins only after the frozen Phase-1 boundary.
+### Compute-normalized gate
 
-## Benchmark gate
+Fresh calibration selected:
+- hybrid: 324 steps;
+- Transformer: 674 steps;
+- target: roughly 30 seconds training per model.
 
-Before Phase 2, run:
+Observed:
 
-```bash
-python3 -m agent_language.benchmark_v0_cloud \
-  --device cuda:0 \
-  --steps 32 \
-  --warmup 4
-```
+                         Hybrid         Transformer
+    train seconds        31.92            26.18
+    held-out BPB          3.4148           2.8815
+    phase-valid BPB       3.2666           2.7629
+    train bytes/s          83k             211k
 
-The benchmark compares:
+The Transformer was substantially better despite receiving less actual
+training time.
 
-1. reference FP32;
-2. vectorized FP32;
-3. vectorized FP32 + fused AdamW;
-4. vectorized FP16;
-5. vectorized FP16 + fused AdamW.
+Decision: the corrected GRU/patch hybrid is demoted; the Transformer becomes
+the performance baseline.
+## DeltaHybrid V1 policy
 
-Select the fastest profile that remains numerically stable. Prefer the smallest sufficient optimization stack: CUDA + vectorized FP32 is the default candidate; FP16 and fused AdamW must each show a stable measurable gain before becoming defaults.
+DeltaHybrid V1 does not receive T4 budget until the Kaggle CPU correctness gate
+passes.
 
-### Dual-T4 corrected Phase-1 gate
+Required CPU evidence:
+- reference recurrence matches hand/slow formulation;
+- no future-token leakage;
+- streaming == batched reference;
+- chunked == reference;
+- gradients finite;
+- deterministic checkpoint/resume;
+- explicit state reset behavior.
 
-Use the two GPUs for a controlled architecture comparison before committing the full Phase-1 budget:
-
-    MAX_STEP=256 bash run_v0_t4_pair.sh
-
-GPU 0 trains the corrected hybrid; GPU 1 trains the parameter-matched byte Transformer control. Both use the same config, seed, corpus mixture, step budget, and FP32 precision by default. Compare held-out BPB, learning curves, throughput, and later behavioral gates.
-
-Only if continuation is justified, the exact pair can be extended without changing provenance:
-
-    MAX_STEP=2048 RESUME=1 bash run_v0_t4_pair.sh
-
-Do not resume across a changed precision/runtime profile; that is a new experiment lineage.
-
-Cloud acceleration must not become an inference requirement. Every architecture survivor is checked against `LOCAL_DEPLOYMENT_GATE.md` on the phone or another ordinary CPU target.
-## Corrected Phase-1 start
-
-After the benchmark selects a runtime profile, begin the corrected lineage from scratch:
-
-    python3 -m agent_language.train_v0 \
-      --config configs/v0_first_run.json \
-      --model hybrid \
-      --run-dir runs/v0-kaggle-causal-v1-a \
-      --max-step 2048 \
-      --device cuda:0 \
-      --execution vectorized \
-      --precision fp32
-
-A second T4 should run a controlled alternative, not a divergent product line. Acceleration flags become defaults only after stable benchmark and learning-curve evidence.
+Then run:
+1. small equal-step dual-T4 gate;
+2. equal-GPU-second dual-T4 gate;
+3. long-context/state gate;
+4. seed replication if close;
+5. heavy training only after promotion.
 
 ## Quota discipline
 
-- Prepare/download/build corpora before enabling a GPU when possible.
-- Do not leave an accelerator notebook idle.
-- Prefer parallel A/B experiments over DDP for this model size.
-- Checkpoint at phase/evaluation boundaries.
-- Preserve failed variants and their reason for rejection.
-- Judge experiments by task/validation gain per GPU-minute, not by raw throughput alone.
+- Treat Kaggle quota as dynamic state; query it before large campaigns.
+- Never spend GPU time discovering basic correctness bugs.
+- Pre-stage code/data/evals before accelerators are active.
+- Keep failed variants and failure reasons.
+- Judge by useful learning/capability per compute, not raw throughput alone.
+- Prefer many cheap falsifications feeding a few serious long runs.
 
-The goal of the free compute is not simply to finish the current curriculum faster. It is to make high-value architecture comparisons cheap enough that weak directions can be killed quickly.
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
