@@ -1,105 +1,98 @@
-# Local Deployment Gate — Agent Language
+[Reading 94 lines from start (total: 94 lines, 0 remaining)]
+
+# Deployment Gate — Agent Models
+
+Date: 2026-10-02
 
 ## Governing rule
 
-**Train like we own a datacenter. Run like we own a phone.**
+Train on Kaggle. Deploy on hardware we control.
 
-Cloud compute is a research accelerator, not a deployment dependency. The learned architecture must remain usable on ordinary local hardware without Kaggle, CUDA, Tensor Cores, a network connection, or cloud-only services.
+Kaggle is a research/training dependency, not a required runtime dependency.
+The eventual worker should remain exportable and runnable without requiring a
+live Kaggle session, hidden cloud model, or proprietary inference service.
 
-The frozen phone-era baseline is:
+This document no longer assumes the phone is the primary deployment target.
 
-- release/tag: `v0-phase1-2048`
-- source commit: `716366777c5c6552bdff03c32aef117261324b53`
-- checkpoint SHA256: `820ef9c11ab1322748b9f5032691a0d6c0eac0afc10df00dbc2c77b454eaa131`
-- parameters: 1,063,712
+## Separation of roles
 
-This remains the reference local checkpoint even as training machinery evolves.
-## Three-layer separation
-
-### 1. Architecture
-
-Architecture changes affect what must exist at inference time. They are allowed only if the resulting model still has a practical CPU/mobile path.
-
-Avoid making CUDA-only kernels, giant activation memory, multi-GPU communication, huge retrieval stores, or cloud services requirements of the core model.
-
-### 2. Training machinery
-
-Training may freely exploit hardware that disappears after training:
-
-- CUDA;
-- FP16/Tensor Cores;
+### Training
+May use:
+- Kaggle CPU;
+- Kaggle 2×T4;
+- mixed precision;
 - fused optimizers;
-- large batches;
-- vectorized training-only execution;
-- parallel architecture sweeps;
-- both Kaggle T4s as independent experiment lanes.
+- training-only vectorization/chunking;
+- large temporary batches;
+- parallel architecture sweeps.
 
-Training complexity is acceptable when the exported weights remain locally runnable.
+### Persistent control/storage
+The Optiplex provides:
+- canonical repos/state;
+- credentials;
+- scheduling;
+- result retrieval;
+- logs/artifact retention;
+- future worker-hosting experiments if appropriate.
 
-### 3. Deployment machinery
-
-The deployment path should optimize for:
-
-- bounded persistent state;
-- cached/streaming inference;
-- low RAM;
-- predictable latency;
-- quantization when validated;
-- CPU-first portability;
-- optional local GPU/NPU acceleration without requiring it.
+### Runtime target
+The mature worker may eventually run on the Optiplex/Toshiba environment,
+another owned machine, or a portable target. The exact target is still open.
 ## Candidate graduation gate
 
-Every serious architecture candidate is evaluated on both axes:
+Every serious architecture candidate is evaluated on two independent axes:
 
-1. **Learning/work quality** — held-out loss, frozen behavioral suite, task success, transfer, planning/reasoning tests.
-2. **Local viability** — checkpoint size, parameter count, RAM, prompt ingestion time, first-byte latency, sustained generation rate, forward latency, and thermal behavior over a sustained run.
+1. Learning/work quality
+   - held-out loss;
+   - state/retrieval probes;
+   - worker task success;
+   - recovery;
+   - transfer;
+   - calibration.
 
-A candidate is not accepted merely because it trains faster on Kaggle. A candidate is also not rejected for a tiny mobile slowdown if it produces a large capability gain.
+2. Deployment economics
+   - checkpoint size;
+   - persistent-state size;
+   - RAM;
+   - forward/inference latency;
+   - prompt/context ingestion;
+   - sustained generation/action rate;
+   - storage requirements;
+   - whether inference needs special kernels or cloud services.
 
-Select from the Pareto frontier: maximum useful capability subject to acceptable local execution.
+Do not reject a candidate merely because its training implementation is
+GPU-specific. Reject it if the resulting runtime cannot be made practical on
+owned hardware or if its capability does not justify the runtime cost.
 
-No hard latency threshold is frozen yet. Establish thresholds from measured baselines and actual interactive use rather than guessing them in advance.
-## Required local benchmark
+## Long-context consequence
 
-Run on target hardware:
+Delta/state-heavy architectures are specifically expected to improve scaling of
+persistent context/state.
 
-```bash
-python3 -m agent_language.benchmark_v0_local \
-  --checkpoint /path/to/checkpoint.pt \
-  --generate-bytes 128
-```
+Therefore measure runtime state and memory growth as context grows. A candidate
+that matches short-context quality but keeps bounded recurrent state may still
+be valuable if exact-access mechanisms remain efficient.
+## Historical phone baseline
 
-Record the device, checkpoint SHA, parameter count, serialized size, model-state size, load time, resident memory, forward latency, prompt-ingestion latency, first-byte latency, and sustained cached-generation bytes/sec.
+Older Fold 4 measurements remain valid historical deployment evidence for the
+models that produced them. They are not the current compute plan and should not
+drive architecture selection by themselves.
 
-For architecture sweeps, benchmark only promising survivors on-device. Kaggle should eliminate weak candidates cheaply before phone testing.
+Phone benchmarking is now optional and should be used only when mobile
+deployment becomes a real target again.
 
-## Research consequence
+## Promotion principle
 
-The dual-T4 allowance should increase **breadth of search**, not force model growth.
+Choose from the Pareto frontier:
 
-Prefer:
-- two small experiments in parallel;
-- architecture/curriculum/optimizer ablations;
-- parameter-scale sweeps such as 1M/2M/4M/8M;
-- early termination of weak runs.
+    useful capability
+    / training compute
+    / inference compute
+    / persistent memory
+    / operational complexity
 
-Do not enlarge a model merely to occupy the GPU.
+The goal is not to maximize GPU utilization or minimize model size in
+isolation. The goal is the strongest worker architecture that remains practical
+to own and operate.
 
-
-## Measured Fold 4 baseline — Phase 1 frozen checkpoint
-
-Measured on the local Android/Termux CPU path with 4 PyTorch threads:
-
-- checkpoint: 12,830,091 bytes;
-- learned model state: 4,254,848 bytes;
-- parameters: 1,063,712;
-- checkpoint load: 0.131 s;
-- batch-1, 128-byte reference forward median: 0.184 s;
-- 87-byte prompt ingestion: 0.179 s;
-- first generated byte after prompt ingestion: 0.0056 s;
-- sustained cached generation: 449.2 bytes/s over the next 127 bytes;
-- process RSS after load: ~257.5 MB.
-
-The RSS figure includes the Python + PyTorch runtime and should not be confused with learned-model memory. The learned state itself is ~4.25 MB before future quantization.
-
-This baseline shows that V0 is currently comfortably interactive on the Fold. Future architecture changes should be compared against these measurements rather than against an assumed mobile limit.
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
