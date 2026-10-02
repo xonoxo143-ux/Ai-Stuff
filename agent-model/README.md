@@ -48,5 +48,3 @@ At minimum:
 5. deployment-state/memory accounting.
 
 Do not scale an architecture merely because it is novel or elegant.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
