@@ -167,6 +167,25 @@ Record exact parameter delta from the Transformer.
 Keep architecture-specific execution optimizations, but do not give either arm
 different data or evaluation.
 
+### Model-construction result — PASSED (Kaggle CPU, 2026-10-02)
+
+Pinned source commit: `96e2fc90eb64f79ea282229f413e367ef25fff83`.
+
+- DeltaHybrid V1 parameters: 1,064,962;
+- Transformer control parameters: 1,051,232;
+- parameter difference: +1.306% (inside the precommitted ±2% band);
+- architecture: width 156, FFN 468, 3 Gated-Delta blocks, 1 exact-attention block;
+- chunk size: 64;
+- model-level causal error: 0.0 at tolerance 1e-6;
+- checkpoint round-trip error: 0.0;
+- implicit-zero vs explicit-zero conditioning error: 0.0;
+- finite forward and finite gradients: passed;
+- recurrent Delta state at batch 1 in FP32: 292,032 bytes;
+- CUDA devices allocated: 0.
+
+Decision: promote to trainer integration smoke. This does not yet establish
+language-learning quality or GPU efficiency.
+
 ## Stage 5 — short-context T4 gates
 
 ### A. Equal-step/data
