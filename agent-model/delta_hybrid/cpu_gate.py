@@ -1,5 +1,3 @@
-[Reading 191 lines from start (total: 191 lines, 0 remaining)]
-
 """Kaggle-CPU correctness gate for the DeltaHybrid V1 reference recurrence."""
 import argparse
 import json
