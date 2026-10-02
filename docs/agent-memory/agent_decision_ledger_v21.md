@@ -1,8 +1,10 @@
+[Reading 112 lines from start (total: 112 lines, 0 remaining)]
+
 [Reading 99 lines from start (total: 99 lines, 0 remaining)]
 
 # Agent Decision Ledger
 
-Version: 2.3
+Version: 2.4
 Date: 2026-10-02
 Role: active commitments and explicit demotions.
 Current-state authority: ../AGENT_CURRENT.md
@@ -31,7 +33,9 @@ The Optiplex is control/storage infrastructure, not a model-compute tier.
 The phone is not an infrastructure dependency.
 ### D-006 — Optiplex is the durable control plane
 The Optiplex owns persistent repos, credentials, manifests, scheduling,
-retrieved results, logs, and selected artifacts.
+retrieved results, logs, selected artifacts, and lightweight development
+infrastructure. Python/pip/venv and similar server/dev tooling may be installed
+as needed; that does not make the Optiplex a model-compute tier.
 
 Storage policy:
 - 2 TB Linux drive: canonical working state;
@@ -76,6 +80,13 @@ task/commitment state conceptually separate until evidence supports merging.
 Fast cognition, contextual organization, durable state, and slow
 structural/parametric learning are distinct timescales.
 
+### D-016 — Optiplex is a future weak-hardware deployment canary
+Do not optimize the learner around the Optiplex now. After a model is mature
+enough to deploy, use the Optiplex deliberately to test low-end commodity
+hardware viability: memory footprint, startup latency, throughput, CPU load,
+and whether the agent remains practically usable. This is a deployment gate,
+not permission to shift substantive experiments away from Kaggle.
+
 ## Demoted / retired directions
 
 - chatbot-first as the project objective;
@@ -99,5 +110,7 @@ structural/parametric learning are distinct timescales.
 - worker action ontology and training curriculum;
 - deployment target for the mature worker;
 - role, if any, for the reserved 32 GB USB device.
+
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
 
 [executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
