@@ -139,5 +139,3 @@ def test_seeded_determinism():
     yb, sb = scan(*b)
     assert torch.equal(ya, yb)
     assert torch.equal(sa.memory, sb.memory)
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
