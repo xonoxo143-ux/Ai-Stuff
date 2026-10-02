@@ -1,3 +1,5 @@
+[Reading 30 lines from start (total: 30 lines, 0 remaining)]
+
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -23,8 +25,10 @@ test = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agent_ecology*", "agent_runtime*", "agent_language*", "agent_cognition*"]
+include = ["agent_ecology*", "agent_runtime*", "agent_language*", "agent_cognition*", "delta_hybrid*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
