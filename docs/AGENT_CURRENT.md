@@ -249,7 +249,9 @@ alone.
 
 ## 8. Immediate next action
 
-Build the Gated-Delta reference and invariant tests, then run the substantive
-correctness suite on Kaggle CPU.
+Gate A passed on Kaggle CPU: the Gated-Delta reference satisfied the equation,
+causal, gradient, streaming, chunking, reset, and resume invariants.
 
-Do not spend serious T4 budget on DeltaHybrid V1 until that CPU gate passes.
+Next, implement the hardware-efficient batched/chunked formulation and prove it
+numerically equivalent to the reference on Kaggle CPU. Do not spend serious T4
+budget until that Stage 2 equivalence gate passes.
