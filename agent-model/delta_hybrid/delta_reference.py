@@ -81,5 +81,3 @@ def serialize_state(state):
 def deserialize_state(tensor):
     """Restore a state without aliasing the serialized tensor."""
     return DeltaState(tensor.clone())
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
