@@ -1,5 +1,3 @@
-[Reading 246 lines from start (total: 246 lines, 0 remaining)]
-
 [Reading 236 lines from start (total: 236 lines, 0 remaining)]
 
 # DeltaHybrid V1 — Build and Falsification Plan
@@ -83,6 +81,21 @@ Required unit/invariant tests:
 - reset behavior;
 - state serialization/deserialization;
 - checkpoint/resume determinism.
+
+**Gate A result — PASSED (Kaggle CPU, 2026-10-02).**
+
+- 128 reference shape/seed cases passed;
+- 8 expanded-equation identity cases passed;
+- 8 gradient cases passed;
+- causal/stream/chunk/reset/resume/state max errors were exactly 0.0;
+- expanded-equation max error was 4.44e-16;
+- no CUDA device was allocated.
+
+The failed first kernel attempt is preserved as an infrastructure/provenance
+failure: a connector wrapper line had contaminated the published Python source.
+It is not evidence against the Delta recurrence. Version 2 used clean source and
+passed.
+
 ## Stage 2 — execution equivalence
 
 Implement:
@@ -244,7 +257,3 @@ Phone:
 Create Delta reference module + invariant test suite.
 Package it as a Kaggle CPU kernel.
 Do not allocate T4 time until the CPU correctness report is green.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
