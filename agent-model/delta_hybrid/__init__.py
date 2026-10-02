@@ -1,5 +1,3 @@
-[Reading 19 lines from start (total: 19 lines, 0 remaining)]
-
 """DeltaHybrid V1 reference and experimental components."""
 
 from .delta_reference import (
