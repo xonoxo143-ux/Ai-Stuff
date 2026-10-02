@@ -191,5 +191,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
