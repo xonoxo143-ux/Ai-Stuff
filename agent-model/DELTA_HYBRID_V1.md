@@ -1,5 +1,3 @@
-[Reading 236 lines from start (total: 236 lines, 0 remaining)]
-
 # DeltaHybrid V1 — Build and Falsification Plan
 
 Date: 2026-10-02
