@@ -30,5 +30,3 @@ include = ["agent_ecology*", "agent_runtime*", "agent_language*", "agent_cogniti
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
