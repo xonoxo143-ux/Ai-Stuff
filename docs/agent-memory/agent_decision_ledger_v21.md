@@ -1,5 +1,3 @@
-[Reading 99 lines from start (total: 99 lines, 0 remaining)]
-
 # Agent Decision Ledger
 
 Version: 2.4
