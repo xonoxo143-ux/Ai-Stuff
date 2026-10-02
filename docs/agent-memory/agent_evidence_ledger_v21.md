@@ -74,6 +74,31 @@ Design consequence:
 - corrected GRU/patch hybrid is demoted for heavy language training;
 - equal-compute gates are mandatory for future architecture races.
 
+### E-LANG-011 — Gated-Delta reference correctness gate passes
+Status: SUPPORTED REFERENCE INVARIANT
+
+Kaggle CPU version 2, pinned to clean source commit
+`ba7999a0c57b4dcc4d166fa374e63e170fc18fef`, passed the Delta V1 reference
+correctness gate:
+
+    reference cases            128
+    expanded-equation cases      8
+    gradient cases                8
+    causal error                0.0
+    stream/chunk output error   0.0
+    state/reset/resume error    0.0
+    equation max error          4.44e-16
+
+The first kernel version failed because a connector wrapper line contaminated
+the published Python source. That failure is preserved as infrastructure
+provenance, not architecture evidence.
+
+Design consequence:
+- the readable Gated-Delta recurrence is promoted as the correctness oracle;
+- Stage 2 may build an efficient batched/chunked path;
+- T4 architecture training remains blocked until optimized execution matches
+  the oracle.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
@@ -103,14 +128,12 @@ controlled result:
 
 ## Next evidence target
 
-DeltaHybrid V1 must establish:
+DeltaHybrid V1 has established reference-recurrence correctness, causal
+integrity, finite gradients, reset/resume behavior, and serial stream/chunk
+equivalence. The next evidence target is an actually hardware-efficient
+batched/chunked formulation that reproduces the oracle.
 
-1. reference recurrence correctness;
-2. batch/stream/chunk equivalence;
-3. stable gradients and no causal leakage;
-4. competitive equal-compute language learning;
-5. a measurable long-context/state advantage if short-context BPB is merely
-   competitive.
-
-Until then, Gated-Delta/state-heavy architecture is a hypothesis, not a
+After that: competitive equal-compute language learning and a measurable
+long-context/state advantage. Until those architecture-level gates pass,
+Gated-Delta/state-heavy architecture remains a challenger rather than a
 promoted substrate.
