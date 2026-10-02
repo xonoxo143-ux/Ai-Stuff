@@ -1,104 +1,94 @@
-# Agent Language V0 Training
+[Reading 90 lines from start (total: 90 lines, 0 remaining)]
 
-This is the first serious from-scratch language-learning run for the homegrown agent.
+# Agent Language V0 Training — Historical / Closed Lineage
 
-## Frozen comparison
-- Candidate: BytePatchHybridV0 (local 4-byte patches + recurrent global state + bounded patch-memory attention).
-- Control: causal byte Transformer, parameter matched within 2%.
-- Both see the same source streams, curriculum, batch size, sequence length, optimizer, step count, and held-out evaluation suite.
+Date: 2026-10-02
 
-## V0 curriculum
-The 4,096-step run keeps the original 32 MiB sampled-byte budget but stages it deliberately.
+This document records the V0 language-training lineage. It is no longer the
+mainline training plan.
 
-### Phase 1 — language foundation (steps 1–2048) — COMPLETE
-- 75% WikiText raw prose
-- 25% held-in English OpenAssistant dialogue
-- 0% explicit reasoning
-- 0% semantic-plan examples
-- Batch 64 means exactly 48 prose sequences + 16 dialogue sequences per step.
-- Total sampled bytes: 16,777,216.
-- Frozen release/tag: `v0-phase1-2048`.
-- Frozen source commit: `716366777c5c6552bdff03c32aef117261324b53`.
-- Frozen checkpoint SHA256: `820ef9c11ab1322748b9f5032691a0d6c0eac0afc10df00dbc2c77b454eaa131`.
-- Final phase-valid BPB: 4.8939156542; best observed region was ~4.884–4.885 before the boundary.
-- Post-freeze audit: 0/6 on `v0-frozen-2026-09-30`; greedy generation collapsed to spaces, and stochastic decoding produced letter/space fragments rather than coherent language.
-- A train-derived held-out unigram baseline scores ~4.6384 BPB on the same 75/25 prose-dialogue mixture, so Phase 1 did not yet establish useful contextual language modeling despite improving from initialization.
-- Scientific status at freeze: training run complete, but language capability was not established.
-- 2026-10-02 postmortem: batch training and streaming inference used different causal alignment. The immediately previous byte had zero effect on the frozen model's final next-byte prediction. See `CAUSAL_ALIGNMENT_V0.md`.
-- Preserve the frozen checkpoint as a failed-formulation artifact, but do not resume it or use it as a parent checkpoint.
-- Phase 2 remains blocked. The corrected lineage restarts Phase 1 from fresh initialization.
-- Original phone run demonstrated execution stability and exposed thermal/scheduler limits, but the later causal-alignment postmortem invalidated it as a correctness proof. Corrected experiments move to benchmark-gated GPU execution.
+## Original comparison
 
-### Phase 2 — conversation bridge (steps 2049–3072)
-- 45% prose
-- 40% dialogue
-- 10% reasoning
-- 5% planner → response
+Candidate:
+BytePatchHybridV0 — local 4-byte patches, local GRU, recurrent global state,
+bounded patch-memory access.
 
-### Phase 3 — cognitive integration (steps 3073–4096)
-- 30% prose
-- 30% dialogue
-- 20% reasoning
-- 20% planner → response
+Control:
+parameter-matched causal byte Transformer.
 
-## Data
-From `agent-model/`:
+Both used the same corpus streams, curriculum, batch size, sequence length,
+optimizer, and held-out evaluation suite.
 
-```bash
-python3 -m agent_language.fetch_v0_sources
-python3 -m agent_language.build_v0_corpus --train-mb 16 --valid-mb 2
-```
+## Original Phase-1 artifact
 
-Downloaded corpora and generated binary streams stay local and are gitignored.
-Expected hashes are frozen in `configs/corpus_v0_manifest.json`.
+The frozen V0 Phase-1 run reached step 2048 / 16,777,216 sampled bytes, but it
+is not a valid parent checkpoint.
 
-## Telemetry
-At each evaluation checkpoint the trainer records:
-- training bytes/sec;
-- approximate conventional-token equivalent/sec (bytes/sec ÷ 4);
-- cached generation bytes/sec;
-- cached generation conventional-token equivalent/sec;
-- current phase and exact per-source batch counts;
-- train loss; fixed global validation loss; phase-matched validation loss; and both validation bits/byte measurements.
+Postmortem discovered a causal-alignment error:
+batch training and streaming inference consumed different effective histories.
+The immediately previous byte had zero effect on the frozen model's final
+next-byte prediction.
 
-The token-equivalent rate is only a readability conversion. The model itself remains byte-native.
+Preserve the artifact for provenance only.
+Do not resume it.
+Do not fork from it.
+## Corrected formulation result
 
-## Preflight
-```bash
-python3 -m pytest -q
-python3 -m agent_language.preflight_v0
-```
+The causal interface was corrected and protected with batch↔stream equivalence
+tests.
 
-The deterministic interruption rehearsal uses `configs/v0_rehearsal.json`.
-The serious run uses `configs/v0_first_run.json` and refuses to start from a dirty Git tree.
+Same-init/same-batch/same-optimizer 64-step ablation:
 
-## First run
-```bash
-python3 -m agent_language.train_v0 \
-  --config configs/v0_first_run.json \
-  --model hybrid \
-  --run-dir runs/v0-first-hybrid
-```
+    corrected hybrid   4.7050 BPB
+    legacy hybrid      4.8164 BPB
 
-Phase 1 was completed on the phone and frozen at step 2048. Do not mutate that checkpoint or source tag.
+So the bug fix paid rent.
 
-## Cloud continuation
+However, architecture-level testing then showed:
 
-Cloud execution still uses the CUDA/vectorized trainer, but the frozen Phase-1 checkpoint predates the causal-alignment correction and is not a valid parent for future language training.
+### Equal-step 256
+    hybrid        3.5306 BPB
+    Transformer   3.6260 BPB
 
-Start corrected Phase 1 from fresh initialization:
+### Compute-normalized
+    hybrid        3.4148 BPB in 31.92 train s
+    Transformer   2.8815 BPB in 26.18 train s
 
-    python3 -m agent_language.train_v0 \
-      --config configs/v0_first_run.json \
-      --model hybrid \
-      --run-dir runs/v0-kaggle-causal-v1 \
-      --max-step 2048 \
-      --device cuda:0 \
-      --execution vectorized \
-      --precision fp32
+The corrected hybrid therefore lost decisively per GPU compute.
 
-CUDA plus vectorized FP32 is the conservative first cloud profile. FP16 and fused AdamW remain experiment arms and must earn promotion through stable learning and throughput evidence. See CAUSAL_ALIGNMENT_V0.md, KAGGLE_V0.md, and LOCAL_DEPLOYMENT_GATE.md.
+## Decision
 
-Train the parameter-matched control with the identical corrected curriculum and budget.
+V0 Phase 2 and Phase 3 are not continued on the GRU/patch hybrid.
 
-Do not change the corpus, curriculum, evaluation suite, or frozen historical artifacts after inspecting results. Any changed experiment gets a new version.
+The byte Transformer is retained as the current performance control.
+The next mainline training architecture is DeltaHybrid V1.
+
+Historical V0 curriculum files remain useful as controlled datasets/evals, but
+their phase numbering no longer defines the project roadmap.
+## Reusable training invariants
+
+The following survive V0 and apply to all future language spines:
+
+- deterministic seeds and corpus hashes;
+- strict provenance;
+- fixed held-out evaluation;
+- exact training-byte accounting;
+- train throughput and GPU-time accounting;
+- batch/stream/chunk equivalence where multiple execution modes exist;
+- checkpoint/resume determinism;
+- no silent change of corpus or evaluation after looking at results;
+- same-step and compute-normalized architecture comparisons;
+- behavioral probes in addition to likelihood metrics.
+
+## Compute routing
+
+All substantive experiments run on Kaggle.
+
+- CPU correctness/reference work → Kaggle CPU.
+- GPU architecture/training work → Kaggle 2×T4.
+- Optiplex → control/storage/scheduling/result collection.
+- Phone → optional interface/target, not project infrastructure.
+
+See KAGGLE_V0.md and DELTA_HYBRID_V1.md.
+
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
