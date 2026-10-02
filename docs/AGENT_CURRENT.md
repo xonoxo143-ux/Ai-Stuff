@@ -252,11 +252,18 @@ alone.
 
 ## 8. Immediate next action
 
-Gates A and B are green on Kaggle CPU. The reference recurrence and the
-WY/UT chunk-parallel path both satisfy the preregistered correctness/equivalence
-requirements.
+Gates A, B, and the model-construction preflight are green on Kaggle CPU.
 
-Next, construct the raw-byte DeltaHybrid V1 near the ~1.05M Transformer control,
-freeze the exact parameter/data/optimizer/evaluation contract, and run CPU
-construction/smoke checks. Do not allocate T4 training until that preflight is
-clean.
+DeltaHybrid V1 now has:
+- a trusted Gated-Delta reference oracle;
+- a WY/UT chunk-parallel path matching the oracle;
+- a raw-byte 3:1 Delta/attention model at 1,064,962 parameters;
+- a 1.306% parameter difference versus the 1,051,232 Transformer control;
+- zero detected model-level causal leakage in the CPU preflight;
+- exact checkpoint round-trip and finite backward gradients.
+
+Next, integrate DeltaHybrid V1 into the existing training harness and pass a
+small end-to-end Kaggle CPU trainer smoke using the frozen corpus/evaluation
+contract. Only then launch the first 2×T4 equal-step/data race against the
+Transformer control.
+
