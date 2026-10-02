@@ -1,3 +1,5 @@
+[Reading 257 lines from start (total: 257 lines, 0 remaining)]
+
 [Reading 241 lines from start (total: 241 lines, 0 remaining)]
 
 # Agent — Current Architecture and Frontier
@@ -59,7 +61,19 @@ All substantive model computation defaults to Kaggle.
        └── 2×T4 kernels: training, architecture races, promoted GPU runs
 The Optiplex is not an AI-compute tier. It performs control-plane work:
 Git, credentials, manifests, scheduling, result retrieval, dashboards, logs,
-small file transforms, and persistent project state.
+small file transforms, lightweight development/unit checks, and persistent
+project state.
+
+Basic development infrastructure such as Python, pip, and virtual environments
+belongs on the Optiplex and may be installed as needed. Do not route substantive
+model training, tensor-heavy evaluation, architecture races, or repeated
+benchmark workloads there merely because the machine is reachable.
+
+Later, the Optiplex has a deliberate secondary role as a weak-hardware
+deployment canary. Mature promoted models may be tested there to measure whether
+they can run on old commodity hardware (RAM, cold-start latency, throughput,
+CPU load, and practical usability). That is a deployment/efficiency gate, not a
+training tier, and must not distort architecture work prematurely.
 
 The phone is not required for project continuity and should not be assumed to
 be powered on or available.
@@ -241,5 +255,7 @@ Build the Gated-Delta reference and invariant tests, then run the substantive
 correctness suite on Kaggle CPU.
 
 Do not spend serious T4 budget on DeltaHybrid V1 until that CPU gate passes.
+
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
 
 [executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
