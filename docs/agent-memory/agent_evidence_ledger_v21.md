@@ -143,6 +143,29 @@ Design consequence:
 - this is not evidence of superior language quality or GPU efficiency;
 - T4 training remains blocked until the end-to-end trainer smoke passes.
 
+### E-LANG-014 — DeltaHybrid V1 passes end-to-end trainer integration smoke
+Status: SUPPORTED TRAINER INTEGRATION
+
+Kaggle CPU at source commit
+`0c5f37e6e919568e644ce0399d714dc8338a3cdd` completed the real data, training,
+evaluation, checkpoint, telemetry, and sampling path with the Delta model.
+
+    steps                         2
+    parameters            1,064,962
+    training bytes              128
+    train seconds             0.412
+    CPU bytes/s               ~311
+    valid BPB                 7.2162
+    checkpoint                  yes
+    telemetry                   yes
+    CUDA devices                  0
+
+Design consequence:
+- trainer integration is no longer a blocker;
+- the first 2×T4 Delta-vs-Transformer same-step/data gate is authorized;
+- the tiny BPB/throughput values are smoke-test diagnostics only and must not be
+  used as architecture evidence.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
