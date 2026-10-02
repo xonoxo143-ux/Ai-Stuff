@@ -186,6 +186,29 @@ Pinned source commit: `96e2fc90eb64f79ea282229f413e367ef25fff83`.
 Decision: promote to trainer integration smoke. This does not yet establish
 language-learning quality or GPU efficiency.
 
+### Trainer-integration result — PASSED (Kaggle CPU, 2026-10-02)
+
+Pinned source commit: `0c5f37e6e919568e644ce0399d714dc8338a3cdd`.
+
+The real training harness completed a two-step CPU smoke using the frozen corpus
+build and evaluation path:
+
+- model: DeltaHybrid V1;
+- parameters: 1,064,962;
+- execution: chunked;
+- precision: FP32;
+- training bytes: 128;
+- training seconds: 0.412;
+- CPU throughput: ~311 bytes/s;
+- valid BPB after the tiny smoke: 7.2162;
+- checkpoint present;
+- telemetry present;
+- metrics present;
+- CUDA devices: 0.
+
+This gate only establishes end-to-end trainer compatibility. It is not a
+meaningful language-learning or performance result.
+
 ## Stage 5 — short-context T4 gates
 
 ### A. Equal-step/data
