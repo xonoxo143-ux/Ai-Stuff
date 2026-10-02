@@ -252,18 +252,24 @@ alone.
 
 ## 8. Immediate next action
 
-Gates A, B, and the model-construction preflight are green on Kaggle CPU.
+All CPU prerequisites for the first DeltaHybrid V1 architecture race are green.
 
-DeltaHybrid V1 now has:
-- a trusted Gated-Delta reference oracle;
-- a WY/UT chunk-parallel path matching the oracle;
-- a raw-byte 3:1 Delta/attention model at 1,064,962 parameters;
-- a 1.306% parameter difference versus the 1,051,232 Transformer control;
-- zero detected model-level causal leakage in the CPU preflight;
-- exact checkpoint round-trip and finite backward gradients.
+The end-to-end trainer smoke on Kaggle CPU completed successfully through the
+real corpus build, training, evaluation, checkpoint, telemetry, and sampling
+path:
+- 2 training steps;
+- 1,064,962 parameters;
+- checkpoint and telemetry artifacts present;
+- valid BPB after the tiny smoke: 7.2162;
+- CPU chunked execution only; no CUDA allocation.
 
-Next, integrate DeltaHybrid V1 into the existing training harness and pass a
-small end-to-end Kaggle CPU trainer smoke using the frozen corpus/evaluation
-contract. Only then launch the first 2×T4 equal-step/data race against the
-Transformer control.
+This smoke validates trainer integration, not language quality.
+
+Next, run the preregistered first 2×T4 architecture gate:
+- GPU0: DeltaHybrid V1, chunked execution;
+- GPU1: frozen Transformer control;
+- same seed, corpus, curriculum, batch, sequence length, optimizer, and 256-step budget;
+- FP32 first;
+- compare same-step/data quality and throughput, then follow with a fresh
+  equal-GPU-second gate before any architecture promotion.
 
