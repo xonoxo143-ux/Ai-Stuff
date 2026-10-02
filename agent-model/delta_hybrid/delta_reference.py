@@ -1,5 +1,3 @@
-[Reading 81 lines from start (total: 81 lines, 0 remaining)]
-
 """Readable Gated-Delta recurrence used as the V1 correctness oracle.
 
 State orientation is [batch, value_dim, key_dim].  The update is the
