@@ -1,6 +1,6 @@
 # Agent Evidence Ledger
 
-Version: 2.3
+Version: 2.4
 Date: 2026-10-02
 Role: durable high-value evidence summary.
 Current-state authority: ../AGENT_CURRENT.md
@@ -94,8 +94,32 @@ provenance, not architecture evidence.
 Design consequence:
 - the readable Gated-Delta recurrence is promoted as the correctness oracle;
 - Stage 2 may build an efficient batched/chunked path;
-- T4 architecture training remains blocked until optimized execution matches
-  the oracle.
+- this prerequisite was subsequently satisfied by E-LANG-012.
+
+### E-LANG-012 — Chunk-parallel Gated-Delta matches the reference oracle
+Status: SUPPORTED EXECUTION EQUIVALENCE
+
+Kaggle CPU at source commit
+`639e7eb49b04f826f82484d316cbfed4c79e7e25` passed the preregistered
+WY/UT chunk-equivalence gate:
+
+    forward cases                 72
+    reset cases                    8
+    gradient cases                 8
+    max forward output error    8.88e-16
+    max forward state error     5.55e-16
+    max reset error             4.44e-16
+    max gradient error          1.67e-16
+    forward tolerance            1.0e-10
+    gradient tolerance           1.0e-09
+    CUDA devices                       0
+
+Design consequence:
+- the hardware-friendly chunk-parallel formulation is accepted as numerically
+  equivalent to the reference at this gate;
+- model construction may proceed around this execution path;
+- serious T4 training remains blocked until the parameter-matched model and its
+  CPU preflight are clean.
 
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
@@ -126,12 +150,13 @@ controlled result:
 
 ## Next evidence target
 
-DeltaHybrid V1 has established reference-recurrence correctness, causal
-integrity, finite gradients, reset/resume behavior, and serial stream/chunk
-equivalence. The next evidence target is an actually hardware-efficient
-batched/chunked formulation that reproduces the oracle.
+DeltaHybrid V1 has established reference-recurrence correctness and
+hardware-friendly chunk-parallel equivalence, including gradients and reset
+semantics. The next evidence target is a parameter-matched ~1.05M raw-byte
+DeltaHybrid model that passes CPU construction/smoke preflight against a frozen
+Transformer-Control-V1 contract.
 
-After that: competitive equal-compute language learning and a measurable
-long-context/state advantage. Until those architecture-level gates pass,
-Gated-Delta/state-heavy architecture remains a challenger rather than a
+After that: competitive equal-step and equal-compute language learning plus a
+measurable long-context/state advantage. Until those architecture-level gates
+pass, Gated-Delta/state-heavy architecture remains a challenger rather than a
 promoted substrate.
