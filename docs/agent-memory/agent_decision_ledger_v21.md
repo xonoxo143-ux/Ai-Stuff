@@ -1,5 +1,3 @@
-[Reading 112 lines from start (total: 112 lines, 0 remaining)]
-
 [Reading 99 lines from start (total: 99 lines, 0 remaining)]
 
 # Agent Decision Ledger
@@ -110,7 +108,3 @@ not permission to shift substantive experiments away from Kaggle.
 - worker action ontology and training curriculum;
 - deployment target for the mature worker;
 - role, if any, for the reserved 32 GB USB device.
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
-
-[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
