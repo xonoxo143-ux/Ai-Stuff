@@ -1,5 +1,3 @@
-[Reading 241 lines from start (total: 241 lines, 0 remaining)]
-
 # Agent — Current Architecture and Frontier
 
 Date: 2026-10-02
