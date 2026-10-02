@@ -1,90 +1,58 @@
-# AI Workbench
+[Reading 54 lines from start (total: 54 lines, 0 remaining)]
 
-Local-first Android workbench for developing and benchmarking the modular chatbot project.
+# AI Workbench / Agent Research
 
-The `aistuff` branch is the active workspace.
+This repository is the working laboratory for the homegrown Agent project.
 
 ## Goal
 
-Build a local chatbot that improves both useful answer quality and wall-clock efficiency relative to a comparable conventional model.
+Build a generally capable worker agent from our own learned machinery.
 
-Storage is a soft constraint. Active compute, latency, memory movement, and quality are the hard measurements.
+The target system should understand instructions, communicate clearly, plan,
+use tools, preserve relevant state, recover from failures, and complete real
+work. Conversation is an interface, not the product boundary.
 
-## Agent architecture
+A pretrained LLM may be used during development as a teacher, critic,
+scientist, or control. It must not silently become the deployed agent's
+cognitive core.
 
-The Workbench is the laboratory, not the cognitive architecture itself.
+## Current research direction
 
-The first faithful runtime specification for the agent is now frozen in `docs/AGENT_V0_SPEC.md`.
+The current language baseline is a small causal byte Transformer. It is a
+control, not an architectural commitment.
 
-Agent v0 is defined as a persistent computational ecology with first-class capabilities and interaction motifs, context-sensitive temporary organization, bounded communication, explicit provenance, and a reversible developmental learning path.
+The previous GRU/patch hybrid is retired as a mainline training candidate.
+The next challenger is DeltaHybrid V1: state-heavy Gated-Delta-style sequence
+processing with occasional exact-attention blocks.
+## Compute architecture
 
-## Active Workbench architecture
+The project uses a simple separation of roles:
 
-```text
-native Android kernel
-├── llama.cpp / ARM64 runtime
-├── model storage + downloads
-├── secure storage
-├── update client
-└── secure WebView bridge
-          ↓
-mutable HTML/CSS/JS workbench
-├── Run
-├── Chat
-├── Bench
-└── Data
-```
+- Optiplex server — durable storage, credentials, repositories, scheduling,
+  experiment submission, result collection, dashboards, and control-plane work.
+- Kaggle CPU — substantive CPU experiments, correctness tests, reference
+  implementations, multi-seed probes, data/evaluation jobs.
+- Kaggle 2×T4 — GPU training, architecture races, throughput tests, and
+  promoted long runs.
+- Phone — optional user interface / emergency access; not an infrastructure
+  dependency and not an AI-compute tier.
 
-The old Godot implementation remains in the repository as a historical prototype. It is not the current application architecture.
+The Optiplex currently has a 2 TB main Linux drive, a 500 GB Toshiba USB
+external drive for bulk/archive use, and a 32 GB USB device reserved for a
+future deliberate role.
 
-## Update model
-
-Ordinary UI/benchmark/application changes live under `workbench-web/` and should not require another APK.
-
-GitHub Actions:
-
-1. validates the workbench,
-2. builds `workbench.zip`,
-3. creates a keyless GitHub/Sigstore artifact attestation,
-4. publishes a versioned manifest + bundle to `workspace/releases/`.
-
-The native kernel downloads the bundle, checks its source/ref compatibility and SHA-256, safely stages it in app-private storage, and reloads it.
-
-Native changes to llama.cpp/JNI/Android itself still require a new APK.
-
-## Runtime optimization
-
-The native ARM64 path uses KleidiAI and keeps reusable prompt/KV prefixes rather than clearing and recomputing the whole conversation every turn. JNI streaming is chunked to avoid per-token UI bridge overhead.
-
-Measured fields include:
-
-- prompt tokens
-- cached prompt tokens
-- evaluated prompt tokens
-- prompt processing time
-- TTFT
-- decode tokens/s
-- total latency
-
+See docs/AGENT_CURRENT.md for the authoritative project state and
+agent-model/DELTA_HYBRID_V1.md for the next architecture build.
 ## Repository role
 
-Git stores source, workbench bundles/manifests, benchmark suites, small results, configs, and architecture notes.
+Git stores source, configs, evaluation definitions, architecture notes, small
+results, and reproducible experiment manifests.
 
-Git does **not** store model weights, large checkpoints, bulky datasets, or training caches.
+Large datasets, caches, and most checkpoints belong on controlled storage or in
+ephemeral Kaggle runs rather than in Git.
 
-See `docs/AGENT_V0_SPEC.md`, `docs/ARCHITECTURE.md`, and `docs/WORKBENCH_V0.md`.
+Historical Android/workbench and earlier chatbot experiments remain in the
+repository as evidence. They are not the current project objective unless
+docs/AGENT_CURRENT.md explicitly re-promotes them.
 
-
-## Stable native identity
-
-The active Android app now has a frozen package/signing identity so future native
-builds can update **in place** instead of forcing uninstall/reinstall cycles.
-
-- package: `com.xonoxo.aiworkbench.k2`
-- signing certificate: pinned in `docs/ANDROID_SIGNING.md`
-- Workbench HTML/JS still updates independently through the mutable bundle path
-- native updates are SHA-256 checked, package checked, and signing-certificate
-  checked before Android's installer is opened
-
-The private signing key is never committed to this public repository. CI consumes
-the one repository secret `AI_WORKBENCH_SIGNING_BUNDLE`.
+[executed on device: optiplex-ai (fbcbb933-7ca0-4279-8624-6a1cd3f388d1)]
