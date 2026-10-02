@@ -117,6 +117,24 @@ Test:
 
 Failure here blocks all T4 training.
 
+**Stage 2 result — PASSED (Kaggle CPU, 2026-10-02).**
+
+Pinned source commit: `639e7eb49b04f826f82484d316cbfed4c79e7e25`.
+
+- 72/72 forward equivalence cases passed;
+- 8/8 reset cases passed;
+- 8/8 gradient cases passed;
+- max output error: 8.88e-16;
+- max final-state error: 5.55e-16;
+- max reset error: 4.44e-16;
+- max gradient error: 1.67e-16;
+- tolerances: 1e-10 forward/state/reset, 1e-9 gradients;
+- no CUDA device was allocated.
+
+The accepted path uses WY/UT triangular solves plus batched matmuls within each
+chunk and carries recurrent state only between chunks. Chunks containing resets
+fall back to the serial oracle to preserve explicit reset semantics.
+
 ## Stage 3 — hardware-efficient implementation
 
 Only after the reference is trusted:
@@ -252,6 +270,8 @@ Phone:
 
 ## Immediate implementation task
 
-Create Delta reference module + invariant test suite.
-Package it as a Kaggle CPU kernel.
-Do not allocate T4 time until the CPU correctness report is green.
+Construct the raw-byte DeltaHybrid V1 around the validated reference and
+chunk-parallel state block at roughly the ~1.05M Transformer-control parameter
+scale. Freeze the exact parameter count, corpus/data hashes, optimizer, seed
+schedule, validation, and generation probes, then run CPU construction/smoke
+preflight. Do not allocate T4 training until that preflight is green.
