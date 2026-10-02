@@ -121,6 +121,28 @@ Design consequence:
 - serious T4 training remains blocked until the parameter-matched model and its
   CPU preflight are clean.
 
+### E-LANG-013 — Parameter-matched DeltaHybrid V1 passes model construction gate
+Status: SUPPORTED MODEL PREFLIGHT
+
+Kaggle CPU at source commit
+`96e2fc90eb64f79ea282229f413e367ef25fff83` passed the preregistered
+model-construction gate:
+
+    Delta parameters              1,064,962
+    Transformer control           1,051,232
+    parameter difference             +1.306%
+    causal error                       0.0
+    checkpoint error                   0.0
+    finite forward                      yes
+    finite gradients                    yes
+    FP32 recurrent state / sample   292,032 bytes
+
+Design consequence:
+- the first raw-byte 3:1 Delta/attention model is accepted for trainer integration;
+- parameter matching is close enough for the planned architecture race;
+- this is not evidence of superior language quality or GPU efficiency;
+- T4 training remains blocked until the end-to-end trainer smoke passes.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
