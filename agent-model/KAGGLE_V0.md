@@ -1,5 +1,3 @@
-[Reading 129 lines from start (total: 129 lines, 0 remaining)]
-
 # Kaggle Compute Fabric — Agent Model Research
 
 Date: 2026-10-02
