@@ -17,6 +17,7 @@ CASES = (
     ("vectorized_fp32", True, "fp32", False),
     ("vectorized_fp32_fused", True, "fp32", True),
     ("vectorized_fp16", True, "fp16", False),
+    ("vectorized_fp16_fused", True, "fp16", True),
 )
 
 
@@ -102,7 +103,8 @@ def run_case(payload, device, case, batches, warmup, steps):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--checkpoint", required=True)
+    ap.add_argument("--checkpoint")
+    ap.add_argument("--seed", type=int, default=20261002)
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--steps", type=int, default=32)
     ap.add_argument("--warmup", type=int, default=4)
@@ -114,9 +116,23 @@ def main() -> None:
     if device.type != "cuda" or not torch.cuda.is_available():
         raise SystemExit("cloud benchmark requires CUDA")
 
-    payload = torch.load(Path(args.checkpoint), map_location="cpu", weights_only=False)
-    if payload.get("model_name") != "hybrid":
-        raise SystemExit("benchmark expects a hybrid checkpoint")
+    if args.checkpoint:
+        payload = torch.load(
+            Path(args.checkpoint), map_location="cpu", weights_only=False
+        )
+        if payload.get("model_name") != "hybrid":
+            raise SystemExit("benchmark expects a hybrid checkpoint")
+        checkpoint_source = str(Path(args.checkpoint))
+    else:
+        torch.manual_seed(args.seed)
+        fresh = BytePatchHybridV0()
+        payload = {
+            "model": fresh.state_dict(),
+            "model_name": "hybrid",
+            "step": 0,
+            "config": {"grad_clip": 1.0},
+        }
+        checkpoint_source = "fresh-init"
 
     generator = torch.Generator(device="cpu")
     generator.manual_seed(20260930)
@@ -139,6 +155,8 @@ def main() -> None:
         "batch_size": args.batch_size,
         "sequence_length": args.sequence_length,
         "checkpoint_step": int(payload["step"]),
+        "checkpoint_source": checkpoint_source,
+        "seed": int(args.seed),
     }
     results = []
     for case in CASES:

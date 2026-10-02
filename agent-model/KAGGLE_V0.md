@@ -67,7 +67,6 @@ Before Phase 2, run:
 
 ```bash
 python3 -m agent_language.benchmark_v0_cloud \
-  --checkpoint /path/to/corrected-smoke-or-phase1-checkpoint.pt \
   --device cuda:0 \
   --steps 32 \
   --warmup 4
@@ -76,11 +75,26 @@ python3 -m agent_language.benchmark_v0_cloud \
 The benchmark compares:
 
 1. reference FP32;
-2. reference FP16 + fused AdamW;
-3. vectorized FP32;
-4. vectorized FP16 + fused AdamW.
+2. vectorized FP32;
+3. vectorized FP32 + fused AdamW;
+4. vectorized FP16;
+5. vectorized FP16 + fused AdamW.
 
 Select the fastest profile that remains numerically stable. Prefer the smallest sufficient optimization stack: CUDA + vectorized FP32 is the default candidate; FP16 and fused AdamW must each show a stable measurable gain before becoming defaults.
+
+### Dual-T4 corrected Phase-1 gate
+
+Use the two GPUs for a controlled architecture comparison before committing the full Phase-1 budget:
+
+    MAX_STEP=256 bash run_v0_t4_pair.sh
+
+GPU 0 trains the corrected hybrid; GPU 1 trains the parameter-matched byte Transformer control. Both use the same config, seed, corpus mixture, step budget, and FP32 precision by default. Compare held-out BPB, learning curves, throughput, and later behavioral gates.
+
+Only if continuation is justified, the exact pair can be extended without changing provenance:
+
+    MAX_STEP=2048 RESUME=1 bash run_v0_t4_pair.sh
+
+Do not resume across a changed precision/runtime profile; that is a new experiment lineage.
 
 Cloud acceleration must not become an inference requirement. Every architecture survivor is checked against `LOCAL_DEPLOYMENT_GATE.md` on the phone or another ordinary CPU target.
 ## Corrected Phase-1 start
