@@ -336,3 +336,38 @@ the other. Manipulated variable: execution path only. If chunked alone becomes
 non-finite, the optimized WY/UT path is implicated. If both become non-finite,
 the recurrence/gating/training formulation is implicated. Do not tune learning
 rate, gates, data, or evaluation before this discriminator is reconciled.
+
+## 2026-10-02 masked-ratio numerical repair
+
+The first T4 gate's NaN was traced to the chunk-parallel decay-ratio
+implementation rather than treated as generic optimizer instability.
+
+Old implementation:
+
+    gamma_ratio = exp(log_gamma_i - log_gamma_j) * causal_mask
+
+Future/noncausal entries are mathematically unused, but some have large positive
+log ratios. In FP32 they can overflow to inf before masking, after which
+inf * 0 produces NaN.
+
+Repair:
+
+    safe_log_ratio = log_ratio.masked_fill(~causal_mask, -inf)
+    gamma_ratio = exp(safe_log_ratio)
+
+This preserves the causal lower-triangular values exactly while preventing the
+unused upper triangle from being exponentiated.
+
+Preregistered Kaggle CPU stress gate at repaired branch state:
+- deliberately tiny decay reproduced a non-finite old-formula ratio matrix;
+- patched chunk output finite;
+- patched recurrent state finite;
+- chunk/reference output max error: 8.94e-8;
+- chunk/reference state max error: 5.96e-8;
+- model chunk/reference max-logit error: 7.15e-7;
+- loss finite;
+- gradients finite.
+
+Decision: authorize an identical fresh 256-step dual-T4 rerun. Do not change
+learning rate, gate initialization, data, or architecture before reconciling that
+rerun.
