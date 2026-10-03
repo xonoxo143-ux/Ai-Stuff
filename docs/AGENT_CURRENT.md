@@ -252,27 +252,27 @@ alone.
 
 ## 8. Immediate next action
 
-The first 2×T4 equal-step architecture gate completed and exposed a stability
-failure in DeltaHybrid V1.
+The first 256-step 2×T4 Delta-vs-Transformer gate produced a useful failure:
+Delta reached 3.3330 held-out BPB at step 128 versus 3.8949 for the Transformer,
+then became non-finite by step 256. Transformer finished stably at 3.6260 BPB.
+Delta was also slower (~122k vs ~184k train bytes/s).
 
-At step 128, before failure:
-- DeltaHybrid V1: 3.3330 held-out BPB;
-- Transformer control: 3.8949 held-out BPB.
+The NaN has now been localized to a concrete chunk-parallel numerical bug:
+future/noncausal decay ratios were exponentiated before masking. Large positive
+unused exponents could overflow to inf, and the later causal multiply produced
+inf * 0 = NaN.
 
-By step 256:
-- DeltaHybrid V1: NaN train/validation loss;
-- Transformer control: 3.6260 held-out BPB;
-- Delta throughput: ~122k train bytes/s;
-- Transformer throughput: ~184k train bytes/s.
+The repaired implementation masks future entries to -inf before exp. A
+preregistered Kaggle CPU stress gate deliberately reproduced the old non-finite
+path and then verified the repair:
+- old formula becomes non-finite under the stress case;
+- patched chunk output and recurrent state remain finite;
+- serial/chunk max errors are ~9e-8 / ~6e-8;
+- model-level serial/chunk max-logit error is ~7e-7;
+- loss and gradients remain finite.
 
-The early Delta quality signal is interesting but cannot count as a win because
-the implementation became non-finite. Do not run the equal-GPU-second gate yet.
-
-Highest-value unresolved question: is the collapse specific to the WY/UT
-chunk-parallel numerical path, or intrinsic to the current Delta recurrence and
-training setup? The cheapest discriminating experiment is a fresh 256-step
-2×T4 A/B using identical Delta models/data/seed: chunked execution on one T4,
-serial reference execution on the other. If only chunked collapses, localize and
-repair the optimized path while preserving reference equivalence. If both
-collapse, investigate recurrence/gating/training stability instead.
+Next action: rerun the exact same fresh 256-step dual-T4 equal-step/data gate
+with no architecture, optimizer, data, seed, or evaluation changes beyond this
+numerical repair. If Delta remains finite, compare the full step-256 result and
+then run the preregistered equal-GPU-second gate before any promotion.
 
