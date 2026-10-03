@@ -244,6 +244,31 @@ Design consequence:
 - calibration fixes the next budgets at 499 Delta steps versus 748 Transformer
   steps for approximately 30 training seconds each.
 
+### E-LANG-018 — Delta retains advantage under tighter equal GPU time
+Status: SUPPORTED COMPUTE-NORMALIZED ADVANTAGE
+
+Fresh 2×T4 confirmation at source commit
+`5c7a36b55de8c664e033e492f02dcefb18351603` used fixed budgets of
+457 Delta steps and 748 Transformer steps.
+
+    metric                         Delta        Transformer
+    train seconds                  29.536       30.638
+    final held-out BPB              2.7204       2.8315
+    phase-valid BPB                 2.6028       2.7109
+    train bytes/s                 126,753      200,000
+
+Delta received ~3.6% less actual training time and still finished 0.1111 BPB
+better on held-out validation and 0.1081 BPB better on phase-valid data.
+
+Design consequence:
+- DeltaHybrid V1 is promoted to current language-substrate candidate;
+- the Transformer remains the performance/control baseline;
+- short-context evidence now supports both better sample efficiency and a
+  compute-normalized quality advantage at this seed;
+- no architecture tuning should occur before fresh-seed replication;
+- after replication, the decisive next family is long-context/state evaluation,
+  not more 128-byte optimization.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
