@@ -30,7 +30,7 @@ A newer exact experiment result may supersede a summary; when that happens, upda
 | What has actually been proven? | `agent_evidence_ledger_v21.md` | exact result docs |
 | Why did we choose this architecture? | `agent_decision_ledger_v21.md` | archive/history |
 | What failed? | Evidence Ledger | archive/result docs |
-| What did Agent v0 establish? | Evidence Ledger `E-V0-*` | `AGENT_V0_CLOSEOUT.md` |
+| What did Agent v0 establish? | Evidence Ledger `E-V0-*` | `evidence/agent-v0/AGENT_V0_CLOSEOUT.md` |
 | What did v1 interference tests establish? | Evidence Ledger `E-V1-*` | `AGENT_V1_A1_*` results |
 | What is the current chatbot architecture? | Handbook §§2–6, 11 | Decision Ledger |
 | What is the memory model? | Handbook §5 | Decision Ledger D-004 |

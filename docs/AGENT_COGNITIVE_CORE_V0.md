@@ -203,7 +203,7 @@ Before building the transfer gate, search:
 - task inference;
 - systematic generalization.
 
-See \`AGENT_RESEARCH_TERMINOLOGY_MAP.md\`.
+See \`history/AGENT_RESEARCH_TERMINOLOGY_MAP.md\`.
 
 ## Kill condition
 
