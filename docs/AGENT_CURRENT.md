@@ -1,6 +1,6 @@
 # Agent — Current Architecture and Frontier
 
-Date: 2026-10-02
+Date: 2026-10-03
 Status: authoritative current orientation
 Current research branch: experiment/v0-causal-alignment-fix
 
@@ -17,7 +17,9 @@ Do not create another competing current-state file.
 
 ## 1. Product objective
 
-Build a generally capable worker agent that can:
+Terminology: `Worker` (capital W) refers only to the separate persistent AgentMail/SELF-ROOT operational project. This project develops a homegrown task-performing agent and its general work-performing capability; references below to economic competence or task performance do not mean the Worker project.
+
+Build a generally capable task-performing agent that can:
 
 - understand instructions and constraints;
 - communicate clearly;
@@ -78,11 +80,11 @@ Storage roles:
 
 - 2 TB main Linux drive: canonical workspace, repos, manifests, results,
   selected checkpoints, automation state, caches worth retaining.
-- 500 GB Toshiba USB external: bulk/secondary storage, checkpoint archive,
-  large datasets, backups, and possible future worker/runtime home.
-- 32 GB USB: deliberately unassigned for now; reserve it until a clear role
-  such as recovery/bootstrap, isolated key material, or portable artifact earns
-  promotion.
+- Toshiba 500 GB USB: currently dedicated as the agent Linux disk (`agent-root`,
+  `agent-swap`, and `agent-home`); do not use it as bulk/backup storage without
+  an explicit migration decision.
+- VendorCo ~32 GB USB: currently Debian 13.7 installer media; do not use it as
+  a project-backup target while it serves that role.
 
 ## 3. Current language-spine evidence
 
@@ -159,7 +161,7 @@ Initial target: about 3 recurrent/state blocks for every 1 exact-attention
 block, approximately parameter-matched to the ~1.05M byte Transformer.
 
 The first comparison intentionally keeps raw bytes, corpus, optimizer,
-evaluation, and parameter scale fixed. Learned patching, worker curriculum,
+evaluation, and parameter scale fixed. Learned patching, task-performance curriculum,
 retrieval, and external memory are later variables.
 
 The design hypothesis is not "attention is bad." It is:
@@ -214,7 +216,7 @@ implementation and move to the next serious recurrent/state formulation.
 
 See agent-model/DELTA_HYBRID_V1.md.
 
-## 6. Worker integration sequence
+## 6. Work-capability curriculum sequence
 
 Do not bolt work onto a chatter model after the fact.
 Once the substrate survives architecture gates, expand the curriculum toward:
@@ -268,17 +270,26 @@ the preregistered tolerances. No GPU was allocated.
 
 The carried state is:
 - three bounded Delta recurrent matrices; plus
-- exact-attention hidden history and a validity mask.
+- a configurable bounded exact-attention hidden-history cache and validity mask.
 
-Important limitation: the Delta matrices are fixed-size, but the exact-attention
-history currently grows linearly with context length. Therefore DeltaHybrid V1
-is not yet an overall constant-memory model, and long-context evaluation must
-measure both capability and state growth rather than hiding that cost.
+The follow-up Kaggle CPU bounded-history gate passed when run from commit
+`ba472116824a9b76e6af5d08525a88b6184e6804`. With batch 2, 128-token
+segments, and a 128-token exact-attention continuation cap:
+- history length was 128 at both 512 and 2,048 streamed tokens;
+- total carried state was 744,064 bytes at both lengths;
+- recurrent-only continuation was 584,064 bytes/sample-pair at 2,048 tokens;
+- unlimited history reached 512 tokens / 1,224,064 bytes at only 512 tokens;
+- all outputs remained finite; Kaggle reported zero CUDA devices.
 
-Next action: run the first discriminating long-context/state gate. Start with
-synthetic tasks that separate compressed recurrent state from exact retrieval:
-current-state tracking, delayed dependency, overwrite/update, distractor
-resistance, ordered events, and exact copy/needle retrieval. Use 128/512/2K
-first and only extend to 8K+ when signal justifies it. Keep Transformer as the
-control and report capability, compute, and persistent-state memory together.
+This removes the earlier O(context) continuation-memory requirement when a
+bounded exact cache is selected. It does not prove useful long-range memory.
 
+Next action is the preregistered first discriminating T4 state-memory gate:
+train fresh Delta and parameter-matched Transformer lanes for 400 steps on the
+same synthetic current-state task (512-token training sequences, batch 8), with
+both restricted to the same 256-token maximum exact local span. Evaluate frozen
+held-out streams at 128/512/2K. Primary evidence is retrieval when the relevant
+update is >256 tokens old. Promotion requires full Delta to beat the windowed
+Transformer there and a no-recurrent Delta ablation to materially degrade that
+metric. Otherwise do not extend to 8K or tune the benchmark; diagnose/falsify
+the claimed recurrent-state advantage first.
