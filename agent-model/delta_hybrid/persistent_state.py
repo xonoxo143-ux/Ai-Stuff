@@ -75,8 +75,15 @@ def state_size_bytes(state: DeltaHybridState) -> int:
 class StatefulDeltaHybridV1:
     """State-carrying execution view over an existing DeltaHybridV1."""
 
-    def __init__(self, model: DeltaHybridV1) -> None:
+    def __init__(
+        self,
+        model: DeltaHybridV1,
+        max_attention_history: int | None = None,
+    ) -> None:
         self.model = model
+        if max_attention_history is not None and max_attention_history < 0:
+            raise ValueError("max_attention_history must be >= 0 or None")
+        self.max_attention_history = max_attention_history
 
     def _run_delta_block(
         self,
@@ -206,7 +213,19 @@ class StatefulDeltaHybridV1:
             )
         x = x + recalled
         x = x + block.ff(block.norm2(x))
-        return x, AttentionHistory(keys, valid)
+
+        next_keys = keys
+        next_valid = valid
+        if self.max_attention_history is not None:
+            keep = min(self.max_attention_history, keys.shape[1])
+            if keep == 0:
+                next_keys = keys[:, :0]
+                next_valid = valid[:, :0]
+            else:
+                next_keys = keys[:, -keep:]
+                next_valid = valid[:, -keep:]
+
+        return x, AttentionHistory(next_keys, next_valid)
 
     def forward_segment(
         self,
