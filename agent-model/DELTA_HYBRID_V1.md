@@ -427,3 +427,35 @@ it is not a claim that DeltaHybrid V1 is the final worker architecture.
 The next gate is fresh-seed replication under the same tight compute-normalized
 contract. Architecture/data/hyperparameter tuning remains frozen until that
 replication is reconciled.
+
+## 2026-10-02 persistent segmented-state gate
+
+DeltaHybrid V1 now has an explicit segmented-execution wrapper that leaves the
+existing training forward path and model parameters unchanged.
+
+Persistent state contains:
+- one recurrent Delta matrix per Gated-Delta block (three total);
+- exact-attention hidden history;
+- an exact-attention validity mask for independent per-row resets.
+
+Preregistered Kaggle CPU gate at
+`264c9df457663eb4693b59231cad30874c9426da` passed:
+- 9 segmented forward cases;
+- 3 save/restore resume cases;
+- 3 independent reset cases;
+- 2 gradient-parity cases;
+- one-shot error: 0.0;
+- max segmented error: 2.44e-15;
+- max tokenwise error: 2.89e-15;
+- max recurrent-state error: 6.66e-16;
+- max attention-history error: 2.66e-15;
+- max resume error: 1.78e-15;
+- max reset error: 1.55e-15;
+- max gradient error: 4.34e-18.
+
+Decision: promote the state-carrying execution contract and proceed to
+long-context/state evaluation.
+
+Memory caveat: the three Delta matrices are fixed-size, but exact-attention
+history remains O(context). Long-context claims must report this explicitly and
+distinguish compressed recurrent-state tasks from exact-retrieval tasks.
