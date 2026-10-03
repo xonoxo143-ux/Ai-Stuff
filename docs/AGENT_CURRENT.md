@@ -252,27 +252,25 @@ alone.
 
 ## 8. Immediate next action
 
-The first 256-step 2×T4 Delta-vs-Transformer gate produced a useful failure:
-Delta reached 3.3330 held-out BPB at step 128 versus 3.8949 for the Transformer,
-then became non-finite by step 256. Transformer finished stably at 3.6260 BPB.
-Delta was also slower (~122k vs ~184k train bytes/s).
+The masked-ratio repair survived the exact fresh 256-step 2×T4 rerun.
 
-The NaN has now been localized to a concrete chunk-parallel numerical bug:
-future/noncausal decay ratios were exponentiated before masking. Large positive
-unused exponents could overflow to inf, and the later causal multiply produced
-inf * 0 = NaN.
+Same-step/data result:
+- DeltaHybrid V1 final held-out BPB: 2.9625;
+- Transformer control final held-out BPB: 3.6260;
+- Delta advantage: 0.6636 BPB;
+- Delta phase-valid BPB: 2.8579;
+- Transformer phase-valid BPB: 3.5205;
+- Delta train throughput: ~136k bytes/s;
+- Transformer train throughput: ~204k bytes/s;
+- Delta used ~15.38 training seconds for 256 steps;
+- Transformer used ~10.27 training seconds.
 
-The repaired implementation masks future entries to -inf before exp. A
-preregistered Kaggle CPU stress gate deliberately reproduced the old non-finite
-path and then verified the repair:
-- old formula becomes non-finite under the stress case;
-- patched chunk output and recurrent state remain finite;
-- serial/chunk max errors are ~9e-8 / ~6e-8;
-- model-level serial/chunk max-logit error is ~7e-7;
-- loss and gradients remain finite.
+The repair therefore preserved the earlier learning advantage and removed the
+step-256 NaN. This is strong same-data evidence, but Delta is ~1.50× slower per
+step, so promotion remains blocked by the precommitted compute-normalized gate.
 
-Next action: rerun the exact same fresh 256-step dual-T4 equal-step/data gate
-with no architecture, optimizer, data, seed, or evaluation changes beyond this
-numerical repair. If Delta remains finite, compare the full step-256 result and
-then run the preregistered equal-GPU-second gate before any promotion.
+Next action: run fresh models for approximately equal GPU training time using
+the observed calibration only: 499 Delta steps and 748 Transformer steps,
+targeting ~30 training seconds each. No checkpoint reuse and no other
+architecture/data/optimizer changes.
 
