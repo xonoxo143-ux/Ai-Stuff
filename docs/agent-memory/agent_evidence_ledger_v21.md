@@ -192,6 +192,34 @@ Design consequence:
 - the next discriminator changes only execution path: chunked WY/UT vs the trusted
   serial-reference Delta recurrence under identical training.
 
+### E-LANG-016 — Delta NaN localized to masked-ratio overflow
+Status: SUPPORTED ROOT CAUSE / REPAIR PREFLIGHT
+
+After E-LANG-015, the chunk-parallel Gated-Delta implementation was found to
+exponentiate the full pairwise decay-ratio matrix before causal masking. Unused
+future entries can have large positive exponents; FP32 overflow followed by
+multiplication with a zero causal mask yields NaN.
+
+The repair masks future entries to -inf before exponentiation. A preregistered
+Kaggle CPU stress gate deliberately reproduced the old failure pressure and
+verified the patched semantics:
+
+    old formula non-finite                         yes
+    patched chunk output finite                    yes
+    patched recurrent state finite                 yes
+    chunk/reference output max error          8.94e-8
+    chunk/reference state max error           5.96e-8
+    model chunk/reference max-logit error     7.15e-7
+    loss finite                                     yes
+    gradients finite                                yes
+
+Design consequence:
+- the first T4 NaN is explained by a concrete optimized-path numerical defect;
+- the recurrent formulation is not cleared by this result, but the optimized
+  path is now eligible for an identical fresh 256-step T4 rerun;
+- no learning-rate, gate, architecture, or data tuning is justified before that
+  clean replication.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
