@@ -43,10 +43,13 @@ def chunk_step_parallel(q, k, v, beta, decay, state=None):
 
     # Gated UT transform used for U_g.
     causal = torch.tril(
-        torch.ones(steps, steps, device=q.device, dtype=q.dtype)
+        torch.ones(steps, steps, device=q.device, dtype=torch.bool)
     )
     log_ratio = log_gamma.unsqueeze(-1) - log_gamma.unsqueeze(-2)
-    gamma_ratio = log_ratio.exp() * causal
+    # Mask future ratios before exponentiation.  Those entries are unused,
+    # but exp(large positive) can overflow and then inf * 0 becomes NaN.
+    safe_log_ratio = log_ratio.masked_fill(~causal, float("-inf"))
+    gamma_ratio = safe_log_ratio.exp()
     gated_lower = torch.tril(
         beta.unsqueeze(-1) * gamma_ratio * gram, diagonal=-1
     )
