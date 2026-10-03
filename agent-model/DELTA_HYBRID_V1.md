@@ -400,3 +400,30 @@ Compute-normalized calibration from this fresh run:
 - fixed ~30 s budgets: 499 Delta steps, 748 Transformer steps.
 
 The next gate must use fresh initialization with those fixed step budgets.
+
+## 2026-10-02 tight equal-GPU-time confirmation
+
+Fresh models were trained with fixed budgets calibrated from the preceding
+compute gate: 457 Delta steps versus 748 Transformer steps.
+
+Observed result:
+
+    metric                         Delta        Transformer
+    train seconds                  29.536       30.638
+    final held-out BPB              2.7204       2.8315
+    phase-valid BPB                 2.6028       2.7109
+    train bytes/s                 126,753      200,000
+    train bytes                  3,743,744    6,127,616
+
+Delta used about 3.6% less actual GPU training time and still finished
+0.1111 BPB better on held-out validation and 0.1081 BPB better on phase-valid
+data.
+
+Decision: promote DeltaHybrid V1 to the current language-substrate candidate.
+The Transformer remains the control/performance baseline. This promotion is
+provisional with respect to seed robustness and long-context/state behavior;
+it is not a claim that DeltaHybrid V1 is the final worker architecture.
+
+The next gate is fresh-seed replication under the same tight compute-normalized
+contract. Architecture/data/hyperparameter tuning remains frozen until that
+replication is reconciled.
