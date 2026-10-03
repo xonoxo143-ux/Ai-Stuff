@@ -83,3 +83,22 @@ def test_gradients_match_oracle():
     assert torch.allclose(s0_out, s1_out, atol=1e-10, rtol=1e-10)
     for expected, got in zip(g0, g1):
         assert torch.allclose(expected, got, atol=1e-9, rtol=1e-9)
+
+
+def test_extreme_decay_masks_future_ratio_overflow():
+    g = torch.Generator().manual_seed(23)
+    q = torch.randn(1, 64, 4, generator=g, dtype=torch.float32)
+    k = torch.randn(1, 64, 4, generator=g, dtype=torch.float32)
+    v = torch.randn(1, 64, 5, generator=g, dtype=torch.float32)
+    beta = torch.full((1, 64), 0.5, dtype=torch.float32)
+    decay = torch.full((1, 64), 1e-3, dtype=torch.float32)
+
+    expected_y, expected_s = scan(q, k, v, beta, decay)
+    got_y, got_s = chunk_step_parallel(q, k, v, beta, decay)
+
+    assert torch.isfinite(got_y).all()
+    assert torch.isfinite(got_s.memory).all()
+    assert torch.allclose(expected_y, got_y, atol=1e-5, rtol=1e-5)
+    assert torch.allclose(
+        expected_s.memory, got_s.memory, atol=1e-5, rtol=1e-5
+    )
