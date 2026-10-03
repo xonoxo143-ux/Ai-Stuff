@@ -182,6 +182,14 @@ const clawlancerCommandAction = process.env.CLAWLANCER_COMMAND_ACTION || "";
 const clawlancerCommandTargetId = process.env.CLAWLANCER_COMMAND_TARGET_ID || "";
 const clawlancerCommandPayloadB64 = process.env.CLAWLANCER_COMMAND_PAYLOAD_B64 || "";
 
+const franticApiBase = process.env.FRANTIC_API_BASE || "https://gofrantic.com";
+const franticAgentKid = process.env.FRANTIC_AGENT_KID || "";
+const franticAgentToken = process.env.FRANTIC_AGENT_TOKEN || "";
+const franticCommandId = process.env.FRANTIC_COMMAND_ID || "";
+const franticCommandAction = process.env.FRANTIC_COMMAND_ACTION || "";
+const franticCommandTargetId = process.env.FRANTIC_COMMAND_TARGET_ID || "";
+const franticPayoutTarget = process.env.FRANTIC_PAYOUT_TARGET || "";
+
 const agentLineApiBase =
   process.env.AGENTLINE_API_BASE || "https://api.agentline.cloud";
 const agentLineBootstrapEnabled =
@@ -819,6 +827,25 @@ const clawlancer = {
     action: clawlancerCommandAction || null,
     targetId: clawlancerCommandTargetId || null,
     status: clawlancerCommandId ? "pending" : "none",
+    lastError: null,
+    result: null,
+    processedAt: null,
+  },
+};
+
+const frantic = {
+  status: franticAgentKid && franticAgentToken ? "ready" : "not_configured",
+  agentKid: franticAgentKid || null,
+  payout: {
+    targetConfigured: Boolean(franticPayoutTarget),
+    status: "not_attempted",
+    lastError: null,
+  },
+  command: {
+    id: franticCommandId || null,
+    action: franticCommandAction || null,
+    targetId: franticCommandTargetId || null,
+    status: franticCommandId ? "pending" : "none",
     lastError: null,
     result: null,
     processedAt: null,
@@ -1548,6 +1575,107 @@ async function processClawlancerCommand() {
         (payloadError ? ` | ${payloadError}` : "")).slice(0, 500);
     clawlancer.command.processedAt = new Date().toISOString();
   }
+}
+
+async function franticRequest(path, { method = "GET", body = null } = {}) {
+  if (!franticAgentToken || !franticAgentKid) throw new Error("frantic_credentials_unavailable");
+  const headers = {
+    accept: "application/json",
+    "user-agent": `SELF-ROOT-Agent-Core/${VERSION}`,
+    authorization: `Bearer ${franticAgentToken}`,
+  };
+  if (body !== null) headers["content-type"] = "application/json";
+  const response = await fetch(`${franticApiBase}${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const raw = await response.text();
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch { payload = { raw: raw.slice(0, 1200) }; }
+  if (!response.ok) {
+    const error = new Error(`frantic_http_${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function processFranticCommand() {
+  if (!franticCommandId || frantic.command.status !== "pending") return;
+  if (!outboundWorkEnabled) {
+    frantic.command.status = "blocked";
+    frantic.command.lastError = "outbound_work_disabled";
+    return;
+  }
+  if (!franticAgentToken || !franticAgentKid) {
+    frantic.command.status = "blocked";
+    frantic.command.lastError = "frantic_credentials_unavailable";
+    return;
+  }
+  try {
+    if (franticPayoutTarget) {
+      try {
+        await franticRequest(`/v1/agents/${encodeURIComponent(franticAgentKid)}/payout`, {
+          method: "PATCH",
+          body: { agent_token: franticAgentToken, rail: "x402", target: franticPayoutTarget },
+        });
+        frantic.payout.status = "registered";
+        frantic.payout.lastError = null;
+      } catch (err) {
+        frantic.payout.status = "error";
+        frantic.payout.lastError = (err instanceof Error ? err.message : String(err)).slice(0, 300);
+        throw err;
+      }
+    }
+    if (franticCommandAction !== "claim") throw new Error("unsupported_frantic_command_action");
+    const rawTarget = String(franticCommandTargetId || "").trim();
+    if (!rawTarget) throw new Error("frantic_claim_target_missing");
+    const bounty = /^\d+$/.test(rawTarget) ? Number(rawTarget) : rawTarget;
+    const result = await franticRequest("/v1/claims", {
+      method: "POST",
+      body: { bounty, agent_kid: franticAgentKid, agent_token: franticAgentToken },
+    });
+    const claim = result?.claim && typeof result.claim === "object" ? result.claim : result;
+    frantic.command.status = "completed";
+    frantic.command.result = {
+      action: "claim",
+      bounty: rawTarget,
+      claimId: claim?.claim_id || claim?.id || result?.claim_id || null,
+      claimRef: claim?.claim_ref || claim?.ref || result?.claim_ref || null,
+      state: claim?.state || claim?.status || result?.state || result?.status || null,
+      fuseExpiresAt: claim?.fuse_expires_at || result?.fuse_expires_at || null,
+      fuseMinutes: claim?.fuse_minutes || result?.fuse_minutes || null,
+    };
+    frantic.command.processedAt = new Date().toISOString();
+    console.log(JSON.stringify({
+      event: "frantic.command.claimed",
+      commandId: franticCommandId,
+      bounty: rawTarget,
+      result: frantic.command.result,
+      brief: result?.brief || claim?.brief || null,
+      access: result?.access || null,
+    }));
+  } catch (err) {
+    frantic.command.status = "error";
+    const payloadError = err?.payload && typeof err.payload === "object"
+      ? [err.payload.error, err.payload.code, err.payload.message].filter(Boolean).map(String).join(" | ")
+      : "";
+    frantic.command.lastError = ((err instanceof Error ? err.message : String(err)) + (payloadError ? ` | ${payloadError}` : "")).slice(0, 500);
+    frantic.command.processedAt = new Date().toISOString();
+    console.error(JSON.stringify({ event: "frantic.command.error", commandId: franticCommandId, action: franticCommandAction, targetId: franticCommandTargetId, error: frantic.command.lastError }));
+  }
+}
+
+function franticSummary() {
+  return {
+    status: frantic.status,
+    agentKid: frantic.agentKid,
+    payout: { targetConfigured: frantic.payout.targetConfigured, status: frantic.payout.status, lastError: frantic.payout.lastError },
+    command: { ...frantic.command },
+  };
 }
 
 async function ensureClawlancerIdentity() {
@@ -5472,6 +5600,7 @@ const server = http.createServer(async (req, res) => {
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
         clawlancer: clawlancerSummary(),
+        frantic: franticSummary(),
         agentLine: agentLineSummary(),
       },
       workScheduler: workSchedulerSummary(),
@@ -5510,6 +5639,7 @@ const server = http.createServer(async (req, res) => {
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
         clawlancer: clawlancerSummary(),
+        frantic: franticSummary(),
         agentLine: agentLineSummary(),
       },
       workScheduler: workSchedulerSummary(),
@@ -5548,6 +5678,7 @@ const server = http.createServer(async (req, res) => {
         agentSouk: agentSoukSummary(),
         agentChain: agentChainSummary(),
         clawlancer: clawlancerSummary(),
+        frantic: franticSummary(),
         agentLine: agentLineSummary(),
         agentMail: "not_configured_in_runtime",
         circle: "not_configured_in_runtime",
@@ -6171,6 +6302,7 @@ server.listen(PORT, "0.0.0.0", () => {
       ensureClawlancerIdentity(),
     ]);
   })();
+  void processFranticCommand();
   void ensureAgentChainIdentity();
   void ensureAgentLineIdentity();
   void ensureSwarmSpotIdentity();
