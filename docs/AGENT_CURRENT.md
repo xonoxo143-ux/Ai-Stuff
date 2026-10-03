@@ -252,32 +252,34 @@ alone.
 
 ## 8. Immediate next action
 
-DeltaHybrid V1 is now the current language-substrate candidate.
+DeltaHybrid V1 has replicated its short-context compute-normalized advantage
+across three preregistered fresh seeds. With fixed budgets of 457 Delta steps
+versus 748 Transformer steps, held-out BPB was:
 
-The tight fresh equal-GPU-time confirmation used 457 Delta steps versus 748
-Transformer steps on separate Tesla T4s with the same frozen data, seed,
-curriculum, optimizer, parameter scale, precision, and evaluation.
+    seed        Delta      Transformer    advantage
+    20261003    2.7362       2.8277        0.0915
+    20261004    2.7725       2.7959        0.0234
+    20261005    2.7255       2.7934        0.0679
 
-Observed training time:
-- Delta: 29.536 s;
-- Transformer: 30.638 s.
+Delta won 3/3 seeds. Mean Transformer-minus-Delta advantage was 0.0610 BPB;
+median advantage was 0.0679 BPB. No run became non-finite. Median Delta /
+Transformer actual training-time ratio was 1.0477, so this replication is not a
+claim of perfectly identical seconds, but it supports rather than contradicts
+the earlier tight equal-time promotion.
 
-Observed quality:
-- Delta final held-out BPB: 2.7204;
-- Transformer final held-out BPB: 2.8315;
-- Delta advantage: 0.1111 BPB;
-- Delta phase-valid BPB: 2.6028;
-- Transformer phase-valid BPB: 2.7109.
+Do not spend more T4 time repeating 128-byte language races or tuning the
+winner. The highest-value unresolved question is now whether Delta's recurrent
+state provides useful long-context/state behavior.
 
-Delta therefore retained a meaningful quality advantage despite receiving about
-3.6% less actual GPU training time. Together with the stable equal-step result,
-this is enough to promote DeltaHybrid V1 from challenger to current substrate
-candidate. The Transformer remains the control/performance baseline. This is
-not a claim that Delta V1 is final.
+Before a long-context race, expose and verify the actual persistent-state
+execution contract. The recurrence computes state internally, but DeltaHybridV1
+currently discards block state at the model boundary, while the exact-attention
+block has no cross-call cache. A long-context claim would therefore be
+premature.
 
-Next action: replicate the tight equal-time result across fresh preregistered
-seeds before opening architecture tuning, then move directly into the
-long-context/state gates where the recurrent inductive bias should pay rent.
-Do not tune learning rate, gate initialization, block ratio, patching, or data
-mixture until seed robustness is measured.
-
+Next gate: implement the smallest explicit state/cache API needed for segmented
+execution, then on Kaggle CPU require segmented execution to match one-shot
+execution within declared tolerance, including reset and interruption/resume.
+Only after that correctness gate passes should T4 time be spent on delayed
+dependency, overwrite/update memory, distractor resistance, ordered events,
+copy/retrieval, and needle probes at 128/512/2K/8K+ as justified.
