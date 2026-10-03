@@ -252,34 +252,33 @@ alone.
 
 ## 8. Immediate next action
 
-DeltaHybrid V1 has replicated its short-context compute-normalized advantage
-across three preregistered fresh seeds. With fixed budgets of 457 Delta steps
-versus 748 Transformer steps, held-out BPB was:
+DeltaHybrid V1 now has a verified explicit persistent-state execution contract.
 
-    seed        Delta      Transformer    advantage
-    20261003    2.7362       2.8277        0.0915
-    20261004    2.7725       2.7959        0.0234
-    20261005    2.7255       2.7934        0.0679
+Kaggle CPU proved that the same model weights produce equivalent outputs and
+gradients under:
+- one-shot execution;
+- irregular segmented execution;
+- token-by-token execution;
+- serialize → restore → continue;
+- independent per-batch-row boundary resets.
 
-Delta won 3/3 seeds. Mean Transformer-minus-Delta advantage was 0.0610 BPB;
-median advantage was 0.0679 BPB. No run became non-finite. Median Delta /
-Transformer actual training-time ratio was 1.0477, so this replication is not a
-claim of perfectly identical seconds, but it supports rather than contradicts
-the earlier tight equal-time promotion.
+Across 9 forward cases, 3 resume cases, 3 reset cases, and 2 gradient cases,
+all errors were at floating-point-noise scale (~1e-15 or smaller), far inside
+the preregistered tolerances. No GPU was allocated.
 
-Do not spend more T4 time repeating 128-byte language races or tuning the
-winner. The highest-value unresolved question is now whether Delta's recurrent
-state provides useful long-context/state behavior.
+The carried state is:
+- three bounded Delta recurrent matrices; plus
+- exact-attention hidden history and a validity mask.
 
-Before a long-context race, expose and verify the actual persistent-state
-execution contract. The recurrence computes state internally, but DeltaHybridV1
-currently discards block state at the model boundary, while the exact-attention
-block has no cross-call cache. A long-context claim would therefore be
-premature.
+Important limitation: the Delta matrices are fixed-size, but the exact-attention
+history currently grows linearly with context length. Therefore DeltaHybrid V1
+is not yet an overall constant-memory model, and long-context evaluation must
+measure both capability and state growth rather than hiding that cost.
 
-Next gate: implement the smallest explicit state/cache API needed for segmented
-execution, then on Kaggle CPU require segmented execution to match one-shot
-execution within declared tolerance, including reset and interruption/resume.
-Only after that correctness gate passes should T4 time be spent on delayed
-dependency, overwrite/update memory, distractor resistance, ordered events,
-copy/retrieval, and needle probes at 128/512/2K/8K+ as justified.
+Next action: run the first discriminating long-context/state gate. Start with
+synthetic tasks that separate compressed recurrent state from exact retrieval:
+current-state tracking, delayed dependency, overwrite/update, distractor
+resistance, ordered events, and exact copy/needle retrieval. Use 128/512/2K
+first and only extend to 8K+ when signal justifies it. Keep Transformer as the
+control and report capability, compute, and persistent-state memory together.
+
