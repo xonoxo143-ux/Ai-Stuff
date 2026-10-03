@@ -317,3 +317,22 @@ chunk-parallel state block at roughly the ~1.05M Transformer-control parameter
 scale. Freeze the exact parameter count, corpus/data hashes, optimizer, seed
 schedule, validation, and generation probes, then run CPU construction/smoke
 preflight. Do not allocate T4 training until that preflight is green.
+
+## 2026-10-02 first T4 equal-step result
+
+Fresh 256-step 2×T4 gate, same frozen data/config/seed/optimizer:
+- step 128: Delta 3.3330 held-out BPB vs Transformer 3.8949;
+- step 256: Delta became NaN; Transformer finished at 3.6260 BPB;
+- cumulative Delta throughput ~122k train bytes/s;
+- cumulative Transformer throughput ~184k train bytes/s.
+
+Interpretation: the gate is falsified by Delta numerical instability. The
+step-128 advantage is evidence worth diagnosing, not promotion evidence.
+Equal-compute comparison is blocked until stability is explained.
+
+Preregistered discriminator: run the same Delta model/data/seed for 256 steps
+with chunked execution on one T4 and the trusted serial-reference execution on
+the other. Manipulated variable: execution path only. If chunked alone becomes
+non-finite, the optimized WY/UT path is implicated. If both become non-finite,
+the recurrence/gating/training formulation is implicated. Do not tune learning
+rate, gates, data, or evaluation before this discriminator is reconciled.

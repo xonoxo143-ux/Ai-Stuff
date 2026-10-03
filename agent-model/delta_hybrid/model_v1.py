@@ -6,6 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from .delta_chunk import chunk_parallel_scan
+from .delta_reference import scan
 
 BYTE_VOCAB = 256
 INPUT_VOCAB = 257
@@ -29,6 +30,7 @@ class DeltaBlock(nn.Module):
     ) -> None:
         super().__init__()
         self.chunk_size = int(chunk_size)
+        self.execution = "chunked"
         self.norm1 = nn.LayerNorm(model_dim)
         self.qkv = nn.Linear(model_dim, model_dim * 3)
         self.gates = nn.Linear(model_dim, 2)
@@ -41,20 +43,28 @@ class DeltaBlock(nn.Module):
             self.gates.bias[0] = 0.0
             self.gates.bias[1] = 4.0
 
+    def set_execution(self, execution: str) -> None:
+        if execution not in {"reference", "chunked"}:
+            raise ValueError(f"unsupported Delta execution path: {execution}")
+        self.execution = execution
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         h = self.norm1(x)
         q, k, v = self.qkv(h).chunk(3, dim=-1)
         gate_logits = self.gates(h)
         beta = torch.sigmoid(gate_logits[..., 0])
         decay = torch.sigmoid(gate_logits[..., 1])
-        mixed, _ = chunk_parallel_scan(
-            q,
-            k,
-            v,
-            beta,
-            decay,
-            chunk_size=self.chunk_size,
-        )
+        if self.execution == "reference":
+            mixed, _ = scan(q, k, v, beta, decay)
+        else:
+            mixed, _ = chunk_parallel_scan(
+                q,
+                k,
+                v,
+                beta,
+                decay,
+                chunk_size=self.chunk_size,
+            )
         x = x + self.out_proj(mixed)
         return x + self.ff(self.norm2(x))
 
@@ -137,6 +147,10 @@ class DeltaHybridV1(nn.Module):
         )
         self.norm = nn.LayerNorm(model_dim)
         self.output = nn.Linear(model_dim, BYTE_VOCAB)
+
+    def set_execution(self, execution: str) -> None:
+        for block in self.delta_blocks:
+            block.set_execution(execution)
 
     def _condition(
         self,

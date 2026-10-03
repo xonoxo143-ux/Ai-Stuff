@@ -317,8 +317,10 @@ def main() -> None:
         raise SystemExit("vectorized execution is only defined for the hybrid model")
     if execution == "chunked" and args.model != "delta":
         raise SystemExit("chunked execution is only defined for the delta model")
-    if args.model == "delta" and execution != "chunked":
-        raise SystemExit("delta model requires --execution chunked")
+    if args.model == "delta" and execution not in {"reference", "chunked"}:
+        raise SystemExit(
+            "delta model supports --execution reference or chunked"
+        )
 
     runtime = {
         "device_type": device.type,
@@ -402,6 +404,8 @@ def main() -> None:
     model = build_model(args.model)
     if args.model == "hybrid":
         model.set_vectorized_forward(execution == "vectorized")
+    elif args.model == "delta":
+        model.set_execution(execution)
     model.to(device)
 
     optimizer = torch.optim.AdamW(

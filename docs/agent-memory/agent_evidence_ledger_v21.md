@@ -166,6 +166,32 @@ Design consequence:
 - the tiny BPB/throughput values are smoke-test diagnostics only and must not be
   used as architecture evidence.
 
+### E-LANG-015 — First 256-step T4 gate exposes Delta instability
+Status: FALSIFIED BY NON-FINITE TRAINING
+
+Kaggle 2×T4 at source commit
+`ee2653476e2297f3e80566ef5e3f254093797f05` ran DeltaHybrid V1 and the
+parameter-matched Transformer control for the same 256-step/data budget.
+
+At step 128:
+
+    Delta valid BPB              3.3330
+    Transformer valid BPB        3.8949
+
+At step 256:
+
+    Delta valid BPB                 NaN
+    Transformer valid BPB        3.6260
+    Delta train bytes/s          ~122,182
+    Transformer train bytes/s    ~183,626
+
+Design consequence:
+- the early Delta quality advantage is diagnostic signal, not promotion evidence;
+- the current Delta implementation is not promotable because it becomes non-finite;
+- the equal-GPU-second race is blocked;
+- the next discriminator changes only execution path: chunked WY/UT vs the trusted
+  serial-reference Delta recurrence under identical training.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
@@ -195,13 +221,16 @@ controlled result:
 
 ## Next evidence target
 
-DeltaHybrid V1 has established reference-recurrence correctness and
-hardware-friendly chunk-parallel equivalence, including gradients and reset
-semantics. The next evidence target is a parameter-matched ~1.05M raw-byte
-DeltaHybrid model that passes CPU construction/smoke preflight against a frozen
-Transformer-Control-V1 contract.
+DeltaHybrid V1 passed its CPU correctness, execution-equivalence, model
+construction, and trainer-integration gates, but the first 256-step T4 race
+became non-finite after a strong step-128 learning signal.
 
-After that: competitive equal-step and equal-compute language learning plus a
-measurable long-context/state advantage. Until those architecture-level gates
-pass, Gated-Delta/state-heavy architecture remains a challenger rather than a
-promoted substrate.
+The immediate evidence target is the preregistered 2×T4 execution-path
+discriminator: identical Delta models/data/seed/optimizer in FP32, with chunked
+WY/UT execution on one T4 and serial-reference execution on the other. If only
+chunked execution collapses, repair the optimized path. If both collapse,
+investigate the recurrence/gating/training formulation. Do not tune unrelated
+variables before this discriminator is reconciled.
+
+Equal-compute language racing and long-context promotion gates remain blocked
+until finite training is restored.

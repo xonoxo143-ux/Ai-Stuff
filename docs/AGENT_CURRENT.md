@@ -252,24 +252,27 @@ alone.
 
 ## 8. Immediate next action
 
-All CPU prerequisites for the first DeltaHybrid V1 architecture race are green.
+The first 2×T4 equal-step architecture gate completed and exposed a stability
+failure in DeltaHybrid V1.
 
-The end-to-end trainer smoke on Kaggle CPU completed successfully through the
-real corpus build, training, evaluation, checkpoint, telemetry, and sampling
-path:
-- 2 training steps;
-- 1,064,962 parameters;
-- checkpoint and telemetry artifacts present;
-- valid BPB after the tiny smoke: 7.2162;
-- CPU chunked execution only; no CUDA allocation.
+At step 128, before failure:
+- DeltaHybrid V1: 3.3330 held-out BPB;
+- Transformer control: 3.8949 held-out BPB.
 
-This smoke validates trainer integration, not language quality.
+By step 256:
+- DeltaHybrid V1: NaN train/validation loss;
+- Transformer control: 3.6260 held-out BPB;
+- Delta throughput: ~122k train bytes/s;
+- Transformer throughput: ~184k train bytes/s.
 
-Next, run the preregistered first 2×T4 architecture gate:
-- GPU0: DeltaHybrid V1, chunked execution;
-- GPU1: frozen Transformer control;
-- same seed, corpus, curriculum, batch, sequence length, optimizer, and 256-step budget;
-- FP32 first;
-- compare same-step/data quality and throughput, then follow with a fresh
-  equal-GPU-second gate before any architecture promotion.
+The early Delta quality signal is interesting but cannot count as a win because
+the implementation became non-finite. Do not run the equal-GPU-second gate yet.
+
+Highest-value unresolved question: is the collapse specific to the WY/UT
+chunk-parallel numerical path, or intrinsic to the current Delta recurrence and
+training setup? The cheapest discriminating experiment is a fresh 256-step
+2×T4 A/B using identical Delta models/data/seed: chunked execution on one T4,
+serial reference execution on the other. If only chunked collapses, localize and
+repair the optimized path while preserving reference equivalence. If both
+collapse, investigate recurrence/gating/training stability instead.
 
