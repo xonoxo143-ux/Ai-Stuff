@@ -220,6 +220,30 @@ Design consequence:
 - no learning-rate, gate, architecture, or data tuning is justified before that
   clean replication.
 
+### E-LANG-017 — Repaired Delta wins the stable equal-step gate
+Status: SUPPORTED SAME-DATA ADVANTAGE / COMPUTE GATE PENDING
+
+Fresh repaired 256-step 2×T4 race at branch commit
+`c29f2444063ee5fe4e77304519720b924aaa5967`:
+
+    metric                         Delta        Transformer
+    final held-out BPB             2.9625       3.6260
+    phase-valid BPB                2.8579       3.5205
+    train bytes/s                136,315      204,280
+    train seconds                 15.385       10.266
+
+Delta remained finite through step 256. Its final held-out advantage was
+0.6636 BPB at the same examples/steps, confirming the early learning signal
+from E-LANG-015 survived the numerical repair.
+
+Design consequence:
+- the repaired Delta implementation is a serious architecture candidate;
+- the same-step result cannot promote it because Delta is ~1.50× slower per
+  step on T4;
+- the next mandatory gate is a fresh equal-GPU-training-time comparison;
+- calibration fixes the next budgets at 499 Delta steps versus 748 Transformer
+  steps for approximately 30 training seconds each.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
