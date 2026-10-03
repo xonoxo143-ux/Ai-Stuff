@@ -269,6 +269,35 @@ Design consequence:
 - after replication, the decisive next family is long-context/state evaluation,
   not more 128-byte optimization.
 
+### E-LANG-019 — Persistent segmented execution matches one-shot semantics
+Status: SUPPORTED EXECUTION CONTRACT
+
+Kaggle CPU at source commit
+`264c9df457663eb4693b59231cad30874c9426da` verified the explicit
+DeltaHybrid V1 state-carrying execution wrapper.
+
+    forward cases                         9
+    resume cases                          3
+    reset cases                           3
+    gradient cases                        2
+    max segmented error             2.44e-15
+    max tokenwise error             2.89e-15
+    max recurrent-state error       6.66e-16
+    max attention-history error     2.66e-15
+    max resume error                1.78e-15
+    max reset error                 1.55e-15
+    max gradient error              4.34e-18
+    CUDA devices                           0
+
+Design consequence:
+- segmented and interruption/resume execution is now trusted;
+- per-row boundary resets preserve unrelated streams;
+- Delta recurrent matrices are bounded persistent state;
+- exact-attention history still grows linearly with context, so the complete
+  model is not yet constant-memory;
+- long-context evaluation is now authorized, but must report both capability
+  and state-growth cost.
+
 ### E-INFRA-001 — Direct Optiplex control removes phone dependency
 Status: SUPPORTED OPERATIONALLY
 
