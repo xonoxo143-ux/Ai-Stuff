@@ -15,7 +15,7 @@ import { createDurableState } from "./durable-state.js";
 import { createStripeAdapter } from "./stripe-adapter.js";
 
 const PORT = Number(process.env.PORT || 3000);
-const VERSION = "0.19.0";
+const VERSION = "0.19.1";
 const runtimeId = process.env.RUNTIME_ID || "continuity-agent-core";
 const agentEmail = process.env.AGENT_EMAIL || "oldcraft541@agentmail.to";
 const eventToken = process.env.RUNTIME_EVENT_TOKEN || process.env.BROWSER_WORKER_TOKEN || "";
@@ -301,6 +301,26 @@ const motorAllowedActions = new Set([
 ]);
 let motorMirrorTimer = null;
 let motorMirrorSnapshot = null;
+let motorLastPollAt = null;
+let motorLastAckAt = null;
+let motorDroppedEphemeral = 0;
+const motorOnlineWindowMs = Math.max(
+  10_000,
+  Math.min(Number(process.env.MOTOR_ONLINE_WINDOW_MS || 30_000), 5 * 60_000),
+);
+
+function isEphemeralMotorAction(action) {
+  return String(action || "").startsWith("state.snapshot.") ||
+    String(action || "").startsWith("evidence.ledger.");
+}
+
+function motorIsOnline(now = Date.now()) {
+  return Boolean(
+    motorAgentToken &&
+    motorLastPollAt &&
+    now - Date.parse(motorLastPollAt) <= motorOnlineWindowMs,
+  );
+}
 
 function motorAuthorized(req) {
   if (!motorAgentToken) return false;
@@ -318,15 +338,31 @@ function motorSummary() {
   const now = Date.now();
   const pending = motorQueue.filter((item) => item.status === "pending" && Date.parse(item.expiresAt) > now);
   const leased = motorQueue.filter((item) => item.status === "leased" && Date.parse(item.expiresAt) > now);
+  const pendingByAction = {};
+  for (const item of pending) {
+    pendingByAction[item.action] = (pendingByAction[item.action] || 0) + 1;
+  }
+  const online = motorIsOnline(now);
   return {
     configured: Boolean(motorAgentToken),
+    online,
+    lastPollAt: motorLastPollAt,
+    lastAckAt: motorLastAckAt,
+    onlineWindowMs: motorOnlineWindowMs,
     bootstrapEnabled: Boolean(motorBootstrapToken) && !motorBootstrapConsumed,
     agentMailWebhookConfigured: Boolean(agentMailWebhookToken),
     allowedActions: Array.from(motorAllowedActions),
     pending: pending.length,
+    pendingByAction,
     leased: leased.length,
     completedRemembered: motorCompleted.size,
+    droppedEphemeral: motorDroppedEphemeral,
     evidenceMirrorEnabled: evidenceMotorMirrorEnabled,
+    evidenceMirrorDegraded: Boolean(
+      evidenceMotorMirrorEnabled &&
+      !online &&
+      (pendingByAction["evidence.ledger.append"] || pendingByAction["state.snapshot.write"]),
+    ),
     lastCompleted: Array.from(motorCompleted.values()).slice(-1).map(
       ({ id, action, status, completedAt }) => ({ id, action, status, completedAt }),
     )[0] || null,
@@ -344,7 +380,19 @@ function pruneMotorQueue() {
       if (now - Date.parse(item.createdAt) > 24 * 60 * 60_000) motorQueue.splice(i, 1);
     }
   }
-  if (motorQueue.length > 128) motorQueue.splice(0, motorQueue.length - 128);
+  if (motorQueue.length > 128) {
+    let excess = motorQueue.length - 128;
+    for (let i = 0; i < motorQueue.length && excess > 0;) {
+      const item = motorQueue[i];
+      if (item.status === "pending" && isEphemeralMotorAction(item.action)) {
+        motorQueue.splice(i, 1);
+        motorDroppedEphemeral += 1;
+        excess -= 1;
+        continue;
+      }
+      i += 1;
+    }
+  }
   if (motorCompleted.size > 128) {
     const oldest = Array.from(motorCompleted.keys()).slice(0, motorCompleted.size - 128);
     for (const key of oldest) motorCompleted.delete(key);
@@ -366,7 +414,7 @@ function enqueueMotorCommand(action, source = "operator", externalId = null, pay
   if (duplicate) {
     if (duplicate.status === "pending" && payload !== null) duplicate.payload = payload;
     duplicate.expiresAt = new Date(Date.now() + motorCommandTtlMs).toISOString();
-    persistDurableState("motor_command_coalesced");
+    if (!isEphemeralMotorAction(action)) persistDurableState("motor_command_coalesced");
     return duplicate;
   }
 
@@ -385,7 +433,7 @@ function enqueueMotorCommand(action, source = "operator", externalId = null, pay
     payload,
   };
   motorQueue.push(command);
-  if (!action.startsWith("state.snapshot.") && !action.startsWith("evidence.ledger.")) {
+  if (!isEphemeralMotorAction(action)) {
     rememberEvent({
       id: randomUUID(),
       receivedAt: createdAt,
@@ -393,9 +441,8 @@ function enqueueMotorCommand(action, source = "operator", externalId = null, pay
       source: command.source,
       externalId: command.externalId || command.id,
     });
-  } else if (action.startsWith("state.snapshot.")) {
-    persistDurableState("motor_snapshot_queued");
   }
+  pruneMotorQueue();
   return command;
 }
 
@@ -426,9 +473,11 @@ function leaseMotorCommand() {
       item.leasedAt = null;
     }
   }
+  const ready = (entry) =>
+    entry.status === "pending" && Date.parse(entry.expiresAt) > now;
   const item = motorQueue.find(
-    (entry) => entry.status === "pending" && Date.parse(entry.expiresAt) > now,
-  );
+    (entry) => ready(entry) && !isEphemeralMotorAction(entry.action),
+  ) || motorQueue.find(ready);
   if (!item) return null;
   item.status = "leased";
   item.leasedAt = new Date().toISOString();
@@ -462,7 +511,7 @@ function completeMotorCommand(id, ok, result) {
   if (item.action === "work.execute") {
     applyMotorWorkResult(item, ok, result);
   }
-  if (!item.action.startsWith("state.snapshot.") && !item.action.startsWith("evidence.ledger.")) {
+  if (!isEphemeralMotorAction(item.action)) {
     rememberEvent({
       id: randomUUID(),
       receivedAt: item.completedAt,
@@ -470,8 +519,6 @@ function completeMotorCommand(id, ok, result) {
       source: "smolmachine",
       externalId: item.id,
     });
-  } else if (item.action.startsWith("state.snapshot.")) {
-    persistDurableState("motor_snapshot_completed");
   }
   return item;
 }
@@ -3754,10 +3801,10 @@ function durableSnapshot() {
     workIdempotency: Array.from(workIdempotency.entries()).slice(-1000),
     recentEvents: recentEvents.slice(-200),
     motorQueue: motorQueue
-      .filter((item) => !item.action.startsWith("evidence.ledger."))
+      .filter((item) => !isEphemeralMotorAction(item.action))
       .slice(-250),
     motorCompleted: Array.from(motorCompleted.entries())
-      .filter(([, item]) => !String(item?.action || "").startsWith("evidence.ledger."))
+      .filter(([, item]) => !isEphemeralMotorAction(item?.action))
       .slice(-250),
     motorBootstrapConsumed,
     workSchedulerState: { ...workSchedulerState },
@@ -6103,6 +6150,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/v1/motor/poll") {
     if (!motorAuthorized(req)) return json(res, 401, { error: "unauthorized" });
+    motorLastPollAt = new Date().toISOString();
     const command = leaseMotorCommand();
     return json(res, 200, { command });
   }
@@ -6116,6 +6164,7 @@ const server = http.createServer(async (req, res) => {
       if (!id) return json(res, 400, { error: "missing_command_id" });
       const item = completeMotorCommand(id, ok, body?.result ?? null);
       if (!item) return json(res, 404, { error: "command_not_found" });
+      motorLastAckAt = new Date().toISOString();
       return json(res, 200, {
         accepted: true,
         command: {
