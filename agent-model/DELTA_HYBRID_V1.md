@@ -371,3 +371,32 @@ Preregistered Kaggle CPU stress gate at repaired branch state:
 Decision: authorize an identical fresh 256-step dual-T4 rerun. Do not change
 learning rate, gate initialization, data, or architecture before reconciling that
 rerun.
+
+## 2026-10-02 repaired 256-step T4 rerun
+
+The identical fresh 256-step 2×T4 equal-step/data gate was rerun after only the
+masked-before-exp numerical repair.
+
+Result:
+
+    metric                         Delta        Transformer
+    final held-out BPB             2.9625       3.6260
+    step-256 valid BPB             2.9889       3.6530
+    phase-valid BPB                2.8579       3.5205
+    train bytes/s                136,315      204,280
+    train seconds                 15.385       10.266
+
+Delta remained finite through step 256 and reproduced its step-128 trajectory
+exactly. The final held-out advantage is 0.6636 BPB at the same examples/steps.
+
+Interpretation: the first run's collapse was caused by the optimized-path
+numerical bug, not by an immediate failure of the recurrent architecture.
+However, Delta is about 1.50× slower per training step on T4, so this gate is
+not sufficient for promotion.
+
+Compute-normalized calibration from this fresh run:
+- Delta: 15.3846 s / 256 steps;
+- Transformer: 10.2661 s / 256 steps;
+- fixed ~30 s budgets: 499 Delta steps, 748 Transformer steps.
+
+The next gate must use fresh initialization with those fixed step budgets.
