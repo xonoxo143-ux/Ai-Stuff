@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -20,7 +20,7 @@ async function freePort() {
   });
 }
 
-async function startRuntime(port, stateDir) {
+async function startRuntime(port, stateDir, extraEnv = {}) {
   const deadUrl = "http://127.0.0.1:1/missing";
   const child = spawn(process.execPath, ["src/index.js"], {
     cwd: path.resolve(import.meta.dirname, ".."),
@@ -49,6 +49,7 @@ async function startRuntime(port, stateDir) {
       CLAWLANCER_BOOTSTRAP: "false",
       AGENTLINE_BOOTSTRAP: "false",
       AGENTMAIL_WEBHOOK_PROVISION: "false",
+      ...extraEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -191,3 +192,101 @@ test("work dispatch leases, executes through motor, and reconciles result", asyn
     await rm(stateDir, { recursive: true, force: true });
   }
 });
+
+test("motor prioritizes non-ephemeral commands over mirror backlog and reports liveness", async () => {
+  const stateDir = await mkdtemp(path.join(os.tmpdir(), "agent-motor-priority-test-"));
+  const port = await freePort();
+  let runtime;
+  try {
+    runtime = await startRuntime(port, stateDir, {
+      EVIDENCE_MOTOR_MIRROR_ENABLED: "true",
+      MOTOR_ONLINE_WINDOW_MS: "30000",
+    });
+    for (let i = 0; i < 5; i += 1) {
+      await api(runtime.base, "/v1/motor/enqueue", {
+        method: "POST",
+        body: {
+          action: "evidence.ledger.append",
+          externalId: "mirror-" + i,
+          payload: { events: [{ event_id: "mirror-" + i }] },
+        },
+      });
+    }
+    await api(runtime.base, "/v1/motor/enqueue", {
+      method: "POST",
+      body: { action: "system.ping", externalId: "priority-ping" },
+    });
+
+    const before = await (await fetch(runtime.base + "/health")).json();
+    assert.equal(before.motor.online, false);
+    assert.ok(before.motor.pendingByAction["evidence.ledger.append"] >= 5);
+    assert.equal(before.motor.pendingByAction["system.ping"], 1);
+    assert.equal(before.motor.evidenceMirrorDegraded, true);
+
+    const poll = await fetch(runtime.base + "/v1/motor/poll", {
+      headers: { authorization: "Bearer " + motorToken },
+    });
+    assert.equal(poll.status, 200);
+    const { command } = await poll.json();
+    assert.equal(command.action, "system.ping");
+
+    const afterPoll = await (await fetch(runtime.base + "/health")).json();
+    assert.equal(afterPoll.motor.online, true);
+    assert.ok(afterPoll.motor.lastPollAt);
+    const ack = await fetch(runtime.base + "/v1/motor/ack", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer " + motorToken,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ id: command.id, ok: true, result: { pong: true } }),
+    });
+    assert.equal(ack.status, 200);
+    const afterAck = await (await fetch(runtime.base + "/health")).json();
+    assert.ok(afterAck.motor.lastAckAt);
+  } finally {
+    if (runtime?.child) await stopRuntime(runtime.child);
+    await rm(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("ephemeral mirror bookkeeping stays out of durable snapshots without extra checkpoints", async () => {
+  const stateDir = await mkdtemp(path.join(os.tmpdir(), "agent-motor-durable-test-"));
+  const port = await freePort();
+  let runtime;
+  try {
+    runtime = await startRuntime(port, stateDir, {
+      EVIDENCE_MOTOR_MIRROR_ENABLED: "true",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const before = await (await fetch(runtime.base + "/health")).json();
+
+    await api(runtime.base, "/v1/motor/enqueue", {
+      method: "POST",
+      body: { action: "system.ping", externalId: "durable-ping" },
+    });
+    await api(runtime.base, "/v1/motor/enqueue", {
+      method: "POST",
+      body: {
+        action: "evidence.ledger.append",
+        externalId: "durable-mirror",
+        payload: { events: [{ event_id: "durable-mirror" }] },
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 2800));
+    const after = await (await fetch(runtime.base + "/health")).json();
+    assert.equal(after.continuity.evidence.saveCount - before.continuity.evidence.saveCount, 1);
+    const materialized = JSON.parse(
+      await readFile(path.join(stateDir, "materialized-state-v1.json"), "utf8"),
+    );
+    const actions = (materialized.state.motorQueue || []).map((item) => item.action);
+    assert.ok(actions.includes("system.ping"));
+    assert.equal(actions.includes("evidence.ledger.append"), false);
+    assert.equal(actions.includes("state.snapshot.write"), false);
+  } finally {
+    if (runtime?.child) await stopRuntime(runtime.child);
+    await rm(stateDir, { recursive: true, force: true });
+  }
+});
+
