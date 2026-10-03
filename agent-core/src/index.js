@@ -188,6 +188,7 @@ const franticAgentToken = process.env.FRANTIC_AGENT_TOKEN || "";
 const franticCommandId = process.env.FRANTIC_COMMAND_ID || "";
 const franticCommandAction = process.env.FRANTIC_COMMAND_ACTION || "";
 const franticCommandTargetId = process.env.FRANTIC_COMMAND_TARGET_ID || "";
+const franticCommandPayloadB64 = process.env.FRANTIC_COMMAND_PAYLOAD_B64 || "";
 const franticPayoutTarget = process.env.FRANTIC_PAYOUT_TARGET || "";
 
 const agentLineApiBase =
@@ -1615,6 +1616,19 @@ async function processFranticCommand() {
     frantic.command.lastError = "frantic_credentials_unavailable";
     return;
   }
+
+  const rawTarget = String(franticCommandTargetId || "").trim();
+  const decodePayload = () => {
+    if (!franticCommandPayloadB64) return {};
+    const raw = Buffer.from(franticCommandPayloadB64, "base64").toString("utf8");
+    if (!raw || raw.length > 50_000) throw new Error("frantic_command_payload_invalid");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("frantic_command_payload_invalid");
+    }
+    return parsed;
+  };
+
   try {
     if (franticPayoutTarget) {
       try {
@@ -1630,34 +1644,111 @@ async function processFranticCommand() {
         throw err;
       }
     }
-    if (franticCommandAction !== "claim") throw new Error("unsupported_frantic_command_action");
-    const rawTarget = String(franticCommandTargetId || "").trim();
-    if (!rawTarget) throw new Error("frantic_claim_target_missing");
-    const bounty = /^\d+$/.test(rawTarget) ? Number(rawTarget) : rawTarget;
-    const result = await franticRequest("/v1/claims", {
-      method: "POST",
-      body: { bounty, agent_kid: franticAgentKid, agent_token: franticAgentToken },
-    });
-    const claim = result?.claim && typeof result.claim === "object" ? result.claim : result;
+
+    if (franticCommandAction === "claim") {
+      if (!rawTarget) throw new Error("frantic_claim_target_missing");
+      const bounty = /^\d+$/.test(rawTarget) ? Number(rawTarget) : rawTarget;
+      const result = await franticRequest("/v1/claims", {
+        method: "POST",
+        body: { bounty, agent_kid: franticAgentKid, agent_token: franticAgentToken },
+      });
+      const claim = result?.claim && typeof result.claim === "object" ? result.claim : result;
+      frantic.command.result = {
+        action: "claim",
+        bounty: rawTarget,
+        claimId: claim?.claim_id || claim?.id || result?.claim_id || null,
+        claimRef: claim?.claim_ref || claim?.ref || result?.claim_ref || null,
+        state: claim?.state || claim?.status || result?.state || result?.status || null,
+        fuseExpiresAt: claim?.fuse_expires_at || result?.fuse_expires_at || null,
+        fuseMinutes: claim?.fuse_minutes || result?.fuse_minutes || null,
+      };
+      console.log(JSON.stringify({
+        event: "frantic.command.claimed",
+        commandId: franticCommandId,
+        bounty: rawTarget,
+        result: frantic.command.result,
+        brief: result?.brief || claim?.brief || null,
+        access: result?.access || null,
+      }));
+    } else if (franticCommandAction === "inspect") {
+      if (!rawTarget) throw new Error("frantic_inspect_target_missing");
+      const result = await franticRequest(`/v1/bounties/${encodeURIComponent(rawTarget)}`);
+      const bounty = result?.bounty && typeof result.bounty === "object" ? result.bounty : result;
+      frantic.command.result = {
+        action: "inspect",
+        bounty: rawTarget,
+        title: bounty?.title || null,
+        priceUsd: bounty?.price_usd ?? null,
+        visibility: bounty?.visibility || null,
+        workStatus: bounty?.work_status || null,
+      };
+      console.log(JSON.stringify({
+        event: "frantic.command.inspected",
+        commandId: franticCommandId,
+        bounty: rawTarget,
+        contract: bounty,
+      }));
+    } else if (franticCommandAction === "status") {
+      const result = await franticRequest(`/v1/agents/${encodeURIComponent(franticAgentKid)}/status`);
+      const agent = result?.agent && typeof result.agent === "object" ? result.agent : result;
+      frantic.command.result = {
+        action: "status",
+        agentKid: franticAgentKid,
+        earnedUsd: agent?.earnedUsd ?? agent?.earned_usd ?? null,
+        paidBounties: agent?.paidBounties ?? agent?.paid_bounties ?? null,
+      };
+      console.log(JSON.stringify({
+        event: "frantic.command.status",
+        commandId: franticCommandId,
+        work: result?.work || null,
+        claimEligibility: agent?.claimEligibility || result?.claimEligibility || null,
+      }));
+    } else if (franticCommandAction === "preflight") {
+      const payload = decodePayload();
+      const result = await franticRequest("/v1/deliveries/preflight", {
+        method: "POST",
+        body: payload,
+      });
+      frantic.command.result = {
+        action: "preflight",
+        ok: result?.ok ?? null,
+        errorCount: Array.isArray(result?.errors) ? result.errors.length : null,
+        warningCount: Array.isArray(result?.warnings) ? result.warnings.length : null,
+      };
+      console.log(JSON.stringify({
+        event: "frantic.command.preflight",
+        commandId: franticCommandId,
+        result,
+      }));
+    } else if (franticCommandAction === "deliver") {
+      const payload = decodePayload();
+      const result = await franticRequest("/v1/deliveries", {
+        method: "POST",
+        body: {
+          ...payload,
+          agent_kid: franticAgentKid,
+          agent_token: franticAgentToken,
+        },
+      });
+      const delivery = result?.delivery && typeof result.delivery === "object" ? result.delivery : result;
+      frantic.command.result = {
+        action: "deliver",
+        claimId: payload?.claim_id || null,
+        deliveryId: delivery?.delivery_id || delivery?.id || result?.delivery_id || null,
+        deliveryRef: delivery?.delivery_ref || delivery?.ref || result?.delivery_ref || null,
+        state: delivery?.state || delivery?.status || result?.state || result?.status || null,
+      };
+      console.log(JSON.stringify({
+        event: "frantic.command.delivered",
+        commandId: franticCommandId,
+        result: frantic.command.result,
+      }));
+    } else {
+      throw new Error("unsupported_frantic_command_action");
+    }
+
     frantic.command.status = "completed";
-    frantic.command.result = {
-      action: "claim",
-      bounty: rawTarget,
-      claimId: claim?.claim_id || claim?.id || result?.claim_id || null,
-      claimRef: claim?.claim_ref || claim?.ref || result?.claim_ref || null,
-      state: claim?.state || claim?.status || result?.state || result?.status || null,
-      fuseExpiresAt: claim?.fuse_expires_at || result?.fuse_expires_at || null,
-      fuseMinutes: claim?.fuse_minutes || result?.fuse_minutes || null,
-    };
     frantic.command.processedAt = new Date().toISOString();
-    console.log(JSON.stringify({
-      event: "frantic.command.claimed",
-      commandId: franticCommandId,
-      bounty: rawTarget,
-      result: frantic.command.result,
-      brief: result?.brief || claim?.brief || null,
-      access: result?.access || null,
-    }));
   } catch (err) {
     frantic.command.status = "error";
     const payloadError = err?.payload && typeof err.payload === "object"
