@@ -252,25 +252,32 @@ alone.
 
 ## 8. Immediate next action
 
-The masked-ratio repair survived the exact fresh 256-step 2×T4 rerun.
+DeltaHybrid V1 is now the current language-substrate candidate.
 
-Same-step/data result:
-- DeltaHybrid V1 final held-out BPB: 2.9625;
-- Transformer control final held-out BPB: 3.6260;
-- Delta advantage: 0.6636 BPB;
-- Delta phase-valid BPB: 2.8579;
-- Transformer phase-valid BPB: 3.5205;
-- Delta train throughput: ~136k bytes/s;
-- Transformer train throughput: ~204k bytes/s;
-- Delta used ~15.38 training seconds for 256 steps;
-- Transformer used ~10.27 training seconds.
+The tight fresh equal-GPU-time confirmation used 457 Delta steps versus 748
+Transformer steps on separate Tesla T4s with the same frozen data, seed,
+curriculum, optimizer, parameter scale, precision, and evaluation.
 
-The repair therefore preserved the earlier learning advantage and removed the
-step-256 NaN. This is strong same-data evidence, but Delta is ~1.50× slower per
-step, so promotion remains blocked by the precommitted compute-normalized gate.
+Observed training time:
+- Delta: 29.536 s;
+- Transformer: 30.638 s.
 
-Next action: run fresh models for approximately equal GPU training time using
-the observed calibration only: 499 Delta steps and 748 Transformer steps,
-targeting ~30 training seconds each. No checkpoint reuse and no other
-architecture/data/optimizer changes.
+Observed quality:
+- Delta final held-out BPB: 2.7204;
+- Transformer final held-out BPB: 2.8315;
+- Delta advantage: 0.1111 BPB;
+- Delta phase-valid BPB: 2.6028;
+- Transformer phase-valid BPB: 2.7109.
+
+Delta therefore retained a meaningful quality advantage despite receiving about
+3.6% less actual GPU training time. Together with the stable equal-step result,
+this is enough to promote DeltaHybrid V1 from challenger to current substrate
+candidate. The Transformer remains the control/performance baseline. This is
+not a claim that Delta V1 is final.
+
+Next action: replicate the tight equal-time result across fresh preregistered
+seeds before opening architecture tuning, then move directly into the
+long-context/state gates where the recurrent inductive bias should pay rent.
+Do not tune learning rate, gate initialization, block ratio, patching, or data
+mixture until seed robustness is measured.
 
